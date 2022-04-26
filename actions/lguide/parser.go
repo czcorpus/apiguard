@@ -61,6 +61,7 @@ func parseTable(tkn *html.Tokenizer) map[string]string {
 				} else {
 					hasColspan := false
 					for _, attr := range t.Attr {
+						// here expecting that colspan is always full table width
 						if attr.Key == "colspan" {
 							hasColspan = true
 							break

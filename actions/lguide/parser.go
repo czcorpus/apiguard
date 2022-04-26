@@ -1,4 +1,10 @@
-package main
+// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2022 Charles University - Faculty of Arts,
+//                Institute of the Czech National Corpus
+// All rights reserved.
+
+package lguide
 
 import (
 	"strings"
@@ -6,7 +12,7 @@ import (
 	"golang.org/x/net/html"
 )
 
-func parse(page string) (data [7][2]string) {
+func Parse(page string) (data [7][2]string) {
 
 	tkn := html.NewTokenizer(strings.NewReader(page))
 

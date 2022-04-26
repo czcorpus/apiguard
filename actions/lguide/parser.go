@@ -9,49 +9,109 @@ package lguide
 import (
 	"strings"
 
+	"golang.org/x/exp/maps"
 	"golang.org/x/net/html"
 )
 
-func Parse(page string) (data [7][2]string) {
+func getNextText(tkn *html.Tokenizer) string {
+	for {
+		tt := tkn.Next()
+		switch {
+		case tt == html.EndTagToken:
+			fallthrough
+		case tt == html.ErrorToken:
+			return ""
+		case tt == html.TextToken:
+			t := tkn.Token()
+			return t.Data
+		}
+	}
+}
 
-	tkn := html.NewTokenizer(strings.NewReader(page))
+func parseTable(tkn *html.Tokenizer) map[string]string {
+	data := make(map[string]string)
 
-	var isData bool
-	var isPlural bool = false
-	var wordCase int = 0
+	row, column := 0, 0
+	var columns []string
+	var rowName string
 
 	for {
+		tt := tkn.Next()
+		switch {
+		case tt == html.ErrorToken:
+			return data
 
+		case tt == html.EndTagToken:
+			t := tkn.Token()
+			if t.Data == "table" {
+				return data
+			} else if t.Data == "tr" {
+				column = 0
+				row++
+			}
+
+		case tt == html.StartTagToken:
+			t := tkn.Token()
+			if t.Data == "td" {
+				text := getNextText(tkn)
+				if row == 0 {
+					columns = append(columns, text)
+				} else if column == 0 {
+					rowName = text
+				} else {
+					hasColspan := false
+					for _, attr := range t.Attr {
+						// here expecting that colspan is always full table width
+						if attr.Key == "colspan" {
+							hasColspan = true
+							break
+						}
+					}
+
+					if hasColspan {
+						data[rowName] = text
+					} else {
+						data[rowName+":"+columns[column]] = text
+					}
+				}
+				column++
+			}
+		}
+	}
+}
+
+func Parse(text string) map[string]string {
+	data := make(map[string]string)
+	tkn := html.NewTokenizer(strings.NewReader(text))
+
+	for {
 		tt := tkn.Next()
 
 		switch {
-
 		case tt == html.ErrorToken:
 			return data
 
 		case tt == html.StartTagToken:
-
 			t := tkn.Token()
-			isData = t.Data == "x"
+			if t.Data == "table" {
+				maps.Copy(data, parseTable(tkn))
 
-		case tt == html.TextToken:
+			} else {
+				for _, attr := range t.Attr {
+					if attr.Key == "class" {
+						if attr.Val == "hlavicka" {
+							data["hlavička"] = getNextText(tkn)
+							break
 
-			if isData {
-				t := tkn.Token()
-
-				if isPlural {
-					data[wordCase][1] = t.Data
-				} else {
-					data[wordCase][0] = t.Data
-				}
-
-				isPlural = !isPlural
-				if !isPlural {
-					wordCase++
+						} else if attr.Val == "polozky" {
+							polozka := getNextText(tkn)
+							key_val := strings.Split(polozka, ": ")
+							data[key_val[0]] = key_val[1]
+							break
+						}
+					}
 				}
 			}
-
-			isData = false
 		}
 	}
 }

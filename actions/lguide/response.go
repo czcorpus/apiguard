@@ -6,9 +6,17 @@
 
 package lguide
 
+type LGuideAPIResponse struct {
+	Query string
+	PoS   string
+}
+
 // LGuideResponse represents a parsed response
 // from the language guide
 type LGuideResponse struct {
+	APIResponse LGuideAPIResponse
+	JSFiles     []string
+	CSSFiles    []string
 }
 
 type LGuideResponseParser struct {

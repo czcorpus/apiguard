@@ -76,8 +76,6 @@ func TestParserAdjectiveResponse(t *testing.T) {
 		t.Error(err)
 	}
 	ans := Parse(string(content))
-	t.Log(ans)
-	t.Fail()
 	assert.Contains(t, ans, "hlavička")
 	assert.Equal(t, ans["hlavička"], "modrý")
 
@@ -90,6 +88,48 @@ func TestParserAdjectiveResponse(t *testing.T) {
 	assert.Equal(t, ans["3. stupeň"], "nejmodřejší")
 	assert.Contains(t, ans, "příklady")
 	assert.Equal(t, ans["příklady"], "modré oči; tmavě modré šaty; tmavomodré šaty")
+}
+
+func TestParserPronounResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/pronoun_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "se")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "se")
+	assert.Contains(t, ans, "jiné je")
+	assert.Equal(t, ans["jiné je"], "se, předl.")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "vzít s sebou; to se rozumí samo sebou; otevření (se) světu; vařící (se) voda; rozhodl se zúčastnit se; rozhodl se zúčastnit; rozhodl zúčastnit se")
+
+	// tabulka
+	assert.Contains(t, ans, "2. pád:jednotné číslo")
+	assert.Equal(t, ans["2. pád:jednotné číslo"], "sebe")
+	assert.Contains(t, ans, "3. pád:jednotné číslo")
+	assert.Equal(t, ans["3. pád:jednotné číslo"], "sobě, si")
+	assert.Contains(t, ans, "4. pád:jednotné číslo")
+	assert.Equal(t, ans["4. pád:jednotné číslo"], "sebe, se")
+	assert.Contains(t, ans, "6. pád:jednotné číslo")
+	assert.Equal(t, ans["6. pád:jednotné číslo"], "sobě")
+	assert.Contains(t, ans, "7. pád:jednotné číslo")
+	assert.Equal(t, ans["7. pád:jednotné číslo"], "sebou")
+
+	assert.NotContains(t, ans, "1. pád:jednotné číslo")
+	assert.NotContains(t, ans, "1. pád:množné číslo")
+	assert.NotContains(t, ans, "2. pád:množné číslo")
+	assert.NotContains(t, ans, "3. pád:množné číslo")
+	assert.NotContains(t, ans, "4. pád:množné číslo")
+	assert.NotContains(t, ans, "5. pád:jednotné číslo")
+	assert.NotContains(t, ans, "5. pád:množné číslo")
+	assert.NotContains(t, ans, "6. pád:množné číslo")
+	assert.NotContains(t, ans, "7. pád:množné číslo")
 }
 
 func TestParserVerbResponse(t *testing.T) {

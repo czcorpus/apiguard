@@ -20,21 +20,30 @@ type Span struct {
 	columnSpan, rowSpan int
 }
 
-func getNextText(tkn *html.Tokenizer) (text string) {
+func getNextText(tkn *html.Tokenizer, endTag string) (text string) {
+	isSup := false
 	for {
 		tt := tkn.Next()
 		switch {
-		case tt == html.EndTagToken:
-			fallthrough
 		case tt == html.ErrorToken:
 			return
-		case tt == html.TextToken:
-			t := tkn.Token()
-			text += t.Data
 		case tt == html.StartTagToken:
 			t := tkn.Token()
 			if t.Data == "sup" {
+				isSup = true
+			}
+		case tt == html.TextToken:
+			if !isSup {
+				t := tkn.Token()
+				text += t.Data
+			}
+		case tt == html.EndTagToken:
+			t := tkn.Token()
+			if endTag == "" || t.Data == endTag {
 				return
+			}
+			if t.Data == "sup" {
+				isSup = false
 			}
 		}
 	}
@@ -65,12 +74,16 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 				for _, span := range spanBuffer {
 					if span.column <= column && column < span.columnSpan+span.column {
 						if span.columnSpan > 1 {
-							data[rowName] = span.value
+							if span.value != "" {
+								data[rowName] = span.value
+							}
 							row++
 							spanBuffer = cleanUpSpanBuffer(spanBuffer, row)
 							column = 0
 						} else {
-							data[rowName+":"+columns[column]] = span.value
+							if span.value != "" {
+								data[rowName+":"+columns[column]] = span.value
+							}
 							column++
 							columnFilled = true
 						}
@@ -98,7 +111,7 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 		case tt == html.StartTagToken:
 			t := tkn.Token()
 			if t.Data == "td" {
-				text := getNextText(tkn)
+				text := getNextText(tkn, "")
 				if row == 0 {
 					columns = append(columns, text)
 				} else if column == 0 {
@@ -119,9 +132,13 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 
 					// here expecting that colspan is always full table width
 					if span.columnSpan > 1 {
-						data[rowName] = text
+						if text != "" {
+							data[rowName] = text
+						}
 					} else {
-						data[rowName+":"+columns[column]] = text
+						if text != "" {
+							data[rowName+":"+columns[column]] = text
+						}
 					}
 
 					if span.rowSpan > 1 {
@@ -160,11 +177,11 @@ func Parse(text string) (data map[string]string) {
 				for _, attr := range t.Attr {
 					if attr.Key == "class" {
 						if attr.Val == "hlavicka" {
-							data["hlavička"] = getNextText(tkn)
+							data["hlavička"] = getNextText(tkn, "")
 							break
 
 						} else if attr.Val == "polozky" {
-							polozka := getNextText(tkn)
+							polozka := getNextText(tkn, t.Data)
 							key_val := strings.Split(polozka, ": ")
 							data[key_val[0]] = key_val[1]
 							break

@@ -20,17 +20,22 @@ type Span struct {
 	columnSpan, rowSpan int
 }
 
-func getNextText(tkn *html.Tokenizer) string {
+func getNextText(tkn *html.Tokenizer) (text string) {
 	for {
 		tt := tkn.Next()
 		switch {
 		case tt == html.EndTagToken:
 			fallthrough
 		case tt == html.ErrorToken:
-			return ""
+			return
 		case tt == html.TextToken:
 			t := tkn.Token()
-			return t.Data
+			text += t.Data
+		case tt == html.StartTagToken:
+			t := tkn.Token()
+			if t.Data == "sup" {
+				return
+			}
 		}
 	}
 }
@@ -44,8 +49,8 @@ func cleanUpSpanBuffer(spanBuffer []Span, row int) (newSpanBuffer []Span) {
 	return
 }
 
-func parseTable(tkn *html.Tokenizer) map[string]string {
-	data := make(map[string]string)
+func parseTable(tkn *html.Tokenizer) (data map[string]string) {
+	data = make(map[string]string)
 
 	row, column := 0, 0
 	var columns []string
@@ -78,12 +83,12 @@ func parseTable(tkn *html.Tokenizer) map[string]string {
 		tt := tkn.Next()
 		switch {
 		case tt == html.ErrorToken:
-			return data
+			return
 
 		case tt == html.EndTagToken:
 			t := tkn.Token()
 			if t.Data == "table" {
-				return data
+				return
 			} else if t.Data == "tr" {
 				row++
 				spanBuffer = cleanUpSpanBuffer(spanBuffer, row)
@@ -129,8 +134,8 @@ func parseTable(tkn *html.Tokenizer) map[string]string {
 	}
 }
 
-func Parse(text string) map[string]string {
-	data := make(map[string]string)
+func Parse(text string) (data map[string]string) {
+	data = make(map[string]string)
 	tkn := html.NewTokenizer(strings.NewReader(text))
 
 	for {
@@ -138,7 +143,13 @@ func Parse(text string) map[string]string {
 
 		switch {
 		case tt == html.ErrorToken:
-			return data
+			return
+
+		case tt == html.TextToken:
+			t := tkn.Token()
+			if strings.Contains(t.Data, "Heslové slovo bylo nalezeno také v následujících slovnících:") {
+				return
+			}
 
 		case tt == html.StartTagToken:
 			t := tkn.Token()

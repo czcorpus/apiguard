@@ -68,6 +68,30 @@ func TestParserNounResponse(t *testing.T) {
 	assert.Equal(t, ans["7. pád:množné číslo"], "okolnostmi")
 }
 
+func TestParserAdjectiveResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/adjective_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	t.Log(ans)
+	t.Fail()
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "modrý")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "mo-d-rý")
+	assert.Contains(t, ans, "2. stupeň")
+	assert.Equal(t, ans["2. stupeň"], "modřejší")
+	assert.Contains(t, ans, "3. stupeň")
+	assert.Equal(t, ans["3. stupeň"], "nejmodřejší")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "modré oči; tmavě modré šaty; tmavomodré šaty")
+}
+
 func TestParserVerbResponse(t *testing.T) {
 	_, filepath, _, _ := runtime.Caller(0)
 	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/verb_response.html")

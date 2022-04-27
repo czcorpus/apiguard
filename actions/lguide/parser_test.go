@@ -249,3 +249,82 @@ func TestParserAdverbResponse(t *testing.T) {
 	assert.Contains(t, ans, "příklady")
 	assert.Equal(t, ans["příklady"], "Spisy jsou uloženy nahoře na polici.(na rozdíl od: Stanul na hoře Říp/Řípu.)")
 }
+
+func TestParserPrepositionResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/preposition_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "vedle")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "ve-dle")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "stáli vedle sebe; dům vedle se bude opravovat")
+}
+
+func TestParserConjunctionResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/conjunction_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "nebo")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "ne-bo")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "Podejte nám zprávu písemně nebo telefonicky. Pospěšte si, nebo nám ujede vlak.")
+}
+
+func TestParserParticleResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/particle_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "ať")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "ať")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], `Ať 
+už však byl jeho úmysl jakýkoli, působil dojmem člověka, který to projel
+ na celé čáře. Poradil nám, ať zajdeme za ředitelem. Ať se jde se svým 
+návrhem vycpat! Ať to byl, kdo chtěl, jasně vám dokazuji, že to měl 
+udělat nějak jinak. Musí ho poslouchat všichni, ať jsou to kněží, nebo 
+obchodníci.`)
+}
+
+func TestParserInterjectionResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/interjection_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "haló")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "ha-ló")
+	assert.Contains(t, ans, "jiné je")
+	assert.Equal(t, ans["jiné je"], "haló, s.")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "Haló, tady Jiřina!; Halo, právě volá vaše láska!")
+}

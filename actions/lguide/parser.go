@@ -182,7 +182,7 @@ func Parse(text string) (data map[string]string) {
 
 						} else if attr.Val == "polozky" {
 							polozka := getNextText(tkn, t.Data)
-							key_val := strings.Split(polozka, ": ")
+							key_val := strings.SplitN(polozka, ": ", 2)
 							data[key_val[0]] = key_val[1]
 							break
 						}

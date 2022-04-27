@@ -231,3 +231,21 @@ func TestParserVerbResponse(t *testing.T) {
 	assert.Contains(t, ans, "verbální substantivum")
 	assert.Equal(t, ans["verbální substantivum"], "dělání")
 }
+
+func TestParserAdverbResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/adverb_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "nahoře")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "na-ho-ře")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "Spisy jsou uloženy nahoře na polici.(na rozdíl od: Stanul na hoře Říp/Řípu.)")
+}

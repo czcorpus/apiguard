@@ -132,6 +132,58 @@ func TestParserPronounResponse(t *testing.T) {
 	assert.NotContains(t, ans, "7. pád:množné číslo")
 }
 
+func TestParserNumeralResponse(t *testing.T) {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/numeral_response.html")
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	ans := Parse(string(content))
+	assert.Contains(t, ans, "hlavička")
+	assert.Equal(t, ans["hlavička"], "sto")
+
+	// položky
+	assert.Contains(t, ans, "dělení")
+	assert.Equal(t, ans["dělení"], "sto")
+	assert.Contains(t, ans, "rod")
+	assert.Equal(t, ans["rod"], "s.")
+	assert.Contains(t, ans, "příklady")
+	assert.Equal(t, ans["příklady"], "pět set; sto padesát tři; tři sta třicet tři tisíc; asi sto lidí se sešlo před magistrátem, aby protestovalo/protestovali proti plánované stavbě")
+	assert.Contains(t, ans, "poznámky k heslu")
+	assert.Equal(t, ans["poznámky k heslu"], "ve spojení s výrazem dvě má tvar 1. p. mn. č. podobu stě (dvě stě); ve spojení s počítaným předmětem může v j. č. zůstat výraz sto nesklonný (ke stu korun/korunám i ke sto korunám)")
+
+	// tabulka
+	assert.Contains(t, ans, "1. pád:jednotné číslo")
+	assert.Contains(t, ans, "1. pád:množné číslo")
+	assert.Equal(t, ans["1. pád:jednotné číslo"], "sto")
+	assert.Equal(t, ans["1. pád:množné číslo"], "sta")
+	assert.Contains(t, ans, "2. pád:jednotné číslo")
+	assert.Contains(t, ans, "2. pád:množné číslo")
+	assert.Equal(t, ans["2. pád:jednotné číslo"], "sta")
+	assert.Equal(t, ans["2. pád:množné číslo"], "set")
+	assert.Contains(t, ans, "3. pád:jednotné číslo")
+	assert.Contains(t, ans, "3. pád:množné číslo")
+	assert.Equal(t, ans["3. pád:jednotné číslo"], "stu")
+	assert.Equal(t, ans["3. pád:množné číslo"], "stům")
+	assert.Contains(t, ans, "4. pád:jednotné číslo")
+	assert.Contains(t, ans, "4. pád:množné číslo")
+	assert.Equal(t, ans["4. pád:jednotné číslo"], "sto")
+	assert.Equal(t, ans["4. pád:množné číslo"], "sta")
+	assert.Contains(t, ans, "5. pád:jednotné číslo")
+	assert.Contains(t, ans, "5. pád:množné číslo")
+	assert.Equal(t, ans["5. pád:jednotné číslo"], "sto")
+	assert.Equal(t, ans["5. pád:množné číslo"], "sta")
+	assert.Contains(t, ans, "6. pád:jednotné číslo")
+	assert.Contains(t, ans, "6. pád:množné číslo")
+	assert.Equal(t, ans["6. pád:jednotné číslo"], "stu")
+	assert.Equal(t, ans["6. pád:množné číslo"], "stech")
+	assert.Contains(t, ans, "7. pád:jednotné číslo")
+	assert.Contains(t, ans, "7. pád:množné číslo")
+	assert.Equal(t, ans["7. pád:jednotné číslo"], "stem")
+	assert.Equal(t, ans["7. pád:množné číslo"], "sty")
+}
+
 func TestParserVerbResponse(t *testing.T) {
 	_, filepath, _, _ := runtime.Caller(0)
 	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/verb_response.html")

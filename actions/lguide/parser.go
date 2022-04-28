@@ -49,6 +49,11 @@ type Transgressives struct {
 	present TransgressiveRow
 }
 
+type Comparison struct {
+	comparative string
+	superlative string
+}
+
 type VerbData struct {
 	person        GrammarPerson
 	imperative    GrammarNumber
@@ -59,9 +64,11 @@ type VerbData struct {
 
 type ParsedData struct {
 	heading     string
-	items       map[string]string
+	division    string
 	grammarCase GrammarCase
+	comparison  Comparison
 	verbData    VerbData
+	items       map[string]string
 }
 
 type TableCellSpan struct {
@@ -131,6 +138,15 @@ func (data *ParsedData) fillCase(rowName string, columnName string, value string
 		word.singular = value
 	} else {
 		word.plural = value
+	}
+}
+
+func (data *ParsedData) fillComparison(key string, value string) {
+	switch key {
+	case "2. stupeň":
+		data.comparison.comparative = value
+	case "3. stupeň":
+		data.comparison.superlative = value
 	}
 }
 
@@ -320,7 +336,13 @@ func Parse(text string) (data ParsedData) {
 						} else if attr.Val == "polozky" {
 							polozka := getNextText(tkn, t.Data)
 							key_val := strings.SplitN(polozka, ": ", 2)
-							data.items[key_val[0]] = key_val[1]
+							if strings.Contains(key_val[0], "stupeň") {
+								data.fillComparison(key_val[0], key_val[1])
+							} else if key_val[0] == "dělení" {
+								data.division = key_val[1]
+							} else {
+								data.items[key_val[0]] = key_val[1]
+							}
 							break
 						}
 					}

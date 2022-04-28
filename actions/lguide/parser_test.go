@@ -31,8 +31,7 @@ func TestParserNounResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "okolnost")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "okol-nost")
+	assert.Equal(t, ans.division, "okol-nost")
 	assert.Contains(t, ans.items, "rod")
 	assert.Equal(t, ans.items["rod"], "ž.")
 
@@ -64,12 +63,9 @@ func TestParserAdjectiveResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "modrý")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "mo-d-rý")
-	assert.Contains(t, ans.items, "2. stupeň")
-	assert.Equal(t, ans.items["2. stupeň"], "modřejší")
-	assert.Contains(t, ans.items, "3. stupeň")
-	assert.Equal(t, ans.items["3. stupeň"], "nejmodřejší")
+	assert.Equal(t, ans.division, "mo-d-rý")
+	assert.Equal(t, ans.comparison.comparative, "modřejší")
+	assert.Equal(t, ans.comparison.superlative, "nejmodřejší")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "modré oči; tmavě modré šaty; tmavomodré šaty")
 }
@@ -85,8 +81,7 @@ func TestParserPronounResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "se")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "se")
+	assert.Equal(t, ans.division, "se")
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "se, předl.")
 	assert.Contains(t, ans.items, "příklady")
@@ -121,8 +116,7 @@ func TestParserNumeralResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "sto")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "sto")
+	assert.Equal(t, ans.division, "sto")
 	assert.Contains(t, ans.items, "rod")
 	assert.Equal(t, ans.items["rod"], "s.")
 	assert.Contains(t, ans.items, "příklady")
@@ -158,8 +152,7 @@ func TestParserVerbResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "dělat")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "dě-lat")
+	assert.Equal(t, ans.division, "dě-lat")
 
 	// tabulka
 	assert.Equal(t, ans.verbData.person.first.singular, "dělám")
@@ -191,8 +184,7 @@ func TestParserAdverbResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "nahoře")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "na-ho-ře")
+	assert.Equal(t, ans.division, "na-ho-ře")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "Spisy jsou uloženy nahoře na polici.(na rozdíl od: Stanul na hoře Říp/Řípu.)")
 }
@@ -208,8 +200,7 @@ func TestParserPrepositionResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "vedle")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "ve-dle")
+	assert.Equal(t, ans.division, "ve-dle")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "stáli vedle sebe; dům vedle se bude opravovat")
 }
@@ -225,8 +216,7 @@ func TestParserConjunctionResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "nebo")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "ne-bo")
+	assert.Equal(t, ans.division, "ne-bo")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "Podejte nám zprávu písemně nebo telefonicky. Pospěšte si, nebo nám ujede vlak.")
 }
@@ -242,8 +232,7 @@ func TestParserParticleResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "ať")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "ať")
+	assert.Equal(t, ans.division, "ať")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "Ať \nuž však byl jeho úmysl jakýkoli, působil dojmem člověka, který to projel\n na celé čáře. Poradil nám, ať zajdeme za ředitelem. Ať se jde se svým \nnávrhem vycpat! Ať to byl, kdo chtěl, jasně vám dokazuji, že to měl \nudělat nějak jinak. Musí ho poslouchat všichni, ať jsou to kněží, nebo \nobchodníci.")
 }
@@ -259,8 +248,7 @@ func TestParserInterjectionResponse(t *testing.T) {
 	assert.Equal(t, ans.heading, "haló")
 
 	// položky
-	assert.Contains(t, ans.items, "dělení")
-	assert.Equal(t, ans.items["dělení"], "ha-ló")
+	assert.Equal(t, ans.division, "ha-ló")
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "haló, s.")
 	assert.Contains(t, ans.items, "příklady")

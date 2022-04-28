@@ -10,14 +10,73 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/exp/maps"
 	"golang.org/x/net/html"
 )
 
-type Span struct {
+type GrammarNumber struct {
+	singular string
+	plural   string
+}
+
+type GrammarCase struct {
+	nominative   GrammarNumber
+	genitive     GrammarNumber
+	dative       GrammarNumber
+	accusative   GrammarNumber
+	vocative     GrammarNumber
+	locative     GrammarNumber
+	instrumental GrammarNumber
+}
+
+type GrammarPerson struct {
+	first  GrammarNumber
+	second GrammarNumber
+	third  GrammarNumber
+}
+
+type Participle struct {
+	active  string
+	passive string
+}
+
+type TransgressiveRow struct {
+	m  GrammarNumber
+	zs GrammarNumber
+}
+
+type Transgressives struct {
+	past    TransgressiveRow
+	present TransgressiveRow
+}
+
+type VerbData struct {
+	person         GrammarPerson
+	imperative     GrammarNumber
+	participle     Participle
+	transgressives Transgressives
+	verbalNoun     string
+}
+
+type ParsedData struct {
+	heading     string
+	items       map[string]string
+	grammarCase GrammarCase
+	verbData    VerbData
+}
+
+type TableCellSpan struct {
 	value               string
 	column, row         int
 	columnSpan, rowSpan int
+}
+
+func cleanUpSpanBuffer(spanBuffer []TableCellSpan, row int) (newSpanBuffer []TableCellSpan) {
+	for _, span := range spanBuffer {
+		if span.row+span.rowSpan-1 >= row {
+			newSpanBuffer = append(newSpanBuffer, span)
+		}
+	}
+	return
 }
 
 func getNextText(tkn *html.Tokenizer, endTag string) (text string) {
@@ -49,22 +108,80 @@ func getNextText(tkn *html.Tokenizer, endTag string) (text string) {
 	}
 }
 
-func cleanUpSpanBuffer(spanBuffer []Span, row int) (newSpanBuffer []Span) {
-	for _, span := range spanBuffer {
-		if span.row+span.rowSpan-1 >= row {
-			newSpanBuffer = append(newSpanBuffer, span)
-		}
+func (data *ParsedData) fillCase(rowName string, columnName string, value string) {
+	var word *GrammarNumber
+	switch rowName {
+	case "1. pád":
+		word = &data.grammarCase.nominative
+	case "2. pád":
+		word = &data.grammarCase.genitive
+	case "3. pád":
+		word = &data.grammarCase.dative
+	case "4. pád":
+		word = &data.grammarCase.accusative
+	case "5. pád":
+		word = &data.grammarCase.vocative
+	case "6. pád":
+		word = &data.grammarCase.locative
+	case "7. pád":
+		word = &data.grammarCase.instrumental
 	}
-	return
+
+	if columnName == "jednotné číslo" {
+		word.singular = value
+	} else {
+		word.plural = value
+	}
 }
 
-func parseTable(tkn *html.Tokenizer) (data map[string]string) {
-	data = make(map[string]string)
+func isVerbData(rowName string) bool {
+	return strings.Contains(rowName, "osoba") || rowName == "rozkazovací způsob" || strings.Contains(rowName, "příčestí") || strings.Contains(rowName, "přechodník") || rowName == "verbální substantivum"
+}
 
+func (data *ParsedData) fillVerbData(rowName string, columnName string, value string) {
+	var word *GrammarNumber
+
+	switch rowName {
+	case "1. osoba":
+		word = &data.verbData.person.first
+	case "2. osoba":
+		word = &data.verbData.person.second
+	case "3. osoba":
+		word = &data.verbData.person.third
+	case "rozkazovací způsob":
+		word = &data.verbData.imperative
+	case "příčestí činné":
+		data.verbData.participle.active = value
+	case "příčestí trpné":
+		data.verbData.participle.passive = value
+	case "přechodník přítomný, m.":
+		word = &data.verbData.transgressives.present.m
+	case "přechodník přítomný, ž. + s.":
+		word = &data.verbData.transgressives.present.zs
+	case "přechodník minulý, m.":
+		word = &data.verbData.transgressives.past.m
+	case "přechodník minulý, ž. + s.":
+		word = &data.verbData.transgressives.past.zs
+	case "verbální substantivum":
+		data.verbData.verbalNoun = value
+	default:
+		panic("Unknown verb data!")
+	}
+
+	if word != nil {
+		if columnName == "jednotné číslo" {
+			word.singular = value
+		} else {
+			word.plural = value
+		}
+	}
+}
+
+func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 	row, column := 0, 0
 	var columns []string
 	var rowName string
-	var spanBuffer []Span
+	var spanBuffer []TableCellSpan
 
 	for {
 		if row > 0 && column > 0 {
@@ -75,14 +192,24 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 					if span.column <= column && column < span.columnSpan+span.column {
 						if span.columnSpan > 1 {
 							if span.value != "" {
-								data[rowName] = span.value
+								if isVerbData(rowName) {
+									data.fillVerbData(rowName, "", span.value)
+								} else {
+									data.items[rowName] = span.value
+								}
 							}
 							row++
 							spanBuffer = cleanUpSpanBuffer(spanBuffer, row)
 							column = 0
 						} else {
 							if span.value != "" {
-								data[rowName+":"+columns[column]] = span.value
+								if strings.Contains(rowName, "pád") {
+									data.fillCase(rowName, columns[column], span.value)
+								} else if isVerbData(rowName) {
+									data.fillVerbData(rowName, columns[column], span.value)
+								} else {
+									data.items[rowName+":"+columns[column]] = span.value
+								}
 							}
 							column++
 							columnFilled = true
@@ -117,7 +244,7 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 				} else if column == 0 {
 					rowName = text
 				} else {
-					span := Span{value: text, column: column, row: row, columnSpan: 1, rowSpan: 1}
+					span := TableCellSpan{value: text, column: column, row: row, columnSpan: 1, rowSpan: 1}
 					for _, attr := range t.Attr {
 						var err error = nil
 						if attr.Key == "colspan" {
@@ -133,11 +260,21 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 					// here expecting that colspan is always full table width
 					if span.columnSpan > 1 {
 						if text != "" {
-							data[rowName] = text
+							if isVerbData(rowName) {
+								data.fillVerbData(rowName, "", text)
+							} else {
+								data.items[rowName] = text
+							}
 						}
 					} else {
 						if text != "" {
-							data[rowName+":"+columns[column]] = text
+							if strings.Contains(rowName, "pád") {
+								data.fillCase(rowName, columns[column], span.value)
+							} else if isVerbData(rowName) {
+								data.fillVerbData(rowName, columns[column], span.value)
+							} else {
+								data.items[rowName+":"+columns[column]] = span.value
+							}
 						}
 					}
 
@@ -151,8 +288,8 @@ func parseTable(tkn *html.Tokenizer) (data map[string]string) {
 	}
 }
 
-func Parse(text string) (data map[string]string) {
-	data = make(map[string]string)
+func Parse(text string) (data ParsedData) {
+	data.items = make(map[string]string)
 	tkn := html.NewTokenizer(strings.NewReader(text))
 
 	for {
@@ -171,19 +308,19 @@ func Parse(text string) (data map[string]string) {
 		case tt == html.StartTagToken:
 			t := tkn.Token()
 			if t.Data == "table" {
-				maps.Copy(data, parseTable(tkn))
+				data.parseTable(tkn)
 
 			} else {
 				for _, attr := range t.Attr {
 					if attr.Key == "class" {
 						if attr.Val == "hlavicka" {
-							data["hlavička"] = getNextText(tkn, "")
+							data.heading = getNextText(tkn, "")
 							break
 
 						} else if attr.Val == "polozky" {
 							polozka := getNextText(tkn, t.Data)
 							key_val := strings.SplitN(polozka, ": ", 2)
-							data[key_val[0]] = key_val[1]
+							data.items[key_val[0]] = key_val[1]
 							break
 						}
 					}

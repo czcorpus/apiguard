@@ -14,13 +14,13 @@ import (
 )
 
 type ParsedData struct {
-	scripts     []string
-	cssLinks    []string
-	heading     string
-	division    string
-	conjugation Conjugation
-	grammarCase GrammarCase
-	comparison  Comparison
+	Scripts     []string    `json:"scripts"`
+	CSSLinks    []string    `json:"cssLinks"`
+	Heading     string      `json:"heading"`
+	Division    string      `json:"division"`
+	Conjugation Conjugation `json:"conjugation"`
+	GrammarCase GrammarCase `json:"grammarCase"`
+	Comparison  Comparison  `json:"comparison"`
 	items       map[string]string
 }
 
@@ -72,19 +72,19 @@ func (data *ParsedData) fillCase(rowName string, columnName string, value string
 	var word *GrammarNumber
 	switch rowName {
 	case "1. pád":
-		word = &data.grammarCase.nominative
+		word = &data.GrammarCase.nominative
 	case "2. pád":
-		word = &data.grammarCase.genitive
+		word = &data.GrammarCase.genitive
 	case "3. pád":
-		word = &data.grammarCase.dative
+		word = &data.GrammarCase.dative
 	case "4. pád":
-		word = &data.grammarCase.accusative
+		word = &data.GrammarCase.accusative
 	case "5. pád":
-		word = &data.grammarCase.vocative
+		word = &data.GrammarCase.vocative
 	case "6. pád":
-		word = &data.grammarCase.locative
+		word = &data.GrammarCase.locative
 	case "7. pád":
-		word = &data.grammarCase.instrumental
+		word = &data.GrammarCase.instrumental
 	}
 
 	if columnName == "jednotné číslo" {
@@ -98,9 +98,9 @@ func (data *ParsedData) fillComparison(key string, value string) {
 
 	switch key {
 	case "2. stupeň":
-		data.comparison.comparative = value
+		data.Comparison.comparative = value
 	case "3. stupeň":
-		data.comparison.superlative = value
+		data.Comparison.superlative = value
 	}
 }
 
@@ -113,27 +113,27 @@ func (data *ParsedData) fillVerbData(rowName string, columnName string, value st
 
 	switch rowName {
 	case "1. osoba":
-		word = &data.conjugation.person.first
+		word = &data.Conjugation.person.first
 	case "2. osoba":
-		word = &data.conjugation.person.second
+		word = &data.Conjugation.person.second
 	case "3. osoba":
-		word = &data.conjugation.person.third
+		word = &data.Conjugation.person.third
 	case "rozkazovací způsob":
-		word = &data.conjugation.imperative
+		word = &data.Conjugation.imperative
 	case "příčestí činné":
-		data.conjugation.participle.active = value
+		data.Conjugation.participle.active = value
 	case "příčestí trpné":
-		data.conjugation.participle.passive = value
+		data.Conjugation.participle.passive = value
 	case "přechodník přítomný, m.":
-		word = &data.conjugation.transgressive.present.m
+		word = &data.Conjugation.transgressive.present.m
 	case "přechodník přítomný, ž. + s.":
-		word = &data.conjugation.transgressive.present.zs
+		word = &data.Conjugation.transgressive.present.zs
 	case "přechodník minulý, m.":
-		word = &data.conjugation.transgressive.past.m
+		word = &data.Conjugation.transgressive.past.m
 	case "přechodník minulý, ž. + s.":
-		word = &data.conjugation.transgressive.past.zs
+		word = &data.Conjugation.transgressive.past.zs
 	case "verbální substantivum":
-		data.conjugation.verbalNoun = value
+		data.Conjugation.verbalNoun = value
 	default:
 		panic("Unknown verb data!")
 	}
@@ -260,8 +260,8 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 
 func NewParsedData() *ParsedData {
 	return &ParsedData{
-		scripts:  make([]string, 0, 10),
-		cssLinks: make([]string, 0, 10),
+		Scripts:  make([]string, 0, 10),
+		CSSLinks: make([]string, 0, 10),
 	}
 }
 
@@ -291,14 +291,14 @@ func Parse(text string) *ParsedData {
 			case "script":
 				for _, attr := range t.Attr {
 					if attr.Key == "src" {
-						data.scripts = append(data.scripts, attr.Val)
+						data.Scripts = append(data.Scripts, attr.Val)
 						break
 					}
 				}
 			case "link":
 				for _, attr := range t.Attr {
 					if attr.Key == "href" && strings.HasSuffix(attr.Val, ".css") {
-						data.cssLinks = append(data.cssLinks, attr.Val)
+						data.CSSLinks = append(data.CSSLinks, attr.Val)
 						break
 					}
 				}
@@ -306,7 +306,7 @@ func Parse(text string) *ParsedData {
 				for _, attr := range t.Attr {
 					if attr.Key == "class" {
 						if attr.Val == "hlavicka" {
-							data.heading = getNextText(tkn, "")
+							data.Heading = getNextText(tkn, "")
 							break
 
 						} else if attr.Val == "polozky" {
@@ -315,7 +315,7 @@ func Parse(text string) *ParsedData {
 							if strings.Contains(key_val[0], "stupeň") {
 								data.fillComparison(key_val[0], key_val[1])
 							} else if key_val[0] == "dělení" {
-								data.division = key_val[1]
+								data.Division = key_val[1]
 							} else {
 								data.items[key_val[0]] = key_val[1]
 							}

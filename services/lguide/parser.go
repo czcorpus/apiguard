@@ -13,53 +13,8 @@ import (
 	"golang.org/x/net/html"
 )
 
-type GrammarNumber struct {
-	singular string
-	plural   string
-}
-
-type GrammarCase struct {
-	nominative   GrammarNumber
-	genitive     GrammarNumber
-	dative       GrammarNumber
-	accusative   GrammarNumber
-	vocative     GrammarNumber
-	locative     GrammarNumber
-	instrumental GrammarNumber
-}
-
-type GrammarPerson struct {
-	first  GrammarNumber
-	second GrammarNumber
-	third  GrammarNumber
-}
-
-type Participle struct {
-	active  string
-	passive string
-}
-
-type TransgressiveRow struct {
-	m  GrammarNumber
-	zs GrammarNumber
-}
-
-type Transgressives struct {
-	past    TransgressiveRow
-	present TransgressiveRow
-}
-
-type Comparison struct {
-	comparative string
-	superlative string
-}
-
-type VerbData struct {
-	person        GrammarPerson
-	imperative    GrammarNumber
-	participle    Participle
-	transgressive Transgressives
-	verbalNoun    string
+type AnyPosData interface {
+	VerbData | NounData
 }
 
 type ParsedData struct {

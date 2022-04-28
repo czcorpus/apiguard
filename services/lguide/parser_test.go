@@ -15,19 +15,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func loadTestingFile(relativePath string, t *testing.T) string {
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "..", "..", "..", relativePath)
+	content, err := os.ReadFile(srcPath)
+	if err != nil {
+		t.Error(err)
+	}
+	return string(content)
+}
+
 // TODO to be removed
 func TestNull(t *testing.T) {
 	assert.Equal(t, 1, 1)
 }
 
 func TestParserNounResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/noun_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/noun_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "okolnost")
 
 	// položky
@@ -53,13 +58,8 @@ func TestParserNounResponse(t *testing.T) {
 }
 
 func TestParserAdjectiveResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/adjective_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/adjective_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "modrý")
 
 	// položky
@@ -71,13 +71,8 @@ func TestParserAdjectiveResponse(t *testing.T) {
 }
 
 func TestParserPronounResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/pronoun_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/pronoun_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "se")
 
 	// položky
@@ -106,13 +101,8 @@ func TestParserPronounResponse(t *testing.T) {
 }
 
 func TestParserNumeralResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/numeral_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/numeral_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "sto")
 
 	// položky
@@ -142,45 +132,35 @@ func TestParserNumeralResponse(t *testing.T) {
 }
 
 func TestParserVerbResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/verb_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/verb_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "dělat")
 
 	// položky
 	assert.Equal(t, ans.division, "dě-lat")
 
 	// tabulka
-	assert.Equal(t, ans.verbData.person.first.singular, "dělám")
-	assert.Equal(t, ans.verbData.person.first.plural, "děláme")
-	assert.Equal(t, ans.verbData.person.second.singular, "děláš")
-	assert.Equal(t, ans.verbData.person.second.plural, "děláte")
-	assert.Equal(t, ans.verbData.person.third.singular, "dělá")
-	assert.Equal(t, ans.verbData.person.third.plural, "dělají")
+	assert.Equal(t, ans.conjugation.person.first.singular, "dělám")
+	assert.Equal(t, ans.conjugation.person.first.plural, "děláme")
+	assert.Equal(t, ans.conjugation.person.second.singular, "děláš")
+	assert.Equal(t, ans.conjugation.person.second.plural, "děláte")
+	assert.Equal(t, ans.conjugation.person.third.singular, "dělá")
+	assert.Equal(t, ans.conjugation.person.third.plural, "dělají")
 
-	assert.Equal(t, ans.verbData.imperative.singular, "dělej")
-	assert.Equal(t, ans.verbData.imperative.plural, "dělejte")
-	assert.Equal(t, ans.verbData.participle.active, "dělal")
-	assert.Equal(t, ans.verbData.participle.passive, "dělán")
-	assert.Equal(t, ans.verbData.transgressive.present.m.singular, "dělaje")
-	assert.Equal(t, ans.verbData.transgressive.present.m.plural, "dělajíce")
-	assert.Equal(t, ans.verbData.transgressive.present.zs.singular, "dělajíc")
-	assert.Equal(t, ans.verbData.transgressive.present.zs.plural, "dělajíce")
-	assert.Equal(t, ans.verbData.verbalNoun, "dělání")
+	assert.Equal(t, ans.conjugation.imperative.singular, "dělej")
+	assert.Equal(t, ans.conjugation.imperative.plural, "dělejte")
+	assert.Equal(t, ans.conjugation.participle.active, "dělal")
+	assert.Equal(t, ans.conjugation.participle.passive, "dělán")
+	assert.Equal(t, ans.conjugation.transgressive.present.m.singular, "dělaje")
+	assert.Equal(t, ans.conjugation.transgressive.present.m.plural, "dělajíce")
+	assert.Equal(t, ans.conjugation.transgressive.present.zs.singular, "dělajíc")
+	assert.Equal(t, ans.conjugation.transgressive.present.zs.plural, "dělajíce")
+	assert.Equal(t, ans.conjugation.verbalNoun, "dělání")
 }
 
 func TestParserAdverbResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/adverb_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/adverb_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "nahoře")
 
 	// položky
@@ -190,13 +170,8 @@ func TestParserAdverbResponse(t *testing.T) {
 }
 
 func TestParserPrepositionResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/preposition_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/preposition_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "vedle")
 
 	// položky
@@ -206,13 +181,8 @@ func TestParserPrepositionResponse(t *testing.T) {
 }
 
 func TestParserConjunctionResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/conjunction_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/conjunction_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "nebo")
 
 	// položky
@@ -222,13 +192,8 @@ func TestParserConjunctionResponse(t *testing.T) {
 }
 
 func TestParserParticleResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/particle_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/particle_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "ať")
 
 	// položky
@@ -238,13 +203,8 @@ func TestParserParticleResponse(t *testing.T) {
 }
 
 func TestParserInterjectionResponse(t *testing.T) {
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", "testdata/lguide/interjection_response.html")
-	content, err := os.ReadFile(srcPath)
-	if err != nil {
-		t.Error(err)
-	}
-	ans := Parse(string(content))
+	content := loadTestingFile("testdata/lguide/interjection_response.html", t)
+	ans := Parse(content)
 	assert.Equal(t, ans.heading, "haló")
 
 	// položky
@@ -253,4 +213,15 @@ func TestParserInterjectionResponse(t *testing.T) {
 	assert.Equal(t, ans.items["jiné je"], "haló, s.")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "Haló, tady Jiřina!; Halo, právě volá vaše láska!")
+}
+
+func TestParseJavascript(t *testing.T) {
+	content := loadTestingFile("testdata/lguide/adjective_response.html", t)
+	ans := Parse(content)
+	assert.Equal(t, 1, len(ans.scripts))
+	assert.Equal(t, "/files/prirucka.js", ans.scripts[0])
+	assert.Equal(t, 3, len(ans.cssLinks))
+	assert.Equal(t, "/files/all1.css", ans.cssLinks[0])
+	assert.Equal(t, "/files/screen1.css", ans.cssLinks[1])
+	assert.Equal(t, "/files/print.css", ans.cssLinks[2])
 }

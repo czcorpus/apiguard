@@ -47,13 +47,14 @@ type Comparison struct {
 	superlative string
 }
 
-type VerbData struct {
+type NounData struct {
+	grammarCase GrammarCase
+}
+
+type Conjugation struct {
 	person        GrammarPerson
 	imperative    GrammarNumber
 	participle    Participle
 	transgressive Transgressives
 	verbalNoun    string
-}
-
-type NounData struct {
 }

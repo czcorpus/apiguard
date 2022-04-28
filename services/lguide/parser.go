@@ -13,16 +13,14 @@ import (
 	"golang.org/x/net/html"
 )
 
-type AnyPosData interface {
-	VerbData | NounData
-}
-
 type ParsedData struct {
+	scripts     []string
+	cssLinks    []string
 	heading     string
 	division    string
+	conjugation Conjugation
 	grammarCase GrammarCase
 	comparison  Comparison
-	verbData    VerbData
 	items       map[string]string
 }
 
@@ -97,6 +95,7 @@ func (data *ParsedData) fillCase(rowName string, columnName string, value string
 }
 
 func (data *ParsedData) fillComparison(key string, value string) {
+
 	switch key {
 	case "2. stupeň":
 		data.comparison.comparative = value
@@ -114,27 +113,27 @@ func (data *ParsedData) fillVerbData(rowName string, columnName string, value st
 
 	switch rowName {
 	case "1. osoba":
-		word = &data.verbData.person.first
+		word = &data.conjugation.person.first
 	case "2. osoba":
-		word = &data.verbData.person.second
+		word = &data.conjugation.person.second
 	case "3. osoba":
-		word = &data.verbData.person.third
+		word = &data.conjugation.person.third
 	case "rozkazovací způsob":
-		word = &data.verbData.imperative
+		word = &data.conjugation.imperative
 	case "příčestí činné":
-		data.verbData.participle.active = value
+		data.conjugation.participle.active = value
 	case "příčestí trpné":
-		data.verbData.participle.passive = value
+		data.conjugation.participle.passive = value
 	case "přechodník přítomný, m.":
-		word = &data.verbData.transgressive.present.m
+		word = &data.conjugation.transgressive.present.m
 	case "přechodník přítomný, ž. + s.":
-		word = &data.verbData.transgressive.present.zs
+		word = &data.conjugation.transgressive.present.zs
 	case "přechodník minulý, m.":
-		word = &data.verbData.transgressive.past.m
+		word = &data.conjugation.transgressive.past.m
 	case "přechodník minulý, ž. + s.":
-		word = &data.verbData.transgressive.past.zs
+		word = &data.conjugation.transgressive.past.zs
 	case "verbální substantivum":
-		data.verbData.verbalNoun = value
+		data.conjugation.verbalNoun = value
 	default:
 		panic("Unknown verb data!")
 	}
@@ -259,7 +258,15 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 	}
 }
 
-func Parse(text string) (data ParsedData) {
+func NewParsedData() *ParsedData {
+	return &ParsedData{
+		scripts:  make([]string, 0, 10),
+		cssLinks: make([]string, 0, 10),
+	}
+}
+
+func Parse(text string) *ParsedData {
+	data := NewParsedData()
 	data.items = make(map[string]string)
 	tkn := html.NewTokenizer(strings.NewReader(text))
 
@@ -268,20 +275,34 @@ func Parse(text string) (data ParsedData) {
 
 		switch {
 		case tt == html.ErrorToken:
-			return
+			return data
 
 		case tt == html.TextToken:
 			t := tkn.Token()
 			if strings.Contains(t.Data, "Heslové slovo bylo nalezeno také v následujících slovnících:") {
-				return
+				return data
 			}
 
 		case tt == html.StartTagToken:
 			t := tkn.Token()
-			if t.Data == "table" {
+			switch t.Data {
+			case "table":
 				data.parseTable(tkn)
-
-			} else {
+			case "script":
+				for _, attr := range t.Attr {
+					if attr.Key == "src" {
+						data.scripts = append(data.scripts, attr.Val)
+						break
+					}
+				}
+			case "link":
+				for _, attr := range t.Attr {
+					if attr.Key == "href" && strings.HasSuffix(attr.Val, ".css") {
+						data.cssLinks = append(data.cssLinks, attr.Val)
+						break
+					}
+				}
+			default:
 				for _, attr := range t.Attr {
 					if attr.Key == "class" {
 						if attr.Val == "hlavicka" {

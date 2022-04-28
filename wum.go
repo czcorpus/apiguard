@@ -7,12 +7,33 @@
 package main
 
 import (
+	"context"
+	"flag"
+	"fmt"
+	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	"wum/actions/lguide"
+	"wum/services"
+	"wum/services/lguide"
 
 	"github.com/gorilla/mux"
 )
+
+var (
+	version   string
+	buildDate string
+	gitCommit string
+)
+
+type ServiceOptions struct {
+	Host            string
+	Port            int
+	ReadTimeoutSecs int
+}
 
 func coreMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -22,10 +43,74 @@ func coreMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	serviceOpts := new(ServiceOptions)
+	flag.StringVar(&serviceOpts.Host, "host", "127.0.0.1", "Host to listen on")
+	flag.IntVar(&serviceOpts.Port, "port", 8080, "Port to listen on")
+	flag.IntVar(&serviceOpts.ReadTimeoutSecs, "read-timeout", 10, "Read timeout in seconds")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "WUM - WaG UJC middleware")
+		flag.PrintDefaults()
+	}
+	flag.Parse()
 
-	router := mux.NewRouter()
-	router.Use(coreMiddleware)
+	action := flag.Arg(0)
 
-	langGuideActions := lguide.LanguageGuideActions{}
-	router.HandleFunc("/language-guide", langGuideActions.Query).Methods(http.MethodPost)
+	version := services.VersionInfo{
+		Version:   version,
+		BuildDate: buildDate,
+		GitCommit: gitCommit,
+	}
+
+	switch action {
+	case "version":
+		fmt.Printf("wag-ujc-middleware %s\nbuild date: %s\nlast commit: %s\n",
+			version.Version, version.BuildDate, version.GitCommit)
+		return
+	case "start":
+		syscallChan := make(chan os.Signal, 1)
+		signal.Notify(syscallChan, os.Interrupt)
+		signal.Notify(syscallChan, syscall.SIGTERM)
+		exitEvent := make(chan os.Signal)
+
+		router := mux.NewRouter()
+		router.Use(coreMiddleware)
+
+		langGuideActions := lguide.LanguageGuideActions{}
+		router.HandleFunc("/language-guide", langGuideActions.Query)
+
+		go func() {
+			evt := <-syscallChan
+			exitEvent <- evt
+			close(exitEvent)
+		}()
+
+		log.Printf("INFO: starting to listen at %s:%d", serviceOpts.Host, serviceOpts.Port)
+		srv := &http.Server{
+			Handler:      router,
+			Addr:         fmt.Sprintf("%s:%d", serviceOpts.Host, serviceOpts.Port),
+			WriteTimeout: 10 * time.Second,
+			ReadTimeout:  time.Duration(serviceOpts.ReadTimeoutSecs) * time.Second,
+		}
+
+		go func() {
+			err := srv.ListenAndServe()
+			if err != nil {
+				log.Print(err)
+			}
+			syscallChan <- syscall.SIGTERM
+		}()
+
+		<-exitEvent
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		err := srv.Shutdown(ctx)
+		if err != nil {
+			log.Printf("Shutdown request error: %v", err)
+		}
+
+	default:
+		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
+		os.Exit(1)
+	}
+
 }

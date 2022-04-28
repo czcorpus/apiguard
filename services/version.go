@@ -4,13 +4,11 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package lguide
+package services
 
-import "net/http"
-
-type LanguageGuideActions struct {
-}
-
-func (a *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
-	w.Write([]byte("OK"))
+// VersionInfo provides a detailed information about the actual build
+type VersionInfo struct {
+	Version   string `json:"version"`
+	BuildDate string `json:"buildDate"`
+	GitCommit string `json:"gitCommit"`
 }

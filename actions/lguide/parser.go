@@ -50,11 +50,11 @@ type Transgressives struct {
 }
 
 type VerbData struct {
-	person         GrammarPerson
-	imperative     GrammarNumber
-	participle     Participle
-	transgressives Transgressives
-	verbalNoun     string
+	person        GrammarPerson
+	imperative    GrammarNumber
+	participle    Participle
+	transgressive Transgressives
+	verbalNoun    string
 }
 
 type ParsedData struct {
@@ -155,13 +155,13 @@ func (data *ParsedData) fillVerbData(rowName string, columnName string, value st
 	case "příčestí trpné":
 		data.verbData.participle.passive = value
 	case "přechodník přítomný, m.":
-		word = &data.verbData.transgressives.present.m
+		word = &data.verbData.transgressive.present.m
 	case "přechodník přítomný, ž. + s.":
-		word = &data.verbData.transgressives.present.zs
+		word = &data.verbData.transgressive.present.zs
 	case "přechodník minulý, m.":
-		word = &data.verbData.transgressives.past.m
+		word = &data.verbData.transgressive.past.m
 	case "přechodník minulý, ž. + s.":
-		word = &data.verbData.transgressives.past.zs
+		word = &data.verbData.transgressive.past.zs
 	case "verbální substantivum":
 		data.verbData.verbalNoun = value
 	default:

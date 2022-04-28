@@ -173,10 +173,10 @@ func TestParserVerbResponse(t *testing.T) {
 	assert.Equal(t, ans.verbData.imperative.plural, "dělejte")
 	assert.Equal(t, ans.verbData.participle.active, "dělal")
 	assert.Equal(t, ans.verbData.participle.passive, "dělán")
-	assert.Equal(t, ans.verbData.transgressives.present.m.singular, "dělaje")
-	assert.Equal(t, ans.verbData.transgressives.present.m.plural, "dělajíce")
-	assert.Equal(t, ans.verbData.transgressives.present.zs.singular, "dělajíc")
-	assert.Equal(t, ans.verbData.transgressives.present.zs.plural, "dělajíce")
+	assert.Equal(t, ans.verbData.transgressive.present.m.singular, "dělaje")
+	assert.Equal(t, ans.verbData.transgressive.present.m.plural, "dělajíce")
+	assert.Equal(t, ans.verbData.transgressive.present.zs.singular, "dělajíc")
+	assert.Equal(t, ans.verbData.transgressive.present.zs.plural, "dělajíce")
 	assert.Equal(t, ans.verbData.verbalNoun, "dělání")
 }
 

@@ -72,25 +72,25 @@ func (data *ParsedData) fillCase(rowName string, columnName string, value string
 	var word *GrammarNumber
 	switch rowName {
 	case "1. pád":
-		word = &data.GrammarCase.nominative
+		word = &data.GrammarCase.Nominative
 	case "2. pád":
-		word = &data.GrammarCase.genitive
+		word = &data.GrammarCase.Genitive
 	case "3. pád":
-		word = &data.GrammarCase.dative
+		word = &data.GrammarCase.Dative
 	case "4. pád":
-		word = &data.GrammarCase.accusative
+		word = &data.GrammarCase.Accusative
 	case "5. pád":
-		word = &data.GrammarCase.vocative
+		word = &data.GrammarCase.Vocative
 	case "6. pád":
-		word = &data.GrammarCase.locative
+		word = &data.GrammarCase.Locative
 	case "7. pád":
-		word = &data.GrammarCase.instrumental
+		word = &data.GrammarCase.Instrumental
 	}
 
 	if columnName == "jednotné číslo" {
-		word.singular = value
+		word.Singular = value
 	} else {
-		word.plural = value
+		word.Plural = value
 	}
 }
 
@@ -98,9 +98,9 @@ func (data *ParsedData) fillComparison(key string, value string) {
 
 	switch key {
 	case "2. stupeň":
-		data.Comparison.comparative = value
+		data.Comparison.Comparative = value
 	case "3. stupeň":
-		data.Comparison.superlative = value
+		data.Comparison.Superlative = value
 	}
 }
 
@@ -113,36 +113,36 @@ func (data *ParsedData) fillVerbData(rowName string, columnName string, value st
 
 	switch rowName {
 	case "1. osoba":
-		word = &data.Conjugation.person.first
+		word = &data.Conjugation.Person.First
 	case "2. osoba":
-		word = &data.Conjugation.person.second
+		word = &data.Conjugation.Person.Second
 	case "3. osoba":
-		word = &data.Conjugation.person.third
+		word = &data.Conjugation.Person.Third
 	case "rozkazovací způsob":
-		word = &data.Conjugation.imperative
+		word = &data.Conjugation.Imperative
 	case "příčestí činné":
-		data.Conjugation.participle.active = value
+		data.Conjugation.Participle.Active = value
 	case "příčestí trpné":
-		data.Conjugation.participle.passive = value
+		data.Conjugation.Participle.Passive = value
 	case "přechodník přítomný, m.":
-		word = &data.Conjugation.transgressive.present.m
+		word = &data.Conjugation.Transgressive.Present.M
 	case "přechodník přítomný, ž. + s.":
-		word = &data.Conjugation.transgressive.present.zs
+		word = &data.Conjugation.Transgressive.Present.ZS
 	case "přechodník minulý, m.":
-		word = &data.Conjugation.transgressive.past.m
+		word = &data.Conjugation.Transgressive.Past.M
 	case "přechodník minulý, ž. + s.":
-		word = &data.Conjugation.transgressive.past.zs
+		word = &data.Conjugation.Transgressive.Past.ZS
 	case "verbální substantivum":
-		data.Conjugation.verbalNoun = value
+		data.Conjugation.VerbalNoun = value
 	default:
 		panic("Unknown verb data!")
 	}
 
 	if word != nil {
 		if columnName == "jednotné číslo" {
-			word.singular = value
+			word.Singular = value
 		} else {
-			word.plural = value
+			word.Plural = value
 		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/signal"
@@ -43,6 +44,7 @@ func coreMiddleware(next http.Handler) http.Handler {
 }
 
 func main() {
+	rand.Seed(time.Now().Unix())
 	serviceOpts := new(ServiceOptions)
 	flag.StringVar(&serviceOpts.Host, "host", "127.0.0.1", "Host to listen on")
 	flag.IntVar(&serviceOpts.Port, "port", 8080, "Port to listen on")

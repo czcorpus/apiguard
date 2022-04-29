@@ -7,54 +7,50 @@
 package lguide
 
 type GrammarNumber struct {
-	singular string
-	plural   string
+	Singular string `json:"singular"`
+	Plural   string `json:"plural"`
 }
 
 type GrammarCase struct {
-	nominative   GrammarNumber
-	genitive     GrammarNumber
-	dative       GrammarNumber
-	accusative   GrammarNumber
-	vocative     GrammarNumber
-	locative     GrammarNumber
-	instrumental GrammarNumber
+	Nominative   GrammarNumber `json:"nominative"`
+	Genitive     GrammarNumber `json:"genitive"`
+	Dative       GrammarNumber `json:"dative"`
+	Accusative   GrammarNumber `json:"accusative"`
+	Vocative     GrammarNumber `json:"vocative"`
+	Locative     GrammarNumber `json:"locative"`
+	Instrumental GrammarNumber `json:"instrumental"`
 }
 
 type GrammarPerson struct {
-	first  GrammarNumber
-	second GrammarNumber
-	third  GrammarNumber
+	First  GrammarNumber `json:"first"`
+	Second GrammarNumber `json:"second"`
+	Third  GrammarNumber `json:"third"`
 }
 
 type Participle struct {
-	active  string
-	passive string
+	Active  string `json:"active"`
+	Passive string `json:"passive"`
 }
 
 type TransgressiveRow struct {
-	m  GrammarNumber
-	zs GrammarNumber
+	M  GrammarNumber `json:"m"`
+	ZS GrammarNumber `json:"zs"`
 }
 
 type Transgressives struct {
-	past    TransgressiveRow
-	present TransgressiveRow
+	Past    TransgressiveRow `json:"past"`
+	Present TransgressiveRow `json:"present"`
 }
 
 type Comparison struct {
-	comparative string
-	superlative string
-}
-
-type NounData struct {
-	grammarCase GrammarCase
+	Comparative string `json:"comparative"`
+	Superlative string `json:"superlative"`
 }
 
 type Conjugation struct {
-	person        GrammarPerson
-	imperative    GrammarNumber
-	participle    Participle
-	transgressive Transgressives
-	verbalNoun    string
+	Person        GrammarPerson  `json:"Person"`
+	Imperative    GrammarNumber  `json:"imperative"`
+	Participle    Participle     `json:"participle"`
+	Transgressive Transgressives `json:"transgressive"`
+	VerbalNoun    string         `json:"verbalNoun"`
 }

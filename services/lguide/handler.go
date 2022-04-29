@@ -9,65 +9,73 @@ package lguide
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
 	"time"
+	"wum/config"
 	"wum/services"
 )
 
-var (
-	// baseServiceURL = "https://prirucka.ujc.cas.cz"
-	baseServiceURL = "http://localhost:8081"
-	//targetServiceURLPath = "https://prirucka.ujc.cas.cz/?slovo=%s"
-	targetServiceURLPath = "/?slovo=%s"
-	//targetServicePingURLPath = "https://prirucka.ujc.cas.cz/?id=%s&action=single"
+const (
+	targetServiceURLPath     = "/?slovo=%s"
 	targetServicePingURLPath = "?id=%s&action=single"
 )
 
 type LanguageGuideActions struct {
+	conf *config.LanguageGuideConf
 }
 
-func createPingRequest(query string) {
+func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", lga.conf.ClientUserAgent)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
+}
+
+func (lga *LanguageGuideActions) createResourceRequest(url string) error {
 	time.Sleep(500 * time.Millisecond)
-	resp, err := http.Get(fmt.Sprintf(baseServiceURL+targetServicePingURLPath, query))
+	_, err := lga.createRequest(url)
 	if err != nil {
-		log.Print("ERROR: ", err)
+		return err
 	}
-	defer resp.Body.Close()
+	return nil
 }
 
-func createResourceRequest(url string) {
-	resp, err := http.Get(url)
-	if err != nil {
-		log.Print("ERROR: ", err)
-	}
-	defer resp.Body.Close()
-}
-
-func triggerDummyRequests(query string, data *ParsedData) {
+func (lga *LanguageGuideActions) triggerDummyRequests(query string, data *ParsedData) {
 	urls := make([]string, 0, len(data.CSSLinks)+len(data.Scripts)+1)
 	urls = append(urls, data.Scripts...)
 	urls = append(urls, data.CSSLinks...)
 	for i, u := range urls {
-		urls[i] = baseServiceURL + u
+		urls[i] = lga.conf.BaseURL + u
 	}
-	urls = append(urls, fmt.Sprintf(baseServiceURL+targetServicePingURLPath, query))
+	urls = append(urls, fmt.Sprintf(lga.conf.BaseURL+targetServicePingURLPath, query))
 	rand.Shuffle(len(urls), func(i, j int) {
 		urls[i], urls[j] = urls[j], urls[i]
 	})
 	for _, url := range urls {
 		go func(curl string) {
 			time.Sleep(time.Duration(time.Duration(math.RoundToEven(rand.NormFloat64()+1.5*1000)) * time.Millisecond))
-			createResourceRequest(curl)
+			lga.createResourceRequest(curl)
 		}(url)
 	}
 }
 
-func (a *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
+func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query().Get("q")
-	resp, err := http.Get(fmt.Sprintf(baseServiceURL+targetServiceURLPath, query))
+	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, query))
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
@@ -79,6 +87,12 @@ func (a *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	parsed := Parse(string(responseSrc))
-	triggerDummyRequests(query, parsed)
+	lga.triggerDummyRequests(query, parsed)
 	services.WriteJSONResponse(w, parsed)
+}
+
+func NewLanguageGuideActions(conf *config.LanguageGuideConf) *LanguageGuideActions {
+	return &LanguageGuideActions{
+		conf: conf,
+	}
 }

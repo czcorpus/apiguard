@@ -15,9 +15,11 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
+	"wum/config"
 	"wum/services"
 	"wum/services/lguide"
 
@@ -50,7 +52,11 @@ func main() {
 	flag.IntVar(&serviceOpts.Port, "port", 8080, "Port to listen on")
 	flag.IntVar(&serviceOpts.ReadTimeoutSecs, "read-timeout", 10, "Read timeout in seconds")
 	flag.Usage = func() {
-		fmt.Fprintf(os.Stderr, "WUM - WaG UJC middleware")
+		fmt.Fprintf(
+			os.Stderr,
+			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start config.json\n\t%s [options] version\n",
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+		)
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -69,6 +75,7 @@ func main() {
 			version.Version, version.BuildDate, version.GitCommit)
 		return
 	case "start":
+		conf := config.LoadConfig(flag.Arg(1))
 		syscallChan := make(chan os.Signal, 1)
 		signal.Notify(syscallChan, os.Interrupt)
 		signal.Notify(syscallChan, syscall.SIGTERM)
@@ -77,7 +84,7 @@ func main() {
 		router := mux.NewRouter()
 		router.Use(coreMiddleware)
 
-		langGuideActions := lguide.LanguageGuideActions{}
+		langGuideActions := lguide.NewLanguageGuideActions(&conf.LanguageGuide)
 		router.HandleFunc("/language-guide", langGuideActions.Query)
 
 		go func() {

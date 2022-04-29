@@ -48,7 +48,7 @@ type Comparison struct {
 }
 
 type Conjugation struct {
-	Person        GrammarPerson  `json:"Person"`
+	Person        GrammarPerson  `json:"person"`
 	Imperative    GrammarNumber  `json:"imperative"`
 	Participle    Participle     `json:"participle"`
 	Transgressive Transgressives `json:"transgressive"`

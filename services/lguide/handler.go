@@ -75,6 +75,10 @@ func (lga *LanguageGuideActions) triggerDummyRequests(query string, data *Parsed
 
 func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query().Get("q")
+	if query == "" {
+		services.WriteJSONErrorResponse(w, services.NewActionError("Empty query"), 422)
+		return
+	}
 	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, query))
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)

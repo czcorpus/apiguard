@@ -14,14 +14,14 @@ import (
 )
 
 type ParsedData struct {
-	Scripts     []string    `json:"scripts"`
-	CSSLinks    []string    `json:"cssLinks"`
-	Heading     string      `json:"heading"`
-	Division    string      `json:"division"`
-	Conjugation Conjugation `json:"conjugation"`
-	GrammarCase GrammarCase `json:"grammarCase"`
-	Comparison  Comparison  `json:"comparison"`
-	items       map[string]string
+	Scripts         []string    `json:"scripts"`
+	CSSLinks        []string    `json:"cssLinks"`
+	Heading         string      `json:"heading"`
+	Syllabification string      `json:"syllabification"`
+	Conjugation     Conjugation `json:"conjugation"`
+	GrammarCase     GrammarCase `json:"grammarCase"`
+	Comparison      Comparison  `json:"comparison"`
+	items           map[string]string
 }
 
 type TableCellSpan struct {
@@ -315,7 +315,7 @@ func Parse(text string) *ParsedData {
 							if strings.Contains(key_val[0], "stupeň") {
 								data.fillComparison(key_val[0], key_val[1])
 							} else if key_val[0] == "dělení" {
-								data.Division = key_val[1]
+								data.Syllabification = key_val[1]
 							} else {
 								data.items[key_val[0]] = key_val[1]
 							}

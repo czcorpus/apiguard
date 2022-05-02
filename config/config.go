@@ -12,15 +12,22 @@ import (
 	"log"
 )
 
+const (
+	DfltServerReadTimeoutSecs = 30
+	DftlServerPort            = 8080
+	DfltServerHost            = "localhost"
+)
+
 type LanguageGuideConf struct {
 	BaseURL         string `json:"baseURL"`
 	ClientUserAgent string `json:"clientUserAgent"`
 }
 
 type Configuration struct {
-	ServerHost    string            `json:"serverHost"`
-	ServerPort    int               `json:"serverPort"`
-	LanguageGuide LanguageGuideConf `json:"languageGuide"`
+	ServerHost            string            `json:"serverHost"`
+	ServerPort            int               `json:"serverPort"`
+	ServerReadTimeoutSecs int               `json:"serverReadTimeoutSecs"`
+	LanguageGuide         LanguageGuideConf `json:"languageGuide"`
 }
 
 func LoadConfig(path string) *Configuration {

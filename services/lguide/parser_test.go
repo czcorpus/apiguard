@@ -36,7 +36,7 @@ func TestParserNounResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "okolnost")
 
 	// položky
-	assert.Equal(t, ans.Division, "okol-nost")
+	assert.Equal(t, ans.Syllabification, "okol-nost")
 	assert.Contains(t, ans.items, "rod")
 	assert.Equal(t, ans.items["rod"], "ž.")
 
@@ -63,7 +63,7 @@ func TestParserAdjectiveResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "modrý")
 
 	// položky
-	assert.Equal(t, ans.Division, "mo-d-rý")
+	assert.Equal(t, ans.Syllabification, "mo-d-rý")
 	assert.Equal(t, ans.Comparison.Comparative, "modřejší")
 	assert.Equal(t, ans.Comparison.Superlative, "nejmodřejší")
 	assert.Contains(t, ans.items, "příklady")
@@ -76,7 +76,7 @@ func TestParserPronounResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "se")
 
 	// položky
-	assert.Equal(t, ans.Division, "se")
+	assert.Equal(t, ans.Syllabification, "se")
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "se, předl.")
 	assert.Contains(t, ans.items, "příklady")
@@ -106,7 +106,7 @@ func TestParserNumeralResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "sto")
 
 	// položky
-	assert.Equal(t, ans.Division, "sto")
+	assert.Equal(t, ans.Syllabification, "sto")
 	assert.Contains(t, ans.items, "rod")
 	assert.Equal(t, ans.items["rod"], "s.")
 	assert.Contains(t, ans.items, "příklady")
@@ -137,7 +137,7 @@ func TestParserVerbResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "dělat")
 
 	// položky
-	assert.Equal(t, ans.Division, "dě-lat")
+	assert.Equal(t, ans.Syllabification, "dě-lat")
 
 	// tabulka
 	assert.Equal(t, ans.Conjugation.Person.First.Singular, "dělám")
@@ -164,7 +164,7 @@ func TestParserAdverbResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "nahoře")
 
 	// položky
-	assert.Equal(t, ans.Division, "na-ho-ře")
+	assert.Equal(t, ans.Syllabification, "na-ho-ře")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "Spisy jsou uloženy nahoře na polici.(na rozdíl od: Stanul na hoře Říp/Řípu.)")
 }
@@ -175,7 +175,7 @@ func TestParserPrepositionResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "vedle")
 
 	// položky
-	assert.Equal(t, ans.Division, "ve-dle")
+	assert.Equal(t, ans.Syllabification, "ve-dle")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "stáli vedle sebe; dům vedle se bude opravovat")
 }
@@ -186,7 +186,7 @@ func TestParserConjunctionResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "nebo")
 
 	// položky
-	assert.Equal(t, ans.Division, "ne-bo")
+	assert.Equal(t, ans.Syllabification, "ne-bo")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(t, ans.items["příklady"], "Podejte nám zprávu písemně nebo telefonicky. Pospěšte si, nebo nám ujede vlak.")
 }
@@ -197,7 +197,7 @@ func TestParserParticleResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "ať")
 
 	// položky
-	assert.Equal(t, ans.Division, "ať")
+	assert.Equal(t, ans.Syllabification, "ať")
 	assert.Contains(t, ans.items, "příklady")
 	assert.Equal(
 		t,
@@ -212,7 +212,7 @@ func TestParserInterjectionResponse(t *testing.T) {
 	assert.Equal(t, ans.Heading, "haló")
 
 	// položky
-	assert.Equal(t, ans.Division, "ha-ló")
+	assert.Equal(t, ans.Syllabification, "ha-ló")
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "haló, s.")
 	assert.Contains(t, ans.items, "příklady")

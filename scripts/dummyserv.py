@@ -6,7 +6,7 @@ serverHost = 'localhost'
 serverPort = 8081
 
 RESULTS = {
-    'malý':     'adjective_response.html',
+    'modrý':    'adjective_response.html',
     'nahoře':   'adverb_response.html',
     'nebo':     'conjunction_response.html',
     'haló':     'interjection_response.html',

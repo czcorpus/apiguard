@@ -32,7 +32,7 @@ var (
 	gitCommit string
 )
 
-type ServiceOptions struct {
+type CmdOptions struct {
 	Host            string
 	Port            int
 	ReadTimeoutSecs int
@@ -45,12 +45,45 @@ func coreMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
+	if cmdConf.Host != "" {
+		origConf.ServerHost = cmdConf.Host
+
+	} else if origConf.ServerHost == "" {
+		log.Printf(
+			"WARNING: serverHost not specified, using default value %s",
+			config.DfltServerHost,
+		)
+		origConf.ServerHost = config.DfltServerHost
+	}
+	if cmdConf.Port != 0 {
+		origConf.ServerPort = cmdConf.Port
+
+	} else if origConf.ServerPort == 0 {
+		log.Printf(
+			"WARNING: serverPort not specified, using default value %d",
+			config.DftlServerPort,
+		)
+		origConf.ServerPort = config.DftlServerPort
+	}
+	if cmdConf.ReadTimeoutSecs != 0 {
+		origConf.ServerReadTimeoutSecs = cmdConf.ReadTimeoutSecs
+
+	} else if origConf.ServerReadTimeoutSecs == 0 {
+		log.Printf(
+			"WARNING: serverReadTimeoutSecs not specified, using default value %d",
+			config.DfltServerReadTimeoutSecs,
+		)
+		origConf.ServerReadTimeoutSecs = config.DfltServerReadTimeoutSecs
+	}
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
-	serviceOpts := new(ServiceOptions)
-	flag.StringVar(&serviceOpts.Host, "host", "127.0.0.1", "Host to listen on")
-	flag.IntVar(&serviceOpts.Port, "port", 8080, "Port to listen on")
-	flag.IntVar(&serviceOpts.ReadTimeoutSecs, "read-timeout", 10, "Read timeout in seconds")
+	cmdOpts := new(CmdOptions)
+	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on (overrides conf.json)")
+	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on (overrided conf.json)")
+	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Read timeout in seconds (overrides conf.json)")
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
@@ -76,6 +109,7 @@ func main() {
 		return
 	case "start":
 		conf := config.LoadConfig(flag.Arg(1))
+		overrideConfWithCmd(conf, cmdOpts)
 		syscallChan := make(chan os.Signal, 1)
 		signal.Notify(syscallChan, os.Interrupt)
 		signal.Notify(syscallChan, syscall.SIGTERM)
@@ -93,12 +127,12 @@ func main() {
 			close(exitEvent)
 		}()
 
-		log.Printf("INFO: starting to listen at %s:%d", serviceOpts.Host, serviceOpts.Port)
+		log.Printf("INFO: starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 		srv := &http.Server{
 			Handler:      router,
-			Addr:         fmt.Sprintf("%s:%d", serviceOpts.Host, serviceOpts.Port),
+			Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
 			WriteTimeout: 10 * time.Second,
-			ReadTimeout:  time.Duration(serviceOpts.ReadTimeoutSecs) * time.Second,
+			ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
 		}
 
 		go func() {

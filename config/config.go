@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"wum/botwatch"
 )
 
 const (
@@ -24,10 +25,11 @@ type LanguageGuideConf struct {
 }
 
 type Configuration struct {
-	ServerHost            string            `json:"serverHost"`
-	ServerPort            int               `json:"serverPort"`
-	ServerReadTimeoutSecs int               `json:"serverReadTimeoutSecs"`
-	LanguageGuide         LanguageGuideConf `json:"languageGuide"`
+	ServerHost            string                    `json:"serverHost"`
+	ServerPort            int                       `json:"serverPort"`
+	ServerReadTimeoutSecs int                       `json:"serverReadTimeoutSecs"`
+	Botwatch              botwatch.BotDetectionConf `json:"botwatch"`
+	LanguageGuide         LanguageGuideConf         `json:"languageGuide"`
 }
 
 func LoadConfig(path string) *Configuration {

@@ -67,10 +67,10 @@ func (wd *Watchdog[T]) Conf() BotDetectionConf {
 }
 
 func (wd *Watchdog[T]) analyze(rec T) {
-	srec, ok := wd.statistics[rec.GetClientIP().String()]
+	srec, ok := wd.statistics[rec.GetClientID()]
 	if !ok {
 		srec = &IPProcData{}
-		wd.statistics[rec.GetClientIP().String()] = srec
+		wd.statistics[rec.GetClientID()] = srec
 	}
 	// here we use Welford algorithm for online variance calculation
 	// more info: (https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm)
@@ -87,13 +87,13 @@ func (wd *Watchdog[T]) analyze(rec T) {
 			srec.m2 += delta * delta2
 		}
 		if srec.IsSuspicious(wd.conf) {
-			prev, ok := wd.suspicions[rec.GetClientIP().String()]
+			prev, ok := wd.suspicions[rec.GetClientID()]
 			if !ok || srec.ReqPerSecod() > prev.ReqPerSecod() {
-				wd.suspicions[rec.GetClientIP().String()] = *srec
+				wd.suspicions[rec.GetClientID()] = *srec
 			}
 		}
 		if srec.IsSuspicious(wd.conf) || rec.GetTime().Sub(srec.firstAccess) > time.Duration(wd.conf.WatchedTimeWindowSecs)*time.Second {
-			wd.statistics[rec.GetClientIP().String()] = &IPProcData{
+			wd.statistics[rec.GetClientID()] = &IPProcData{
 				firstAccess: rec.GetTime(),
 			}
 		}

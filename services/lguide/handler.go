@@ -12,6 +12,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"time"
 	"wum/config"
 	"wum/services"
@@ -79,7 +80,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		services.WriteJSONErrorResponse(w, services.NewActionError("Empty query"), 422)
 		return
 	}
-	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, query))
+	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return

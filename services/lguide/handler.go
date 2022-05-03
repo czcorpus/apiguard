@@ -14,7 +14,9 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+	"wum/botwatch"
 	"wum/config"
+	"wum/logging"
 	"wum/services"
 )
 
@@ -24,7 +26,8 @@ const (
 )
 
 type LanguageGuideActions struct {
-	conf *config.LanguageGuideConf
+	conf     config.LanguageGuideConf
+	watchdog *botwatch.Watchdog[*logging.LGRequestRecord]
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -81,6 +84,9 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		return
 	}
 	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
+
+	lga.watchdog.Add(logging.NewLGRequestRecord(req))
+
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
@@ -96,8 +102,12 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	services.WriteJSONResponse(w, parsed)
 }
 
-func NewLanguageGuideActions(conf *config.LanguageGuideConf) *LanguageGuideActions {
+func NewLanguageGuideActions(
+	conf config.LanguageGuideConf,
+	botConf botwatch.BotDetectionConf) *LanguageGuideActions {
+	wdog := botwatch.NewLGWatchdog(botConf)
 	return &LanguageGuideActions{
-		conf: conf,
+		conf:     conf,
+		watchdog: wdog,
 	}
 }

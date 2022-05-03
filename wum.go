@@ -78,6 +78,52 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 	}
 }
 
+func runService(cmdOpts *CmdOptions) {
+	conf := config.LoadConfig(flag.Arg(1))
+	overrideConfWithCmd(conf, cmdOpts)
+
+	syscallChan := make(chan os.Signal, 1)
+	signal.Notify(syscallChan, os.Interrupt)
+	signal.Notify(syscallChan, syscall.SIGTERM)
+	exitEvent := make(chan os.Signal)
+
+	router := mux.NewRouter()
+	router.Use(coreMiddleware)
+
+	langGuideActions := lguide.NewLanguageGuideActions(conf.LanguageGuide, conf.Botwatch)
+	router.HandleFunc("/language-guide", langGuideActions.Query)
+
+	go func() {
+		evt := <-syscallChan
+		exitEvent <- evt
+		close(exitEvent)
+	}()
+
+	log.Printf("INFO: starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
+	srv := &http.Server{
+		Handler:      router,
+		Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
+		WriteTimeout: 10 * time.Second,
+		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
+	}
+
+	go func() {
+		err := srv.ListenAndServe()
+		if err != nil {
+			log.Print(err)
+		}
+		syscallChan <- syscall.SIGTERM
+	}()
+
+	<-exitEvent
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	err := srv.Shutdown(ctx)
+	if err != nil {
+		log.Printf("Shutdown request error: %v", err)
+	}
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
@@ -108,49 +154,7 @@ func main() {
 			version.Version, version.BuildDate, version.GitCommit)
 		return
 	case "start":
-		conf := config.LoadConfig(flag.Arg(1))
-		overrideConfWithCmd(conf, cmdOpts)
-		syscallChan := make(chan os.Signal, 1)
-		signal.Notify(syscallChan, os.Interrupt)
-		signal.Notify(syscallChan, syscall.SIGTERM)
-		exitEvent := make(chan os.Signal)
-
-		router := mux.NewRouter()
-		router.Use(coreMiddleware)
-
-		langGuideActions := lguide.NewLanguageGuideActions(&conf.LanguageGuide)
-		router.HandleFunc("/language-guide", langGuideActions.Query)
-
-		go func() {
-			evt := <-syscallChan
-			exitEvent <- evt
-			close(exitEvent)
-		}()
-
-		log.Printf("INFO: starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
-		srv := &http.Server{
-			Handler:      router,
-			Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
-			WriteTimeout: 10 * time.Second,
-			ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
-		}
-
-		go func() {
-			err := srv.ListenAndServe()
-			if err != nil {
-				log.Print(err)
-			}
-			syscallChan <- syscall.SIGTERM
-		}()
-
-		<-exitEvent
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		err := srv.Shutdown(ctx)
-		if err != nil {
-			log.Printf("Shutdown request error: %v", err)
-		}
-
+		runService(cmdOpts)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

@@ -55,6 +55,38 @@ type MySQLAdapter struct {
 	conn *sql.DB
 }
 
+func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProcData, error) {
+	if maxAgeSecs <= 0 {
+		maxAgeSecs = 3600 * 24
+	}
+	result, err := c.conn.Query(
+		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
+		FROM client_stats
+		WHERE last_request >= current_timestamp - INTERVAL ? SECOND
+		ORDER BY cnt DESC LIMIT ?`, maxAgeSecs, maxItems)
+	if err != nil {
+		return []*botwatch.IPProcData{}, nil
+	}
+	ans := make([]*botwatch.IPProcData, 0, maxItems)
+	for result.Next() {
+		var item botwatch.IPProcData
+		scanErr := result.Scan(
+			&item.SessionID,
+			&item.ClientIP,
+			&item.Mean,
+			&item.M2,
+			&item.Count,
+			&item.FirstAccess,
+			&item.LastAccess,
+		)
+		if scanErr != nil {
+			return []*botwatch.IPProcData{}, nil
+		}
+		ans = append(ans, &item)
+	}
+	return ans, nil
+}
+
 func (c *MySQLAdapter) LoadStats(clientIP, sessionID string) (*botwatch.IPProcData, error) {
 	ans := c.conn.QueryRow(
 		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
@@ -139,7 +171,7 @@ func (c *MySQLAdapter) InsertTelemetry(
 	for _, rec := range data.Telemetry {
 		tt := time.UnixMilli(rec.TimestampMS)
 		_, err := transact.Exec(`
-			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
+			INSERT IGNORE INTO client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			clientIP, sessionID, rec.ActionName, rec.TileName, rec.IsMobile, rec.IsSubquery, tt,
 		)

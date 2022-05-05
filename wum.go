@@ -22,6 +22,7 @@ import (
 	"wum/config"
 	"wum/services"
 	"wum/services/lguide"
+	"wum/services/requests"
 	"wum/services/tstorage"
 	"wum/storage"
 
@@ -107,6 +108,9 @@ func runService(cmdOpts *CmdOptions) {
 
 	telemetryActions := tstorage.NewActions(db)
 	router.HandleFunc("/telemetry", telemetryActions.Store).Methods(http.MethodPost)
+
+	requestsActions := requests.NewActions(db)
+	router.HandleFunc("/requests", requestsActions.List)
 
 	go func() {
 		evt := <-syscallChan

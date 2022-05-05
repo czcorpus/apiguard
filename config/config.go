@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"wum/botwatch"
+	"wum/storage"
 )
 
 const (
@@ -29,6 +30,7 @@ type Configuration struct {
 	ServerPort            int                       `json:"serverPort"`
 	ServerReadTimeoutSecs int                       `json:"serverReadTimeoutSecs"`
 	Botwatch              botwatch.BotDetectionConf `json:"botwatch"`
+	Storage               storage.Conf              `json:"storage"`
 	LanguageGuide         LanguageGuideConf         `json:"languageGuide"`
 }
 

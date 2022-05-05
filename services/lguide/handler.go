@@ -18,6 +18,7 @@ import (
 	"wum/config"
 	"wum/logging"
 	"wum/services"
+	"wum/storage"
 )
 
 const (
@@ -104,8 +105,10 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 
 func NewLanguageGuideActions(
 	conf config.LanguageGuideConf,
-	botConf botwatch.BotDetectionConf) *LanguageGuideActions {
-	wdog := botwatch.NewLGWatchdog(botConf)
+	botConf botwatch.BotDetectionConf,
+	db *storage.MySQLAdapter,
+) *LanguageGuideActions {
+	wdog := botwatch.NewLGWatchdog(botConf, db)
 	return &LanguageGuideActions{
 		conf:     conf,
 		watchdog: wdog,

@@ -28,13 +28,32 @@ func (r *IPStats) ToJSON() ([]byte, error) {
 // --------------
 
 type IPProcData struct {
-	SessionID   string
-	ClientIP    string
-	Count       int
-	Mean        float64
-	M2          float64
-	FirstAccess time.Time
-	LastAccess  time.Time
+	SessionID   string    `json:"sessionID"`
+	ClientIP    string    `json:"clientIP"`
+	Count       int       `json:"count"`
+	Mean        float64   `json:"mean"`
+	M2          float64   `json:"-"`
+	FirstAccess time.Time `json:"firstAccess"`
+	LastAccess  time.Time `json:"lastAccess"`
+}
+
+func (ips *IPProcData) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&struct {
+		SessionID   string    `json:"sessionID"`
+		ClientIP    string    `json:"clientIP"`
+		Count       int       `json:"count"`
+		Mean        float64   `json:"mean"`
+		Stdev       float64   `json:"stdev"`
+		FirstAccess time.Time `json:"firstAccess"`
+		LastAccess  time.Time `json:"lastAccess"`
+	}{
+		SessionID:   ips.SessionID,
+		ClientIP:    ips.ClientIP,
+		Count:       ips.Count,
+		Stdev:       ips.Stdev(),
+		FirstAccess: ips.FirstAccess,
+		LastAccess:  ips.LastAccess,
+	})
 }
 
 func (ips *IPProcData) Variance() float64 {

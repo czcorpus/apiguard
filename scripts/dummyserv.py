@@ -1,6 +1,7 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 import os
+import sys
 
 serverHost = 'localhost'
 serverPort = 8081
@@ -35,6 +36,10 @@ class MyServer(BaseHTTPRequestHandler):
         self.wfile.write(b'other resource')
 
 if __name__ == '__main__':
+    if len(sys.argv) > 2:
+        serverPort = int(sys.argv[2])
+    if len(sys.argv) > 1:
+        serverHost = sys.argv[1]
     MyServer.base_path = os.path.join(os.path.dirname(__file__), '..', 'testdata', 'lguide')
     webServer = HTTPServer((serverHost, serverPort), MyServer)
     print(f'Server running at http://{serverHost}:{serverPort}')

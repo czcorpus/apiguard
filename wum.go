@@ -22,6 +22,8 @@ import (
 	"wum/config"
 	"wum/services"
 	"wum/services/lguide"
+	"wum/services/tstorage"
+	"wum/storage"
 
 	"github.com/gorilla/mux"
 )
@@ -87,11 +89,24 @@ func runService(cmdOpts *CmdOptions) {
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
 
+	db, err := storage.NewMySQLAdapter(
+		conf.Storage.Host,
+		conf.Storage.User,
+		conf.Storage.Password,
+		conf.Storage.Database,
+	)
+	if err != nil {
+		log.Fatal("FATAL: failed to connect to a storage database - ", err)
+	}
+
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
 
-	langGuideActions := lguide.NewLanguageGuideActions(conf.LanguageGuide, conf.Botwatch)
+	langGuideActions := lguide.NewLanguageGuideActions(conf.LanguageGuide, conf.Botwatch, db)
 	router.HandleFunc("/language-guide", langGuideActions.Query)
+
+	telemetryActions := tstorage.NewActions(db)
+	router.HandleFunc("/telemetry", telemetryActions.Store).Methods(http.MethodPost)
 
 	go func() {
 		evt := <-syscallChan
@@ -118,7 +133,7 @@ func runService(cmdOpts *CmdOptions) {
 	<-exitEvent
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err := srv.Shutdown(ctx)
+	err = srv.Shutdown(ctx)
 	if err != nil {
 		log.Printf("Shutdown request error: %v", err)
 	}

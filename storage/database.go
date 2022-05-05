@@ -171,7 +171,7 @@ func (c *MySQLAdapter) InsertTelemetry(
 	for _, rec := range data.Telemetry {
 		tt := time.UnixMilli(rec.TimestampMS)
 		_, err := transact.Exec(`
-			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
+			INSERT IGNORE INTO client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			clientIP, sessionID, rec.ActionName, rec.TileName, rec.IsMobile, rec.IsSubquery, tt,
 		)

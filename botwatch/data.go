@@ -28,18 +28,20 @@ func (r *IPStats) ToJSON() ([]byte, error) {
 // --------------
 
 type IPProcData struct {
-	count       int
-	mean        float64
-	m2          float64
-	firstAccess time.Time
-	lastAccess  time.Time
+	SessionID   string
+	ClientIP    string
+	Count       int
+	Mean        float64
+	M2          float64
+	FirstAccess time.Time
+	LastAccess  time.Time
 }
 
 func (ips *IPProcData) Variance() float64 {
-	if ips.count == 0 {
+	if ips.Count == 0 {
 		return 0
 	}
-	return ips.m2 / float64(ips.count)
+	return ips.M2 / float64(ips.Count)
 }
 
 func (ips *IPProcData) Stdev() float64 {
@@ -47,20 +49,20 @@ func (ips *IPProcData) Stdev() float64 {
 }
 
 func (ips *IPProcData) ReqPerSecod() float64 {
-	return float64(ips.count) / ips.lastAccess.Sub(ips.lastAccess).Seconds()
+	return float64(ips.Count) / ips.LastAccess.Sub(ips.LastAccess).Seconds()
 }
 
 func (ips *IPProcData) IsSuspicious(conf BotDetectionConf) bool {
-	return ips.Stdev()/ips.mean <= conf.RSDThreshold && ips.count >= conf.NumRequestsThreshold
+	return ips.Stdev()/ips.Mean <= conf.RSDThreshold && ips.Count >= conf.NumRequestsThreshold
 }
 
 func (ips *IPProcData) ToIPStats(ip string) IPStats {
 	return IPStats{
 		IP:           ip,
-		Mean:         ips.mean,
+		Mean:         ips.Mean,
 		Stdev:        ips.Stdev(),
-		Count:        ips.count,
-		FirstRequest: ips.firstAccess.Format(time.RFC3339),
-		LastRequest:  ips.lastAccess.Format(time.RFC3339),
+		Count:        ips.Count,
+		FirstRequest: ips.FirstAccess.Format(time.RFC3339),
+		LastRequest:  ips.LastAccess.Format(time.RFC3339),
 	}
 }

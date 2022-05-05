@@ -16,22 +16,28 @@ import (
 	"wum/logging"
 )
 
+type StoreHandler interface {
+	LoadStats(clientIP, sessionID string) (*IPProcData, error)
+	UpdateStats(data *IPProcData) error
+}
+
 type Watchdog[T logging.AnyRequestRecord] struct {
 	statistics     map[string]*IPProcData
 	suspicions     map[string]IPProcData
 	conf           BotDetectionConf
 	onlineAnalysis chan T
 	mutex          sync.Mutex
+	db             StoreHandler
 }
 
 func (wd *Watchdog[T]) PrintStatistics() string {
 	buff := strings.Builder{}
 	for ip, stats := range wd.statistics {
 		buff.WriteString(fmt.Sprintf("%v:\n", ip))
-		buff.WriteString(fmt.Sprintf("\tcount: %d\n", stats.count))
-		buff.WriteString(fmt.Sprintf("\tmean: %01.2f\n", stats.mean))
+		buff.WriteString(fmt.Sprintf("\tcount: %d\n", stats.Count))
+		buff.WriteString(fmt.Sprintf("\tmean: %01.2f\n", stats.Mean))
 		buff.WriteString(fmt.Sprintf("\tstdev: %01.2f\n", stats.Stdev()))
-		buff.WriteString(fmt.Sprintf("\trds: %01.2f\n", stats.Stdev()/stats.mean))
+		buff.WriteString(fmt.Sprintf("\trds: %01.2f\n", stats.Stdev()/stats.Mean))
 		buff.WriteString("\n")
 	}
 	return buff.String()
@@ -66,43 +72,47 @@ func (wd *Watchdog[T]) Conf() BotDetectionConf {
 	return wd.conf
 }
 
-func (wd *Watchdog[T]) analyze(rec T) {
+func (wd *Watchdog[T]) analyze(rec T) error {
 	srec, ok := wd.statistics[rec.GetClientID()]
 	if !ok {
-		srec = &IPProcData{}
+		var err error
+		srec, err = wd.db.LoadStats(rec.GetClientIP().String(), rec.GetSessionID())
+		if err != nil {
+			return err
+		}
 		wd.statistics[rec.GetClientID()] = srec
 	}
 	// here we use Welford algorithm for online variance calculation
 	// more info: (https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm)
-	if srec.lastAccess.IsZero() {
-		srec.firstAccess = rec.GetTime()
+	if srec.FirstAccess.IsZero() {
+		srec.FirstAccess = rec.GetTime()
+	}
+	srec.Count++
 
-	} else {
-		if rec.GetTime().Sub(srec.lastAccess) <= wd.maxLogRecordsDistance() {
-			srec.count++
-			timeDist := float64(rec.GetTime().Sub(srec.lastAccess).Milliseconds()) / 1000
-			delta := timeDist - srec.mean
-			srec.mean += delta / float64(srec.count)
-			delta2 := timeDist - srec.mean
-			srec.m2 += delta * delta2
-		}
-		if srec.IsSuspicious(wd.conf) {
-			prev, ok := wd.suspicions[rec.GetClientID()]
-			if !ok || srec.ReqPerSecod() > prev.ReqPerSecod() {
-				wd.suspicions[rec.GetClientID()] = *srec
-			}
-		}
-		if srec.IsSuspicious(wd.conf) || rec.GetTime().Sub(srec.firstAccess) > time.Duration(wd.conf.WatchedTimeWindowSecs)*time.Second {
-			wd.statistics[rec.GetClientID()] = &IPProcData{
-				firstAccess: rec.GetTime(),
-			}
-		}
+	// upgrade statistics iff the current access is close enough to the last access
+	if rec.GetTime().Sub(srec.LastAccess) <= wd.maxLogRecordsDistance() {
+		timeDist := float64(rec.GetTime().Sub(srec.LastAccess).Milliseconds()) / 1000
+		delta := timeDist - srec.Mean
+		srec.Mean += delta / float64(srec.Count)
+		delta2 := timeDist - srec.Mean
+		srec.M2 += delta * delta2
 	}
-	srec.lastAccess = rec.GetTime()
 	if srec.IsSuspicious(wd.conf) {
-		log.Print("WARNING: the record is suspicious")
+		log.Printf("WARNING: detected suspicious statistics for %v", srec)
+		prev, ok := wd.suspicions[rec.GetClientID()]
+		if !ok || srec.ReqPerSecod() > prev.ReqPerSecod() {
+			wd.suspicions[rec.GetClientID()] = *srec
+		}
 	}
-	log.Printf("DEBUG: upgraded statistics: %s", wd.PrintStatistics())
+	if srec.IsSuspicious(wd.conf) || rec.GetTime().Sub(srec.FirstAccess) > time.Duration(wd.conf.WatchedTimeWindowSecs)*time.Second {
+		wd.statistics[rec.GetClientID()] = &IPProcData{
+			FirstAccess: rec.GetTime(),
+		}
+	}
+	srec.LastAccess = rec.GetTime()
+	fmt.Println("ABOUT TO STORE >>>> ", srec)
+	fmt.Println("\t with count >>>> ", srec.Count)
+	return wd.db.UpdateStats(srec)
 }
 
 func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
@@ -115,17 +125,21 @@ func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
 	return ans
 }
 
-func NewLGWatchdog(conf BotDetectionConf) *Watchdog[*logging.LGRequestRecord] {
+func NewLGWatchdog(conf BotDetectionConf, db StoreHandler) *Watchdog[*logging.LGRequestRecord] {
 	analysis := make(chan *logging.LGRequestRecord)
 	wd := &Watchdog[*logging.LGRequestRecord]{
 		statistics:     make(map[string]*IPProcData),
 		suspicions:     make(map[string]IPProcData),
 		conf:           conf,
 		onlineAnalysis: analysis,
+		db:             db,
 	}
 	go func() {
 		for item := range analysis {
-			wd.analyze(item)
+			err := wd.analyze(item)
+			if err != nil {
+				log.Print("ERROR: ", err)
+			}
 		}
 	}()
 	return wd

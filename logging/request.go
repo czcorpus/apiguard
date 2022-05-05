@@ -15,6 +15,7 @@ import (
 )
 
 const (
+	WaGSessionName        = "wag.session"
 	MaxSessionValueLength = 64
 )
 
@@ -51,7 +52,7 @@ func (rr *LGRequestRecord) GetTime() time.Time {
 
 func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 	ip := extractClientIP(req)
-	session, err := req.Cookie("wag.session")
+	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
 	if err == nil {
 		sessionID = session.Value[:MaxSessionValueLength]

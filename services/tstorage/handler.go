@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"wum/logging"
 	"wum/services"
 	"wum/storage"
 	"wum/telemetry"
@@ -33,7 +34,32 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 			w, services.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
 
+	ip := logging.ExtractClientIP(req)
+	session, err := req.Cookie(logging.WaGSessionName)
+	var sessionID string
+	if err == nil {
+		sessionID = session.Value[:logging.MaxSessionValueLength]
+	}
+
 	log.Print("DEBUG: got telemetry payload: ", payload)
+
+	transact, err := a.db.StartTx()
+	if err != nil {
+		log.Print("ERROR: ", err)
+		return
+	}
+
+	err = a.db.InsertTelemetry(transact, sessionID, ip, payload)
+	if err != nil {
+		log.Print("ERROR: ", err)
+		a.db.RollbackTx(transact)
+		return
+	}
+
+	err = a.db.CommitTx(transact)
+	if err != nil {
+		log.Print("ERROR: ", err)
+	}
 
 }
 

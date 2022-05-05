@@ -105,13 +105,12 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 		}
 	}
 	if srec.IsSuspicious(wd.conf) || rec.GetTime().Sub(srec.FirstAccess) > time.Duration(wd.conf.WatchedTimeWindowSecs)*time.Second {
-		wd.statistics[rec.GetClientID()] = &IPProcData{
-			FirstAccess: rec.GetTime(),
-		}
+		srec.FirstAccess = rec.GetTime()
+		srec.Count = 0
+		srec.M2 = 0
+		srec.Mean = 0
 	}
 	srec.LastAccess = rec.GetTime()
-	fmt.Println("ABOUT TO STORE >>>> ", srec)
-	fmt.Println("\t with count >>>> ", srec.Count)
 	return wd.db.UpdateStats(srec)
 }
 

@@ -8,7 +8,6 @@ package storage
 
 import (
 	"database/sql"
-	"fmt"
 	"time"
 	"wum/botwatch"
 	"wum/telemetry"
@@ -59,18 +58,16 @@ type MySQLAdapter struct {
 
 func (c *MySQLAdapter) LoadStats(clientIP, sessionID string) (*botwatch.IPProcData, error) {
 	ans := c.conn.QueryRow(
-		`SELECT session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request
+		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
 		FROM client_stats WHERE session_id = ? AND client_ip = ?`,
 		sessionID, clientIP,
 	)
 	var data botwatch.IPProcData
 	scanErr := ans.Scan(&data.SessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
 	if ans.Err() != nil {
-		fmt.Println("RETURNING NIL____!!!!")
 		return nil, ans.Err()
 	}
 	if scanErr == sql.ErrNoRows {
-		fmt.Println("XXXX_______ NEW")
 		return &botwatch.IPProcData{
 			SessionID: sessionID,
 			ClientIP:  clientIP,
@@ -78,6 +75,9 @@ func (c *MySQLAdapter) LoadStats(clientIP, sessionID string) (*botwatch.IPProcDa
 			Mean:      0,
 			M2:        0,
 		}, nil
+
+	} else if scanErr != nil {
+		return nil, scanErr
 	}
 	return &data, nil
 }
@@ -90,7 +90,6 @@ func (c *MySQLAdapter) UpdateStats(
 		data.ClientIP, data.SessionID)
 	var cnt int
 	scanErr := curr.Scan(&cnt)
-	fmt.Println("++++++++++++++++ UPDATE STATS, exists? ", cnt, data.ClientIP, data.SessionID)
 	if curr.Err() != nil {
 		return curr.Err()
 
@@ -171,6 +170,7 @@ func NewMySQLAdapter(host, user, pass, dbName string) (*MySQLAdapter, error) {
 	conf.User = user
 	conf.Passwd = pass
 	conf.DBName = dbName
+	conf.ParseTime = true
 	db, err := sql.Open("mysql", conf.FormatDSN())
 	if err != nil {
 		return nil, err

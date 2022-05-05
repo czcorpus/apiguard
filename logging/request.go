@@ -14,6 +14,10 @@ import (
 	"time"
 )
 
+const (
+	maxSessionValueLength = 64
+)
+
 func extractClientIP(req *http.Request) string {
 	ip := req.Header.Get("x-forwarded-for")
 	fmt.Println("IP = ", ip)
@@ -25,7 +29,7 @@ func extractClientIP(req *http.Request) string {
 
 type LGRequestRecord struct {
 	IPAddress string
-	ClientID  string
+	SessionID string
 	Created   time.Time
 }
 
@@ -33,8 +37,12 @@ func (rr *LGRequestRecord) GetClientIP() net.IP {
 	return net.ParseIP(rr.IPAddress)
 }
 
+func (rr *LGRequestRecord) GetSessionID() string {
+	return rr.SessionID
+}
+
 func (rr *LGRequestRecord) GetClientID() string {
-	return fmt.Sprintf("%s#%s", rr.IPAddress, rr.ClientID)
+	return fmt.Sprintf("%s#%s", rr.IPAddress, rr.SessionID)
 }
 
 func (rr *LGRequestRecord) GetTime() time.Time {
@@ -43,16 +51,21 @@ func (rr *LGRequestRecord) GetTime() time.Time {
 
 func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 	ip := extractClientIP(req)
+	session, err := req.Cookie("wag.session")
+	var sessionID string
+	if err == nil {
+		sessionID = session.Value[:maxSessionValueLength]
+	}
 	return &LGRequestRecord{
 		IPAddress: ip,
-		ClientID:  fmt.Sprintf("%s#%s", ip, req.Header.Get("x-client-flag")),
+		SessionID: sessionID,
 		Created:   time.Now(),
 	}
 }
 
 type AnyRequestRecord interface {
 	GetClientIP() net.IP
-
+	GetSessionID() string
 	// GetClientID should return something more specific than IP (e.g. ip+fingerprint)
 	GetClientID() string
 	GetTime() time.Time

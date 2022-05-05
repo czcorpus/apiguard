@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	maxSessionValueLength = 64
+	MaxSessionValueLength = 64
 )
 
 func extractClientIP(req *http.Request) string {
@@ -54,7 +54,7 @@ func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 	session, err := req.Cookie("wag.session")
 	var sessionID string
 	if err == nil {
-		sessionID = session.Value[:maxSessionValueLength]
+		sessionID = session.Value[:MaxSessionValueLength]
 	}
 	return &LGRequestRecord{
 		IPAddress: ip,

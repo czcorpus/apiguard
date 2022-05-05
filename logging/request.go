@@ -19,7 +19,7 @@ const (
 	MaxSessionValueLength = 64
 )
 
-func extractClientIP(req *http.Request) string {
+func ExtractClientIP(req *http.Request) string {
 	ip := req.Header.Get("x-forwarded-for")
 	fmt.Println("IP = ", ip)
 	if ip != "" {
@@ -51,7 +51,7 @@ func (rr *LGRequestRecord) GetTime() time.Time {
 }
 
 func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
-	ip := extractClientIP(req)
+	ip := ExtractClientIP(req)
 	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
 	if err == nil {

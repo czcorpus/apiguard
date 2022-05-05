@@ -37,7 +37,6 @@ CREATE TABLE client_actions (
 	action_name VARCHAR(255),
 	is_mobile tinyint NOT NULL DEFAULT 0,
 	is_subquery tinyint NOT NULL DEFAULT 0,
-	PRIMARY KEY (session_id, client_ip, created),
 	FOREIGN KEY (session_id, client_ip) REFERENCES client_stats(session_id, client_ip)
 );
 
@@ -140,8 +139,8 @@ func (c *MySQLAdapter) InsertTelemetry(
 	for _, rec := range data.Telemetry {
 		tt := time.UnixMilli(rec.TimestampMS)
 		_, err := transact.Exec(`
-			INSERT INTO user_actions (client_ip, session_id, user_action, tile_name,
-				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?)`,
+			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
+				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			clientIP, sessionID, rec.ActionName, rec.TileName, rec.IsMobile, rec.IsSubquery, tt,
 		)
 		if err != nil {

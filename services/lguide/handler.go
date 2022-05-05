@@ -19,6 +19,7 @@ import (
 	"wum/logging"
 	"wum/services"
 	"wum/storage"
+	"wum/telemetry"
 )
 
 const (
@@ -29,6 +30,7 @@ const (
 type LanguageGuideActions struct {
 	conf     config.LanguageGuideConf
 	watchdog *botwatch.Watchdog[*logging.LGRequestRecord]
+	analyzer *telemetry.Analyzer
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -107,10 +109,12 @@ func NewLanguageGuideActions(
 	conf config.LanguageGuideConf,
 	botConf botwatch.BotDetectionConf,
 	db *storage.MySQLAdapter,
+	analyzer *telemetry.Analyzer,
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botConf, db)
 	return &LanguageGuideActions{
 		conf:     conf,
 		watchdog: wdog,
+		analyzer: analyzer,
 	}
 }

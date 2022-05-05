@@ -25,6 +25,7 @@ import (
 	"wum/services/requests"
 	"wum/services/tstorage"
 	"wum/storage"
+	"wum/telemetry"
 
 	"github.com/gorilla/mux"
 )
@@ -100,10 +101,16 @@ func runService(cmdOpts *CmdOptions) {
 		log.Fatal("FATAL: failed to connect to a storage database - ", err)
 	}
 
+	telemetryAnalyzer, err := telemetry.NewAnalyzer("counting") // TODO
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
 
-	langGuideActions := lguide.NewLanguageGuideActions(conf.LanguageGuide, conf.Botwatch, db)
+	langGuideActions := lguide.NewLanguageGuideActions(
+		conf.LanguageGuide, conf.Botwatch, db, telemetryAnalyzer)
 	router.HandleFunc("/language-guide", langGuideActions.Query)
 
 	telemetryActions := tstorage.NewActions(db)

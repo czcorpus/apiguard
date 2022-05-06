@@ -22,7 +22,6 @@ const (
 
 func ExtractClientIP(req *http.Request) string {
 	ip := req.Header.Get("x-forwarded-for")
-	fmt.Println("IP = ", ip)
 	if ip != "" {
 		return ip
 	}

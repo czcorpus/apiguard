@@ -30,7 +30,7 @@ func (a *Analyzer) Analyze(req *http.Request) (bool, error) {
 func NewAnalyzer(backendType string, db backend.StorageProvider) (*Analyzer, error) {
 	switch backendType {
 	case "counting":
-		return &Analyzer{backend: &counting.Analyzer{}}, nil
+		return &Analyzer{backend: counting.NewAnalyzer(db)}, nil
 	case "dumb":
 		return &Analyzer{backend: dumb.NewAnalyzer(db)}, nil
 	default:

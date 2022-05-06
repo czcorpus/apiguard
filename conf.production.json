@@ -9,6 +9,7 @@
         "botDefsPath": "",
         "watchedTimeWindowSecs": 30,
         "numRequestsThreshold": 10,
-        "rsdThreshold": 0.2
+        "rsdThreshold": 0.2,
+        "telemetryAnalyzer": "counting"
     }
 }

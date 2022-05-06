@@ -4,12 +4,14 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package telemetry
+package botwatch
 
 import (
 	"fmt"
 	"net/http"
+	"wum/telemetry/backend"
 	"wum/telemetry/backend/counting"
+	"wum/telemetry/backend/dumb"
 )
 
 type Backend interface {
@@ -21,10 +23,16 @@ type Analyzer struct {
 	backend Backend
 }
 
-func NewAnalyzer(backendType string) (*Analyzer, error) {
+func (a *Analyzer) Analyze(req *http.Request) (bool, error) {
+	return a.backend.Evaluate(req), nil // TODO
+}
+
+func NewAnalyzer(backendType string, db backend.StorageProvider) (*Analyzer, error) {
 	switch backendType {
 	case "counting":
 		return &Analyzer{backend: &counting.Analyzer{}}, nil
+	case "dumb":
+		return &Analyzer{backend: dumb.NewAnalyzer(db)}, nil
 	default:
 		return nil, fmt.Errorf("unknown analyzer backend %s", backendType)
 	}

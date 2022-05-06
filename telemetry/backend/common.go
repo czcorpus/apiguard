@@ -10,4 +10,5 @@ import "wum/telemetry"
 
 type StorageProvider interface {
 	LoadTelemetry(sessionID, clientIP string, maxAgeSecs int) ([]*telemetry.ActionRecord, error)
+	LoadCountingRules() ([]*telemetry.CountingRule, error)
 }

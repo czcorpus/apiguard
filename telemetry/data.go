@@ -7,6 +7,8 @@
 package telemetry
 
 type ActionRecord struct {
+	SessionID   string `json:"sessionID"`
+	ClientIP    string `json:"clientIP"`
 	ActionName  string `json:"actionName"`
 	IsMobile    bool   `json:"isMobile"`
 	IsSubquery  bool   `json:"isSubquery"`
@@ -15,5 +17,5 @@ type ActionRecord struct {
 }
 
 type Payload struct {
-	Telemetry []ActionRecord `json:"telemetry"`
+	Telemetry []*ActionRecord `json:"telemetry"`
 }

@@ -20,12 +20,7 @@ func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
 }
 
 func (a *Analyzer) Evaluate(req *http.Request) bool {
-	ip := logging.ExtractClientIP(req)
-	session, err := req.Cookie(logging.WaGSessionName)
-	var sessionID string
-	if err == nil {
-		sessionID = session.Value[:logging.MaxSessionValueLength]
-	}
+	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
 	return true
 }

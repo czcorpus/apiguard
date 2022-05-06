@@ -33,12 +33,10 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(
 			w, services.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
-
-	ip := logging.ExtractClientIP(req)
-	session, err := req.Cookie(logging.WaGSessionName)
-	var sessionID string
-	if err == nil {
-		sessionID = session.Value[:logging.MaxSessionValueLength]
+	ip, sessionID := logging.ExtractRequestIdentifiers(req)
+	for _, item := range payload.Telemetry {
+		item.ClientIP = ip
+		item.SessionID = sessionID
 	}
 
 	log.Print("DEBUG: got telemetry payload: ", payload)
@@ -49,7 +47,7 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	err = a.db.InsertTelemetry(transact, sessionID, ip, payload)
+	err = a.db.InsertTelemetry(transact, payload)
 	if err != nil {
 		log.Print("ERROR: ", err)
 		a.db.RollbackTx(transact)

@@ -42,6 +42,14 @@ CREATE TABLE client_actions (
 	FOREIGN KEY (session_id, client_ip) REFERENCES client_stats(session_id, client_ip)
 );
 
+CREATE TABLE client_counting_rules (
+	tile_name VARCHAR(255),
+	action_name VARCHAR(255) NOT NULL,
+	count FLOAT NOT NULL DEFAULT 1,
+	tolerance FLOAT NOT NULL DEFAULT 0,
+	PRIMARY KEY (tile_name, action_name)
+);
+
 
 
 */
@@ -197,6 +205,23 @@ func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int)
 			&item.ClientIP, &item.SessionID, &item.ActionName, &item.TileName,
 			&item.IsMobile, &item.IsSubquery, &item.TimestampMS,
 		)
+		ans = append(ans, &item)
+	}
+	return ans, nil
+}
+
+func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {
+	qAns, err := c.conn.Query(
+		`SELECT tile_name, action_name, count, tolerance
+		FROM client_counting_rules`,
+	)
+	if err != nil {
+		return []*telemetry.CountingRule{}, err
+	}
+	ans := make([]*telemetry.CountingRule, 0, 10)
+	for qAns.Next() {
+		var item telemetry.CountingRule
+		qAns.Scan(&item.TileName, &item.ActionName, &item.Count, &item.Tolerance)
 		ans = append(ans, &item)
 	}
 	return ans, nil

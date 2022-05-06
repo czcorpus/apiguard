@@ -19,3 +19,10 @@ type ActionRecord struct {
 type Payload struct {
 	Telemetry []*ActionRecord `json:"telemetry"`
 }
+
+type CountingRule struct {
+	TileName   string  `json:"tileName"`
+	ActionName string  `json:"actionName"`
+	Count      float32 `json:"count"`
+	Tolerance  float32 `json:"tolerance"`
+}

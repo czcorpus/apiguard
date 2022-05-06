@@ -39,8 +39,6 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 		item.SessionID = sessionID
 	}
 
-	log.Print("DEBUG: got telemetry payload: ", payload)
-
 	transact, err := a.db.StartTx()
 	if err != nil {
 		log.Print("ERROR: ", err)

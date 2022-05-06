@@ -30,6 +30,7 @@ CREATE TABLE client_stats (
 );
 
 CREATE TABLE client_actions (
+	id INT NOT NULL auto_increment,
 	session_id VARCHAR(64),
 	client_ip VARCHAR(45),
 	created datetime NOT NULL,
@@ -37,6 +38,7 @@ CREATE TABLE client_actions (
 	action_name VARCHAR(255),
 	is_mobile tinyint NOT NULL DEFAULT 0,
 	is_subquery tinyint NOT NULL DEFAULT 0,
+	PRIMARY KEY (id),
 	FOREIGN KEY (session_id, client_ip) REFERENCES client_stats(session_id, client_ip)
 );
 
@@ -162,24 +164,45 @@ func (c *MySQLAdapter) UpdateStats(
 	}
 }
 
-func (c *MySQLAdapter) InsertTelemetry(
-	transact *sql.Tx,
-	sessionID string,
-	clientIP string,
-	data telemetry.Payload,
-) error {
+func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) error {
 	for _, rec := range data.Telemetry {
 		tt := time.UnixMilli(rec.TimestampMS)
 		_, err := transact.Exec(`
-			INSERT IGNORE INTO client_actions (client_ip, session_id, action_name, tile_name,
+			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			clientIP, sessionID, rec.ActionName, rec.TileName, rec.IsMobile, rec.IsSubquery, tt,
+			rec.ClientIP, rec.SessionID, rec.ActionName, rec.TileName, rec.IsMobile,
+			rec.IsSubquery, tt,
 		)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string) ([]*telemetry.ActionRecord, error) {
+	qAns, err := c.conn.Query(
+		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created
+		FROM client_actions WHERE client_ip = ? AND session_id = ?`,
+		clientIP, sessionID,
+	)
+	if err != nil {
+		return []*telemetry.ActionRecord{}, err
+	}
+	ans := make([]*telemetry.ActionRecord, 0, 100)
+	for qAns.Next() {
+		var item telemetry.ActionRecord
+		qAns.Scan(
+			&item.ClientIP, &item.SessionID, &item.ActionName, &item.TileName,
+			&item.IsMobile, &item.IsSubquery, &item.TimestampMS,
+		)
+		ans = append(ans, &item)
+	}
+	return ans, nil
+}
+
+func (c *MySQLAdapter) CleanOldTelemetry(sessionID, clientIP string, maxAgeSecs int) {
+	// TODO implement this
 }
 
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {

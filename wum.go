@@ -19,13 +19,13 @@ import (
 	"syscall"
 	"time"
 
+	"wum/botwatch"
 	"wum/config"
 	"wum/services"
 	"wum/services/lguide"
 	"wum/services/requests"
 	"wum/services/tstorage"
 	"wum/storage"
-	"wum/telemetry"
 
 	"github.com/gorilla/mux"
 )
@@ -101,7 +101,10 @@ func runService(cmdOpts *CmdOptions) {
 		log.Fatal("FATAL: failed to connect to a storage database - ", err)
 	}
 
-	telemetryAnalyzer, err := telemetry.NewAnalyzer("counting") // TODO
+	telemetryAnalyzer, err := botwatch.NewAnalyzer(
+		conf.Botwatch.TelemetryAnalyzer,
+		db,
+	)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
 	}

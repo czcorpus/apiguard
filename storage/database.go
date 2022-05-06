@@ -180,11 +180,12 @@ func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload)
 	return nil
 }
 
-func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string) ([]*telemetry.ActionRecord, error) {
+func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int) ([]*telemetry.ActionRecord, error) {
 	qAns, err := c.conn.Query(
 		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created
-		FROM client_actions WHERE client_ip = ? AND session_id = ?`,
-		clientIP, sessionID,
+		FROM client_actions
+		WHERE client_ip = ? AND session_id = ? AND created >= current_timestamp - INTERVAL ? SECOND`,
+		clientIP, sessionID, maxAgeSecs,
 	)
 	if err != nil {
 		return []*telemetry.ActionRecord{}, err

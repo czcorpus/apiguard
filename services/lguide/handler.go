@@ -9,6 +9,7 @@ package lguide
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -19,7 +20,6 @@ import (
 	"wum/logging"
 	"wum/services"
 	"wum/storage"
-	"wum/telemetry"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 type LanguageGuideActions struct {
 	conf     config.LanguageGuideConf
 	watchdog *botwatch.Watchdog[*logging.LGRequestRecord]
-	analyzer *telemetry.Analyzer
+	analyzer *botwatch.Analyzer
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -86,6 +86,18 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		services.WriteJSONErrorResponse(w, services.NewActionError("Empty query"), 422)
 		return
 	}
+
+	// handle bots
+	isLegit, err := lga.analyzer.Analyze(req)
+	if err != nil {
+		log.Print("ERROR: failed to analyze client ", err)
+	}
+	if !isLegit {
+		// TODO wait some more time
+		log.Print("Suspicious client detected - let's wait a few seconds")
+		time.Sleep(time.Duration(5) * time.Second)
+	}
+
 	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))
@@ -109,7 +121,7 @@ func NewLanguageGuideActions(
 	conf config.LanguageGuideConf,
 	botConf botwatch.BotDetectionConf,
 	db *storage.MySQLAdapter,
-	analyzer *telemetry.Analyzer,
+	analyzer *botwatch.Analyzer,
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botConf, db)
 	return &LanguageGuideActions{

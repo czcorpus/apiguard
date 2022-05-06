@@ -26,4 +26,6 @@ type BotDetectionConf struct {
 	// RSDThreshold is a relative standard deviation (aka Coefficient of variation)
 	// threshold of subsequent request intervals considered as bot-like
 	RSDThreshold float64 `json:"rsdThreshold"`
+
+	TelemetryAnalyzer string `json:"telemetryAnalyzer"`
 }

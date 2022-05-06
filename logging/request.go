@@ -8,6 +8,7 @@ package logging
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -62,6 +63,23 @@ func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 		SessionID: sessionID,
 		Created:   time.Now(),
 	}
+}
+
+func ExtractRequestIdentifiers(req *http.Request) (string, string) {
+	ip := ExtractClientIP(req)
+	session, err := req.Cookie(WaGSessionName)
+	var sessionID string
+	if err == nil {
+		sessionID = session.Value[:MaxSessionValueLength]
+
+	} else if err == http.ErrNoCookie {
+		sessionID = "-"
+
+	} else {
+		sessionID = "xxx"
+		log.Print("WARNING: failed to fetch session cookie - ", err)
+	}
+	return ip, sessionID
 }
 
 type AnyRequestRecord interface {

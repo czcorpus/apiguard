@@ -8,7 +8,6 @@ package storage
 
 import (
 	"database/sql"
-	"time"
 	"wum/botwatch"
 	"wum/telemetry"
 
@@ -24,8 +23,8 @@ CREATE TABLE client_stats (
 	mean FLOAT NOT NULL,
 	m2 FLOAT NOT NULL,
 	stdev FLOAT NOT NULL,
-	first_request datetime NOT NULL,
-	last_request datetime NOT NULL,
+	first_request datetime(3) NOT NULL,
+	last_request datetime(3) NOT NULL,
 	PRIMARY KEY (session_id, client_ip)
 );
 
@@ -33,18 +32,19 @@ CREATE TABLE client_actions (
 	id INT NOT NULL auto_increment,
 	session_id VARCHAR(64),
 	client_ip VARCHAR(45),
-	created datetime NOT NULL,
+	created datetime(3) NOT NULL,
 	tile_name VARCHAR(255),
 	action_name VARCHAR(255),
 	is_mobile tinyint NOT NULL DEFAULT 0,
 	is_subquery tinyint NOT NULL DEFAULT 0,
+	training_flag TINYINT, -- marks training data (1 = legit usage, 0 = bot usage, NULL - not training data)
 	PRIMARY KEY (id),
 	FOREIGN KEY (session_id, client_ip) REFERENCES client_stats(session_id, client_ip)
 );
 
 CREATE TABLE client_counting_rules (
-	tile_name VARCHAR(255),
-	action_name VARCHAR(255) NOT NULL,
+	tile_name VARCHAR(63),
+	action_name VARCHAR(127) NOT NULL,
 	count FLOAT NOT NULL DEFAULT 1,
 	tolerance FLOAT NOT NULL DEFAULT 0,
 	PRIMARY KEY (tile_name, action_name)
@@ -174,12 +174,11 @@ func (c *MySQLAdapter) UpdateStats(
 
 func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) error {
 	for _, rec := range data.Telemetry {
-		tt := time.UnixMilli(rec.TimestampMS)
 		_, err := transact.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			rec.ClientIP, rec.SessionID, rec.ActionName, rec.TileName, rec.IsMobile,
-			rec.IsSubquery, tt,
+			rec.IsSubquery, rec.Created,
 		)
 		if err != nil {
 			return err
@@ -192,7 +191,8 @@ func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int)
 	qAns, err := c.conn.Query(
 		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created
 		FROM client_actions
-		WHERE client_ip = ? AND session_id = ? AND created >= current_timestamp - INTERVAL ? SECOND`,
+		WHERE client_ip = ? AND session_id = ? AND created >= current_timestamp - INTERVAL ? SECOND
+		ORDER BY id ASC`,
 		clientIP, sessionID, maxAgeSecs,
 	)
 	if err != nil {
@@ -203,7 +203,7 @@ func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int)
 		var item telemetry.ActionRecord
 		qAns.Scan(
 			&item.ClientIP, &item.SessionID, &item.ActionName, &item.TileName,
-			&item.IsMobile, &item.IsSubquery, &item.TimestampMS,
+			&item.IsMobile, &item.IsSubquery, &item.Created,
 		)
 		ans = append(ans, &item)
 	}

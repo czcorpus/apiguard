@@ -11,11 +11,24 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 	"wum/logging"
 	"wum/services"
 	"wum/storage"
 	"wum/telemetry"
 )
+
+type actionRecord struct {
+	ActionName  string `json:"actionName"`
+	IsMobile    bool   `json:"isMobile"`
+	IsSubquery  bool   `json:"isSubquery"`
+	TileName    string `json:"tileName"`
+	TimestampMS int64  `json:"timestamp"`
+}
+
+type payload struct {
+	Telemetry []*actionRecord `json:"telemetry"`
+}
 
 type Actions struct {
 	db *storage.MySQLAdapter
@@ -27,16 +40,26 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(
 			w, services.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
-	var payload telemetry.Payload
-	err = json.Unmarshal(rawPayload, &payload)
+	var payloadTmp payload
+	err = json.Unmarshal(rawPayload, &payloadTmp)
 	if err != nil {
 		services.WriteJSONErrorResponse(
 			w, services.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	for _, item := range payload.Telemetry {
-		item.ClientIP = ip
-		item.SessionID = sessionID
+	payload := telemetry.Payload{
+		Telemetry: make([]*telemetry.ActionRecord, len(payloadTmp.Telemetry)),
+	}
+	for i, item := range payloadTmp.Telemetry {
+		payload.Telemetry[i] = &telemetry.ActionRecord{
+			SessionID:  sessionID,
+			ClientIP:   ip,
+			ActionName: item.ActionName,
+			IsMobile:   item.IsMobile,
+			IsSubquery: item.IsSubquery,
+			TileName:   item.TileName,
+			Created:    time.UnixMilli(item.TimestampMS),
+		}
 	}
 
 	transact, err := a.db.StartTx()

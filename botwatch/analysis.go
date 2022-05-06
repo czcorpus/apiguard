@@ -12,6 +12,7 @@ import (
 	"wum/telemetry/backend"
 	"wum/telemetry/backend/counting"
 	"wum/telemetry/backend/dumb"
+	"wum/telemetry/backend/neural"
 )
 
 type Backend interface {
@@ -33,6 +34,8 @@ func NewAnalyzer(backendType string, db backend.StorageProvider) (*Analyzer, err
 		return &Analyzer{backend: counting.NewAnalyzer(db)}, nil
 	case "dumb":
 		return &Analyzer{backend: dumb.NewAnalyzer(db)}, nil
+	case "neural":
+		return &Analyzer{backend: neural.NewAnalyzer(db)}, nil
 	default:
 		return nil, fmt.Errorf("unknown analyzer backend %s", backendType)
 	}

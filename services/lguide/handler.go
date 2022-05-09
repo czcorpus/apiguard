@@ -28,9 +28,10 @@ const (
 )
 
 type LanguageGuideActions struct {
-	conf     config.LanguageGuideConf
-	watchdog *botwatch.Watchdog[*logging.LGRequestRecord]
-	analyzer *botwatch.Analyzer
+	conf            config.LanguageGuideConf
+	readTimeoutSecs int
+	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
+	analyzer        *botwatch.Analyzer
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -81,26 +82,35 @@ func (lga *LanguageGuideActions) triggerDummyRequests(query string, data *Parsed
 }
 
 func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
+	lga.watchdog.Add(logging.NewLGRequestRecord(req))
+
 	query := req.URL.Query().Get("q")
 	if query == "" {
 		services.WriteJSONErrorResponse(w, services.NewActionError("Empty query"), 422)
 		return
 	}
 
-	// handle bots
-	isLegit, err := lga.analyzer.Analyze(req)
+	respDelay, err := lga.analyzer.CalcDelay(req)
 	if err != nil {
+		services.WriteJSONErrorResponse(
+			w,
+			services.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
 		log.Print("ERROR: failed to analyze client ", err)
+		return
 	}
-	if !isLegit {
-		// TODO wait some more time
-		log.Print("Suspicious client detected - let's wait a few seconds")
-		time.Sleep(time.Duration(5) * time.Second)
+	log.Printf("Client is going to wait for %v", respDelay)
+	if respDelay.Seconds() >= float64(lga.readTimeoutSecs) {
+		services.WriteJSONErrorResponse(
+			w,
+			services.NewActionError("Service overloaded"),
+			http.StatusServiceUnavailable,
+		)
+		return
 	}
-
+	time.Sleep(respDelay)
 	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
-
-	lga.watchdog.Add(logging.NewLGRequestRecord(req))
 
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
@@ -119,14 +129,16 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 
 func NewLanguageGuideActions(
 	conf config.LanguageGuideConf,
+	readTimeoutSecs int,
 	botConf botwatch.BotDetectionConf,
 	db *storage.MySQLAdapter,
 	analyzer *botwatch.Analyzer,
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botConf, db)
 	return &LanguageGuideActions{
-		conf:     conf,
-		watchdog: wdog,
-		analyzer: analyzer,
+		conf:            conf,
+		readTimeoutSecs: readTimeoutSecs,
+		watchdog:        wdog,
+		analyzer:        analyzer,
 	}
 }

@@ -6,9 +6,14 @@
 
 package backend
 
-import "wum/telemetry"
+import (
+	"errors"
+	"wum/telemetry"
+)
 
 type StorageProvider interface {
 	LoadTelemetry(sessionID, clientIP string, maxAgeSecs int) ([]*telemetry.ActionRecord, error)
 	LoadCountingRules() ([]*telemetry.CountingRule, error)
 }
+
+var ErrUnknownClient = errors.New("unkown client")

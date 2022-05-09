@@ -9,6 +9,7 @@ package storage
 import (
 	"database/sql"
 	"wum/botwatch"
+	"wum/logging"
 	"wum/telemetry"
 
 	"github.com/go-sql-driver/mysql"
@@ -111,6 +112,32 @@ func (c *MySQLAdapter) LoadStats(clientIP, sessionID string) (*botwatch.IPProcDa
 	if scanErr == sql.ErrNoRows {
 		return &botwatch.IPProcData{
 			SessionID: sessionID,
+			ClientIP:  clientIP,
+			Count:     0,
+			Mean:      0,
+			M2:        0,
+		}, nil
+
+	} else if scanErr != nil {
+		return nil, scanErr
+	}
+	return &data, nil
+}
+
+func (c *MySQLAdapter) LoadIPStats(clientIP string) (*botwatch.IPProcData, error) {
+	ans := c.conn.QueryRow(
+		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
+		FROM client_stats WHERE client_ip = ?`,
+		clientIP,
+	)
+	var data botwatch.IPProcData
+	scanErr := ans.Scan(&data.SessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
+	if ans.Err() != nil {
+		return nil, ans.Err()
+	}
+	if scanErr == sql.ErrNoRows {
+		return &botwatch.IPProcData{
+			SessionID: logging.EmptySessionIDPlaceholder,
 			ClientIP:  clientIP,
 			Count:     0,
 			Mean:      0,

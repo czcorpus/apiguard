@@ -29,7 +29,7 @@ func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
 
 }
 
-func (a *Analyzer) Evaluate(req *http.Request) bool {
+func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
 	data, err := a.db.LoadTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry)
@@ -45,9 +45,12 @@ func (a *Analyzer) Evaluate(req *http.Request) bool {
 		}
 	}
 	if err != nil {
-		log.Print("ERROR: ", err) // TODO return error
+		return 0, err
 	}
-	return len(data) > 0
+	if len(data) == 0 {
+		return 0, backend.ErrUnknownClient
+	}
+	return 1, nil
 }
 
 func NewAnalyzer(db backend.StorageProvider) *Analyzer {

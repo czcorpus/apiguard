@@ -104,6 +104,7 @@ func runService(cmdOpts *CmdOptions) {
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		conf.Botwatch.TelemetryAnalyzer,
 		db,
+		db,
 	)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
@@ -113,7 +114,7 @@ func runService(cmdOpts *CmdOptions) {
 	router.Use(coreMiddleware)
 
 	langGuideActions := lguide.NewLanguageGuideActions(
-		conf.LanguageGuide, conf.Botwatch, db, telemetryAnalyzer)
+		conf.LanguageGuide, conf.ServerReadTimeoutSecs, conf.Botwatch, db, telemetryAnalyzer)
 	router.HandleFunc("/language-guide", langGuideActions.Query)
 
 	telemetryActions := tstorage.NewActions(db)

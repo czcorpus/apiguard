@@ -7,6 +7,7 @@
 package neural
 
 import (
+	"log"
 	"math"
 )
 
@@ -26,5 +27,8 @@ func calculateEntropy(interactions []*NormalizedInteraction, actionName string) 
 		p := float64(count) / float64(totalCount)
 		entropy -= p * math.Log(p)
 	}
+	log.Printf("DEBUG: `%s` entropy = %f", actionName, entropy)
+	log.Printf("\tCorresponding uniform entropy = %f", -math.Log(1/float64(totalCount)))
+	log.Printf("\tCorresponding uniform entropy per interaction = %f", -math.Log(1/(float64(totalCount)/float64(len(interactions)))))
 	return
 }

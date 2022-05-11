@@ -7,6 +7,7 @@
 package lguide
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -18,6 +19,7 @@ import (
 	"wum/botwatch"
 	"wum/config"
 	"wum/logging"
+	"wum/reqcache"
 	"wum/services"
 	"wum/storage"
 )
@@ -32,10 +34,14 @@ type LanguageGuideActions struct {
 	readTimeoutSecs int
 	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
 	analyzer        *botwatch.Analyzer
+	cache           services.Cache
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
-	client := &http.Client{}
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+	client := &http.Client{Transport: transport}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", err
@@ -51,6 +57,41 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 		return "", err
 	}
 	return string(body), nil
+}
+
+func (lga *LanguageGuideActions) createMainRequest(url string) (string, error) {
+	cachedResult, err := lga.cache.Get(url)
+	if err == reqcache.ErrCacheMiss {
+		transport := &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		client := &http.Client{Transport: transport}
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("User-Agent", lga.conf.ClientUserAgent)
+		resp, err := client.Do(req)
+		if err != nil {
+			return "", err
+		}
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+		sbody := string(body)
+		err = lga.cache.Set(url, sbody)
+		if err != nil {
+			return "", err
+		}
+		return sbody, nil
+
+	} else if err != nil {
+		return "", err
+	}
+	return cachedResult, nil
+
 }
 
 func (lga *LanguageGuideActions) createResourceRequest(url string) error {
@@ -110,19 +151,19 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		return
 	}
 	time.Sleep(respDelay)
-	resp, err := http.Get(fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
+
+	responseHTML, err := lga.createMainRequest(
+		fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
 
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	defer resp.Body.Close()
-	responseSrc, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
+	fmt.Println("RESP HTML: ", responseHTML[:100])
+	parsed := Parse(responseHTML)
+	if parsed.Error != nil {
+		services.WriteJSONErrorResponse(w, services.NewActionErrorFrom(err), http.StatusInternalServerError)
 	}
-	parsed := Parse(string(responseSrc))
 	lga.triggerDummyRequests(query, parsed)
 	services.WriteJSONResponse(w, parsed)
 }
@@ -133,6 +174,7 @@ func NewLanguageGuideActions(
 	botConf botwatch.BotDetectionConf,
 	db *storage.MySQLAdapter,
 	analyzer *botwatch.Analyzer,
+	cache services.Cache,
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botConf, db)
 	return &LanguageGuideActions{
@@ -140,5 +182,6 @@ func NewLanguageGuideActions(
 		readTimeoutSecs: readTimeoutSecs,
 		watchdog:        wdog,
 		analyzer:        analyzer,
+		cache:           cache,
 	}
 }

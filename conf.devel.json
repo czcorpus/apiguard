@@ -12,5 +12,9 @@
         "numRequestsThreshold": 10,
         "rsdThreshold": 0.2,
         "telemetryAnalyzer": "dumb"
+    },
+    "cache": {
+        "rootPath": "",
+        "ttlSecs": 3600
     }
 }

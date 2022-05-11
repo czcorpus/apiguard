@@ -21,6 +21,7 @@ import (
 
 	"wum/botwatch"
 	"wum/config"
+	"wum/reqcache"
 	"wum/services"
 	"wum/services/lguide"
 	"wum/services/requests"
@@ -113,8 +114,24 @@ func runService(cmdOpts *CmdOptions) {
 	router := mux.NewRouter()
 	router.Use(coreMiddleware)
 
+	var cache services.Cache
+	if conf.Cache.RootPath != "" {
+		cache = reqcache.NewReqCache(&conf.Cache)
+		log.Printf("INFO: using request cache (path: %s)", conf.Cache.RootPath)
+
+	} else {
+		cache = reqcache.NewNullCache()
+		log.Print("INFO: using NULL cache (path not specified)")
+	}
+
 	langGuideActions := lguide.NewLanguageGuideActions(
-		conf.LanguageGuide, conf.ServerReadTimeoutSecs, conf.Botwatch, db, telemetryAnalyzer)
+		conf.LanguageGuide,
+		conf.ServerReadTimeoutSecs,
+		conf.Botwatch,
+		db,
+		telemetryAnalyzer,
+		cache,
+	)
 	router.HandleFunc("/language-guide", langGuideActions.Query)
 
 	telemetryActions := tstorage.NewActions(db)

@@ -22,6 +22,7 @@ type ParsedData struct {
 	GrammarCase     GrammarCase `json:"grammarCase"`
 	Comparison      Comparison  `json:"comparison"`
 	items           map[string]string
+	Error           error
 }
 
 type TableCellSpan struct {
@@ -204,7 +205,11 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 				spanBuffer = cleanUpSpanBuffer(spanBuffer, row)
 				column = 0
 			}
-
+		case tt == html.SelfClosingTagToken:
+			t := tkn.Token()
+			if t.Data == "td" {
+				columns = append(columns, "")
+			}
 		case tt == html.StartTagToken:
 			t := tkn.Token()
 			if t.Data == "td" {
@@ -219,11 +224,12 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 						var err error = nil
 						if attr.Key == "colspan" {
 							span.columnSpan, err = strconv.Atoi(attr.Val)
+
 						} else if attr.Key == "rowspan" {
 							span.rowSpan, err = strconv.Atoi(attr.Val)
 						}
 						if err != nil {
-							panic(err)
+							data.Error = err
 						}
 					}
 
@@ -232,6 +238,7 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 						if text != "" {
 							if isVerbData(rowName) {
 								data.fillVerbData(rowName, "", text)
+
 							} else {
 								data.items[rowName] = text
 							}
@@ -240,8 +247,10 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 						if text != "" {
 							if strings.Contains(rowName, "pád") {
 								data.fillCase(rowName, columns[column], span.value)
+
 							} else if isVerbData(rowName) {
 								data.fillVerbData(rowName, columns[column], span.value)
+
 							} else {
 								data.items[rowName+":"+columns[column]] = span.value
 							}

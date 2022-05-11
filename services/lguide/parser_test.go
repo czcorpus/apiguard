@@ -33,6 +33,7 @@ func TestNull(t *testing.T) {
 func TestParserNounResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/noun_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "okolnost")
 
 	// položky
@@ -60,6 +61,7 @@ func TestParserNounResponse(t *testing.T) {
 func TestParserAdjectiveResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/adjective_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "modrý")
 
 	// položky
@@ -73,6 +75,7 @@ func TestParserAdjectiveResponse(t *testing.T) {
 func TestParserPronounResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/pronoun_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "se")
 
 	// položky
@@ -80,7 +83,8 @@ func TestParserPronounResponse(t *testing.T) {
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "se, předl.")
 	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "vzít s sebou; to se rozumí samo sebou; otevření (se) světu; vařící (se) voda; rozhodl se zúčastnit se; rozhodl se zúčastnit; rozhodl zúčastnit se")
+	assert.Equal(t, "vzít s sebou; to se rozumí samo sebou; otevření (se) světu; vařící (se) voda; rozhodl se zúčastnit se; rozhodl se zúčastnit; rozhodl zúčastnit se",
+		ans.items["příklady"])
 
 	// tabulka
 	assert.Equal(t, ans.GrammarCase.Nominative.Singular, "")
@@ -103,6 +107,7 @@ func TestParserPronounResponse(t *testing.T) {
 func TestParserNumeralResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/numeral_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "sto")
 
 	// položky
@@ -134,6 +139,7 @@ func TestParserNumeralResponse(t *testing.T) {
 func TestParserVerbResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/verb_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "dělat")
 
 	// položky
@@ -161,6 +167,7 @@ func TestParserVerbResponse(t *testing.T) {
 func TestParserAdverbResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/adverb_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "nahoře")
 
 	// položky
@@ -172,6 +179,7 @@ func TestParserAdverbResponse(t *testing.T) {
 func TestParserPrepositionResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/preposition_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "vedle")
 
 	// položky
@@ -183,6 +191,7 @@ func TestParserPrepositionResponse(t *testing.T) {
 func TestParserConjunctionResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/conjunction_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "nebo")
 
 	// položky
@@ -194,6 +203,7 @@ func TestParserConjunctionResponse(t *testing.T) {
 func TestParserParticleResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/particle_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "ať")
 
 	// položky
@@ -209,6 +219,7 @@ func TestParserParticleResponse(t *testing.T) {
 func TestParserInterjectionResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/interjection_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, ans.Heading, "haló")
 
 	// položky
@@ -222,6 +233,7 @@ func TestParserInterjectionResponse(t *testing.T) {
 func TestParseJavascript(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/adjective_response.html", t)
 	ans := Parse(content)
+	assert.NoError(t, ans.Error)
 	assert.Equal(t, 1, len(ans.Scripts))
 	assert.Equal(t, "/files/prirucka.js", ans.Scripts[0])
 	assert.Equal(t, 3, len(ans.CSSLinks))

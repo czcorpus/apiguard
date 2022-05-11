@@ -44,6 +44,11 @@ func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 			fmt.Println("\t -> ", v)
 		}
 	}
+
+	calculateEntropy(interactions, "MAIN_TILE_DATA_LOADED")
+	calculateEntropy(interactions, "MAIN_TILE_PARTIAL_DATA_LOADED")
+	calculateEntropy(interactions, "MAIN_SET_TILE_RENDER_SIZE")
+
 	if err != nil {
 		return 0, err
 	}

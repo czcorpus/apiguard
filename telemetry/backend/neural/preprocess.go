@@ -8,6 +8,7 @@ package neural
 
 import (
 	"fmt"
+	"time"
 	"wum/telemetry"
 )
 
@@ -28,16 +29,36 @@ type NormalizedInteraction struct {
 	Actions []*telemetry.NormalizedActionRecord
 }
 
+func findPreReqActions(startIdx int, data []*telemetry.ActionRecord) []*telemetry.ActionRecord {
+	startTime := data[startIdx].Created
+	ans := make([]*telemetry.ActionRecord, 0, 100)
+	for i := startIdx - 1; i > 0; i-- {
+		action := data[i]
+		if action.ActionName == "MAIN_SET_TILE_RENDER_SIZE" {
+			if startTime.Sub(action.Created) < time.Duration(500)*time.Millisecond {
+				ans = append(ans, action)
+			}
+
+		} else {
+			break
+		}
+	}
+	return ans
+}
+
 func findInteractionChunks(data []*telemetry.ActionRecord) []*Interaction {
 	ans := make([]*Interaction, 0, 50)
 	var currInteraction *Interaction
-	for _, item := range data {
-		if item.ActionName == "MAIN_REQUEST_QUERY_RESPONSE" {
+	for i, item := range data {
+		if item.ActionName == "MAIN_SET_TILE_RENDER_SIZE" {
+			continue
+
+		} else if item.ActionName == "MAIN_REQUEST_QUERY_RESPONSE" {
 			if currInteraction != nil {
 				ans = append(ans, currInteraction)
 			}
 			currInteraction = &Interaction{
-				Actions: make([]*telemetry.ActionRecord, 0, 50),
+				Actions: findPreReqActions(i, data),
 			}
 
 		} else if currInteraction != nil {

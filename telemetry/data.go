@@ -6,7 +6,10 @@
 
 package telemetry
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type ActionRecord struct {
 	SessionID  string    `json:"sessionID"`
@@ -30,6 +33,12 @@ type NormalizedActionRecord struct {
 	IsSubquery   bool    `json:"isSubquery"`
 	TileName     string  `json:"tileName"`
 	RelativeTime float64 `json:"relativeTime"`
+}
+
+func (nar *NormalizedActionRecord) String() string {
+	return fmt.Sprintf(
+		"NormalizedActionRecord{SessionID: %s, ClientIP: %s, ActionName: %s, RelativeTime: %01.2f",
+		nar.SessionID, nar.ClientIP, nar.ActionName, nar.RelativeTime)
 }
 
 type Payload struct {

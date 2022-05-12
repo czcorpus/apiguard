@@ -159,7 +159,6 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	fmt.Println("RESP HTML: ", responseHTML[:100])
 	parsed := Parse(responseHTML)
 	if parsed.Error != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionErrorFrom(err), http.StatusInternalServerError)

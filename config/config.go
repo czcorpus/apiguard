@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"wum/botwatch"
+	"wum/monitoring"
 	"wum/reqcache"
 	"wum/storage"
 )
@@ -34,6 +35,7 @@ type Configuration struct {
 	Storage               storage.Conf              `json:"storage"`
 	LanguageGuide         LanguageGuideConf         `json:"languageGuide"`
 	Cache                 reqcache.Conf             `json:"cache"`
+	Monitoring            monitoring.ConnectionConf `json:"monitoring"`
 }
 
 func LoadConfig(path string) *Configuration {

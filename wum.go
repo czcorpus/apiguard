@@ -106,6 +106,7 @@ func runService(cmdOpts *CmdOptions) {
 		conf.Botwatch.TelemetryAnalyzer,
 		db,
 		db,
+		&conf.Monitoring,
 	)
 	if err != nil {
 		log.Fatal("FATAL: ", err)

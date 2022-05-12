@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"time"
 	"wum/logging"
+	"wum/monitoring"
 	"wum/telemetry/backend"
 	"wum/telemetry/backend/counting"
 	"wum/telemetry/backend/dumb"
@@ -81,6 +82,7 @@ func NewAnalyzer(
 	backendType string,
 	db backend.StorageProvider,
 	statsStorage StatsStorage,
+	conf *monitoring.ConnectionConf,
 ) (*Analyzer, error) {
 	switch backendType {
 	case "counting":
@@ -95,7 +97,7 @@ func NewAnalyzer(
 		}, nil
 	case "neural":
 		return &Analyzer{
-			backend: neural.NewAnalyzer(db),
+			backend: neural.NewAnalyzer(db, conf),
 			storage: statsStorage,
 		}, nil
 	default:

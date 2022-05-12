@@ -7,10 +7,11 @@
 package neural
 
 import (
-	"fmt"
 	"log"
 	"net/http"
+	"time"
 	"wum/logging"
+	"wum/monitoring"
 	"wum/telemetry/backend"
 
 	deep "github.com/patrikeh/go-deep"
@@ -21,8 +22,9 @@ const (
 )
 
 type Analyzer struct {
-	network *deep.Neural
-	db      backend.StorageProvider
+	network    *deep.Neural
+	db         backend.StorageProvider
+	monitoring chan<- *monitoring.TelemetryEntropy
 }
 
 func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
@@ -38,16 +40,18 @@ func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 	for i, interact := range rawIntractions {
 		interactions[i] = normalizeTimes(interact.Actions)
 	}
-	for i, x := range interactions {
-		fmt.Println("INTERACTION >>> ", i)
-		for _, v := range x.Actions {
-			fmt.Println("\t -> ", v)
-		}
+	ent1 := calculateEntropy(interactions, "MAIN_TILE_DATA_LOADED")
+	ent2 := calculateEntropy(interactions, "MAIN_TILE_PARTIAL_DATA_LOADED")
+	ent3 := calculateEntropy(interactions, "MAIN_SET_TILE_RENDER_SIZE")
+	log.Printf("DEBUG: {\"MAIN_TILE_DATA_LOADED\": %01.4f, \"MAIN_TILE_PARTIAL_DATA_LOADED\": %01.4f, \"MAIN_SET_TILE_RENDER_SIZE\": %01.4f}", ent1, ent2, ent3)
+	a.monitoring <- &monitoring.TelemetryEntropy{
+		Created:                       time.Now(),
+		ClientIP:                      ip,
+		SessionID:                     sessionID,
+		MAIN_TILE_DATA_LOADED:         ent1,
+		MAIN_TILE_PARTIAL_DATA_LOADED: ent2,
+		MAIN_SET_TILE_RENDER_SIZE:     ent3,
 	}
-
-	calculateEntropy(interactions, "MAIN_TILE_DATA_LOADED")
-	calculateEntropy(interactions, "MAIN_TILE_PARTIAL_DATA_LOADED")
-	calculateEntropy(interactions, "MAIN_SET_TILE_RENDER_SIZE")
 
 	if err != nil {
 		return 0, err
@@ -58,7 +62,11 @@ func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 	return 1, nil
 }
 
-func NewAnalyzer(db backend.StorageProvider) *Analyzer {
+func NewAnalyzer(db backend.StorageProvider, conf *monitoring.ConnectionConf) *Analyzer {
+	entropyMsr := make(chan *monitoring.TelemetryEntropy)
+	go func() {
+		monitoring.RunWriteConsumer(conf, entropyMsr)
+	}()
 	network := deep.NewNeural(&deep.Config{
 		/* Input dimensionality */
 		Inputs: 4,
@@ -77,5 +85,9 @@ func NewAnalyzer(db backend.StorageProvider) *Analyzer {
 		/* Apply bias */
 		Bias: true,
 	})
-	return &Analyzer{network: network, db: db}
+	return &Analyzer{
+		network:    network,
+		db:         db,
+		monitoring: entropyMsr,
+	}
 }

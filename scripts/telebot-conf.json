@@ -2,8 +2,8 @@
     "queries": ["modrý", "nahoře", "nebo", "haló", "okolnost"],
     "actions": {
         "MAIN_REQUEST_QUERY_RESPONSE": 1,
-        "MAIN_SET_TILE_RENDER_SIZE": 10,
-        "MAIN_TILE_DATA_LOADED": 10,
-        "MAIN_TILE_PARTIAL_DATA_LOADED": 10
+        "MAIN_SET_TILE_RENDER_SIZE": 3,
+        "MAIN_TILE_DATA_LOADED": 4,
+        "MAIN_TILE_PARTIAL_DATA_LOADED": 4
     }
 }

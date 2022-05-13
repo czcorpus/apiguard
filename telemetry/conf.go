@@ -11,6 +11,8 @@ import "fmt"
 type Conf struct {
 	Analyzer string `json:"analyzer"`
 
+	CustomConfPath string `json:"customConfPath"`
+
 	// DataDelaySecs specifies a delay between WaG page load and the first
 	// telemetry submit
 	DataDelaySecs int `json:"dataDelaySecs"`

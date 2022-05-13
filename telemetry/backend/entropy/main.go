@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package neural
+package entropy
 
 import (
 	"log"
@@ -14,12 +14,9 @@ import (
 	"wum/monitoring"
 	"wum/telemetry"
 	"wum/telemetry/backend"
-
-	deep "github.com/patrikeh/go-deep"
 )
 
 type Analyzer struct {
-	network    *deep.Neural
 	db         backend.StorageProvider
 	conf       *telemetry.Conf
 	monitoring chan<- *monitoring.TelemetryEntropy
@@ -69,26 +66,7 @@ func NewAnalyzer(
 	go func() {
 		monitoring.RunWriteConsumer(monitoringConf, entropyMsr)
 	}()
-	network := deep.NewNeural(&deep.Config{
-		/* Input dimensionality */
-		Inputs: 4,
-		/* Two hidden layers consisting of two neurons each, and a single output */
-		Layout: []int{3, 3, 1},
-		/* Activation functions: Sigmoid, Tanh, ReLU, Linear */
-		Activation: deep.ActivationSigmoid,
-		/* Determines output layer activation & loss function:
-		ModeRegression: linear outputs with MSE loss
-		ModeMultiClass: softmax output with Cross Entropy loss
-		ModeMultiLabel: sigmoid output with Cross Entropy loss
-		ModeBinary: sigmoid output with binary CE loss */
-		Mode: deep.ModeBinary,
-		/* Weight initializers: {deep.NewNormal(μ, σ), deep.NewUniform(μ, σ)} */
-		Weight: deep.NewNormal(1.0, 0.0),
-		/* Apply bias */
-		Bias: true,
-	})
 	return &Analyzer{
-		network:    network,
 		db:         db,
 		monitoring: entropyMsr,
 		conf:       telemetryConf,

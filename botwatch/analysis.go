@@ -23,12 +23,12 @@ import (
 type Backend interface {
 	Learn(req *http.Request, isLegit bool)
 
-	// Evaluate should evaluate client legitimacy using
-	// values -1 and an interval 0 to 1 where:
-	// * 0 = non-legit client and
-	// * 1 = perfectly legit client
+	// BotScore should evaluate client legitimacy using
+	// interval 0 to 1 where:
+	// * 0 = perflectly legit client (= no bot)
+	// * 1 = super-likely bot
 	// In case the returned error is ErrUnknownClient
-	Evaluate(req *http.Request) (float64, error)
+	BotScore(req *http.Request) (float64, error)
 }
 
 type StatsStorage interface {
@@ -37,14 +37,13 @@ type StatsStorage interface {
 }
 
 type Analyzer struct {
-	backend       Backend
-	storage       StatsStorage
-	conf          *Conf
-	telemetryConf *telemetry.Conf
+	backend Backend
+	storage StatsStorage
+	conf    *Conf
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
-	humanLevel, err := a.backend.Evaluate(req)
+	botScore, err := a.backend.BotScore(req)
 	if err == backend.ErrUnknownClient {
 		log.Print("DEBUG: client without telemetry")
 		// no telemetry - let's check client's request activity
@@ -77,7 +76,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 	} else {
 		log.Print("DEBUG: Client with telemetry...")
 		// user with telemetry waits from 0 to 25 s
-		return time.Duration((5 - 5*humanLevel) * (5 - 5*humanLevel)), nil
+		return time.Duration(5*botScore*5*botScore) * time.Second, nil
 	}
 }
 
@@ -102,9 +101,13 @@ func NewAnalyzer(
 			storage: statsStorage,
 		}, nil
 	case "entropy":
+		backend, err := entropy.NewAnalyzer(db, monitoringConf, telemetryConf)
+		if err != nil {
+			return nil, err
+		}
 		return &Analyzer{
 			conf:    conf,
-			backend: entropy.NewAnalyzer(db, monitoringConf, telemetryConf),
+			backend: backend,
 			storage: statsStorage,
 		}, nil
 	default:

@@ -25,17 +25,17 @@ func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
 
 }
 
-func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
+func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
 	data, err := a.db.LoadTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	if len(data) == 0 {
-		return 0, backend.ErrUnknownClient
+		return 1, backend.ErrUnknownClient
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func NewAnalyzer(db backend.StorageProvider) *Analyzer {

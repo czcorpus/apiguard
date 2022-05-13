@@ -15,6 +15,7 @@ type TelemetryEntropy struct {
 	MAIN_TILE_DATA_LOADED         float64
 	MAIN_TILE_PARTIAL_DATA_LOADED float64
 	MAIN_SET_TILE_RENDER_SIZE     float64
+	Score                         float64
 }
 
 func (te *TelemetryEntropy) ToInfluxDB() (map[string]string, map[string]any) {
@@ -26,6 +27,7 @@ func (te *TelemetryEntropy) ToInfluxDB() (map[string]string, map[string]any) {
 			"MAIN_TILE_DATA_LOADED":         te.MAIN_TILE_DATA_LOADED,
 			"MAIN_TILE_PARTIAL_DATA_LOADED": te.MAIN_TILE_PARTIAL_DATA_LOADED,
 			"MAIN_SET_TILE_RENDER_SIZE":     te.MAIN_SET_TILE_RENDER_SIZE,
+			"score":                         te.Score,
 		}
 }
 

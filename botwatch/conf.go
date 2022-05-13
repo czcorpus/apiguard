@@ -6,9 +6,11 @@
 
 package botwatch
 
-// BotDetection defines important parameters of bot detection module which determine
+import "fmt"
+
+// Conf defines important parameters of the general bot detection module which determine
 // how dense and regular request activity is considered as scripted/bot-like.
-type BotDetectionConf struct {
+type Conf struct {
 
 	// BotDefsPath is either a local filesystem path or http resource path
 	// where a list of bots to ignore etc. is defined
@@ -26,6 +28,17 @@ type BotDetectionConf struct {
 	// RSDThreshold is a relative standard deviation (aka Coefficient of variation)
 	// threshold of subsequent request intervals considered as bot-like
 	RSDThreshold float64 `json:"rsdThreshold"`
+}
 
-	TelemetryAnalyzer string `json:"telemetryAnalyzer"`
+func (bdc *Conf) Validate(context string) error {
+	if bdc.WatchedTimeWindowSecs == 0 {
+		return fmt.Errorf("%s.watchedTimeWindowSecs cannot be 0", context)
+	}
+	if bdc.NumRequestsThreshold == 0 {
+		return fmt.Errorf("%s.numRequestsThreshold cannot be 0", context)
+	}
+	if bdc.RSDThreshold == 0 {
+		return fmt.Errorf("%s.rsdThreshold cannot be 0", context)
+	}
+	return nil
 }

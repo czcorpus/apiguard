@@ -86,6 +86,10 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 func runService(cmdOpts *CmdOptions) {
 	conf := config.LoadConfig(flag.Arg(1))
 	overrideConfWithCmd(conf, cmdOpts)
+	confErr := conf.Validate()
+	if confErr != nil {
+		log.Fatal("FATAL: ", confErr)
+	}
 
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -103,10 +107,11 @@ func runService(cmdOpts *CmdOptions) {
 	}
 
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
-		conf.Botwatch.TelemetryAnalyzer,
-		db,
-		db,
+		&conf.Botwatch,
+		&conf.Telemetry,
 		&conf.Monitoring,
+		db,
+		db,
 	)
 	if err != nil {
 		log.Fatal("FATAL: ", err)
@@ -126,9 +131,10 @@ func runService(cmdOpts *CmdOptions) {
 	}
 
 	langGuideActions := lguide.NewLanguageGuideActions(
-		conf.LanguageGuide,
+		&conf.LanguageGuide,
+		&conf.Botwatch,
+		&conf.Telemetry,
 		conf.ServerReadTimeoutSecs,
-		conf.Botwatch,
 		db,
 		telemetryAnalyzer,
 		cache,

@@ -12,18 +12,16 @@ import (
 	"time"
 	"wum/logging"
 	"wum/monitoring"
+	"wum/telemetry"
 	"wum/telemetry/backend"
 
 	deep "github.com/patrikeh/go-deep"
 )
 
-const (
-	maxAgeSecsRelevantTelemetry = 3600 * 24 * 30
-)
-
 type Analyzer struct {
 	network    *deep.Neural
 	db         backend.StorageProvider
+	conf       *telemetry.Conf
 	monitoring chan<- *monitoring.TelemetryEntropy
 }
 
@@ -34,7 +32,7 @@ func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
 func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
-	data, err := a.db.LoadTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry)
+	data, err := a.db.LoadTelemetry(sessionID, ip, a.conf.MaxAgeSecsRelevant)
 	rawIntractions := findInteractionChunks(data)
 	interactions := make([]*NormalizedInteraction, len(rawIntractions))
 	for i, interact := range rawIntractions {
@@ -62,10 +60,14 @@ func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 	return 1, nil
 }
 
-func NewAnalyzer(db backend.StorageProvider, conf *monitoring.ConnectionConf) *Analyzer {
+func NewAnalyzer(
+	db backend.StorageProvider,
+	monitoringConf *monitoring.ConnectionConf,
+	telemetryConf *telemetry.Conf,
+) *Analyzer {
 	entropyMsr := make(chan *monitoring.TelemetryEntropy)
 	go func() {
-		monitoring.RunWriteConsumer(conf, entropyMsr)
+		monitoring.RunWriteConsumer(monitoringConf, entropyMsr)
 	}()
 	network := deep.NewNeural(&deep.Config{
 		/* Input dimensionality */
@@ -89,5 +91,6 @@ func NewAnalyzer(db backend.StorageProvider, conf *monitoring.ConnectionConf) *A
 		network:    network,
 		db:         db,
 		monitoring: entropyMsr,
+		conf:       telemetryConf,
 	}
 }

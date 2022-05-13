@@ -13,6 +13,7 @@ import (
 	"time"
 	"wum/logging"
 	"wum/monitoring"
+	"wum/telemetry"
 	"wum/telemetry/backend"
 	"wum/telemetry/backend/counting"
 	"wum/telemetry/backend/dumb"
@@ -31,13 +32,15 @@ type Backend interface {
 }
 
 type StatsStorage interface {
-	LoadStats(clientIP, sessionID string) (*IPProcData, error)
+	LoadStats(clientIP, sessionID string, maxAgeSecs int) (*IPProcData, error)
 	LoadIPStats(clientIP string) (*IPProcData, error)
 }
 
 type Analyzer struct {
-	backend Backend
-	storage StatsStorage
+	backend       Backend
+	storage       StatsStorage
+	conf          *Conf
+	telemetryConf *telemetry.Conf
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
@@ -46,7 +49,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 		log.Print("DEBUG: client without telemetry")
 		// no telemetry - let's check client's request activity
 		ip, sessionID := logging.ExtractRequestIdentifiers(req)
-		stats, err := a.storage.LoadStats(ip, sessionID)
+		stats, err := a.storage.LoadStats(ip, sessionID, a.conf.WatchedTimeWindowSecs)
 		if err != nil {
 			return 0, err
 		}
@@ -79,28 +82,32 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 }
 
 func NewAnalyzer(
-	backendType string,
+	conf *Conf,
+	telemetryConf *telemetry.Conf,
+	monitoringConf *monitoring.ConnectionConf,
 	db backend.StorageProvider,
 	statsStorage StatsStorage,
-	conf *monitoring.ConnectionConf,
 ) (*Analyzer, error) {
-	switch backendType {
+	switch telemetryConf.Analyzer {
 	case "counting":
 		return &Analyzer{
+			conf:    conf,
 			backend: counting.NewAnalyzer(db),
 			storage: statsStorage,
 		}, nil
 	case "dumb":
 		return &Analyzer{
+			conf:    conf,
 			backend: dumb.NewAnalyzer(db),
 			storage: statsStorage,
 		}, nil
 	case "neural":
 		return &Analyzer{
-			backend: neural.NewAnalyzer(db, conf),
+			conf:    conf,
+			backend: neural.NewAnalyzer(db, monitoringConf, telemetryConf),
 			storage: statsStorage,
 		}, nil
 	default:
-		return nil, fmt.Errorf("unknown analyzer backend %s", backendType)
+		return nil, fmt.Errorf("unknown analyzer backend %s", telemetryConf.Analyzer)
 	}
 }

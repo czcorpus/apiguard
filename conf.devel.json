@@ -10,8 +10,18 @@
         "botDefsPath": "",
         "watchedTimeWindowSecs": 30,
         "numRequestsThreshold": 10,
-        "rsdThreshold": 0.2,
-        "telemetryAnalyzer": "dumb"
+        "rsdThreshold": 0.2
+    },
+    "telemetry": {
+        "analyzer": "dumb",
+        "dataDelaySecs": 10,
+        "maxAgeSecsRelevant": 3600
+    },
+    "storage": {
+        "host": "10.0.3.130",
+        "user": "ujc_portal",
+        "password": "portalmortal",
+        "database": "ujc_portal"
     },
     "cache": {
         "rootPath": "",

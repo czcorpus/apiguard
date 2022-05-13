@@ -13,7 +13,9 @@ import (
 	"wum/botwatch"
 	"wum/monitoring"
 	"wum/reqcache"
+	"wum/services/lguide"
 	"wum/storage"
+	"wum/telemetry"
 )
 
 const (
@@ -22,20 +24,37 @@ const (
 	DfltServerHost            = "localhost"
 )
 
-type LanguageGuideConf struct {
-	BaseURL         string `json:"baseURL"`
-	ClientUserAgent string `json:"clientUserAgent"`
-}
-
 type Configuration struct {
 	ServerHost            string                    `json:"serverHost"`
 	ServerPort            int                       `json:"serverPort"`
 	ServerReadTimeoutSecs int                       `json:"serverReadTimeoutSecs"`
-	Botwatch              botwatch.BotDetectionConf `json:"botwatch"`
+	Botwatch              botwatch.Conf             `json:"botwatch"`
+	Telemetry             telemetry.Conf            `json:"telemetry"`
 	Storage               storage.Conf              `json:"storage"`
-	LanguageGuide         LanguageGuideConf         `json:"languageGuide"`
+	LanguageGuide         lguide.Conf               `json:"languageGuide"`
 	Cache                 reqcache.Conf             `json:"cache"`
 	Monitoring            monitoring.ConnectionConf `json:"monitoring"`
+}
+
+func (c *Configuration) Validate() error {
+	var err error
+	err = c.Botwatch.Validate("botwatch")
+	if err != nil {
+		return err
+	}
+	err = c.Telemetry.Validate("telemetry")
+	if err != nil {
+		return err
+	}
+	err = c.Storage.Validate("storage")
+	if err != nil {
+		return err
+	}
+	err = c.LanguageGuide.Validate("languageGuide")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func LoadConfig(path string) *Configuration {

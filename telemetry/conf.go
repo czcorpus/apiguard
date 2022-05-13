@@ -1,0 +1,34 @@
+// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2022 Charles University - Faculty of Arts,
+//                Institute of the Czech National Corpus
+// All rights reserved.
+
+package telemetry
+
+import "fmt"
+
+type Conf struct {
+	Analyzer string `json:"analyzer"`
+
+	// DataDelaySecs specifies a delay between WaG page load and the first
+	// telemetry submit
+	DataDelaySecs int `json:"dataDelaySecs"`
+
+	// MaxAgeSecsRelevant specifies how old telemetry is considered
+	// for client behavior analysis
+	MaxAgeSecsRelevant int `json:"maxAgeSecsRelevant"`
+}
+
+func (bdc *Conf) Validate(context string) error {
+	if bdc.Analyzer == "" {
+		return fmt.Errorf("%s.analyzer is empty/missing", context)
+	}
+	if bdc.DataDelaySecs == 0 {
+		return fmt.Errorf("%s.dataDelaySecs cannot be 0", context)
+	}
+	if bdc.MaxAgeSecsRelevant == 0 {
+		return fmt.Errorf("%s.maxAgeSecsRelevant cannot be 0", context)
+	}
+	return nil
+}

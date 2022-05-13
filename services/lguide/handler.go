@@ -17,11 +17,11 @@ import (
 	"net/url"
 	"time"
 	"wum/botwatch"
-	"wum/config"
 	"wum/logging"
 	"wum/reqcache"
 	"wum/services"
 	"wum/storage"
+	"wum/telemetry"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 )
 
 type LanguageGuideActions struct {
-	conf            config.LanguageGuideConf
+	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
 	analyzer        *botwatch.Analyzer
@@ -168,14 +168,15 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 }
 
 func NewLanguageGuideActions(
-	conf config.LanguageGuideConf,
+	conf *Conf,
+	botwatchConf *botwatch.Conf,
+	telemetryConf *telemetry.Conf,
 	readTimeoutSecs int,
-	botConf botwatch.BotDetectionConf,
 	db *storage.MySQLAdapter,
 	analyzer *botwatch.Analyzer,
 	cache services.Cache,
 ) *LanguageGuideActions {
-	wdog := botwatch.NewLGWatchdog(botConf, db)
+	wdog := botwatch.NewLGWatchdog(botwatchConf, telemetryConf, db)
 	return &LanguageGuideActions{
 		conf:            conf,
 		readTimeoutSecs: readTimeoutSecs,

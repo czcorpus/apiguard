@@ -14,17 +14,22 @@ import (
 	"time"
 
 	"wum/logging"
+	"wum/telemetry"
 )
 
 type StoreHandler interface {
-	LoadStats(clientIP, sessionID string) (*IPProcData, error)
+	LoadStats(clientIP, sessionID string, maxAgeSecs int) (*IPProcData, error)
+	ResetStats(data *IPProcData) error
 	UpdateStats(data *IPProcData) error
+	CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error)
+	InsertBotLikeTelemetry(clientIP, sessionID string) error
 }
 
 type Watchdog[T logging.AnyRequestRecord] struct {
 	statistics     map[string]*IPProcData
 	suspicions     map[string]IPProcData
-	conf           BotDetectionConf
+	conf           *Conf
+	telemetryConf  *telemetry.Conf
 	onlineAnalysis chan T
 	mutex          sync.Mutex
 	db             StoreHandler
@@ -68,7 +73,7 @@ func (wd *Watchdog[T]) ResetBotCandidates() {
 	wd.mutex.Unlock()
 }
 
-func (wd *Watchdog[T]) Conf() BotDetectionConf {
+func (wd *Watchdog[T]) Conf() *Conf {
 	return wd.conf
 }
 
@@ -76,7 +81,7 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 	srec, ok := wd.statistics[rec.GetClientID()]
 	if !ok {
 		var err error
-		srec, err = wd.db.LoadStats(rec.GetClientIP().String(), rec.GetSessionID())
+		srec, err = wd.db.LoadStats(rec.GetClientIP().String(), rec.GetSessionID(), wd.conf.WatchedTimeWindowSecs)
 		if err != nil {
 			return err
 		}
@@ -109,9 +114,13 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 		srec.Count = 0
 		srec.M2 = 0
 		srec.Mean = 0
+		srec.LastAccess = rec.GetTime()
+		return wd.db.ResetStats(srec)
+
+	} else {
+		srec.LastAccess = rec.GetTime()
+		return wd.db.UpdateStats(srec)
 	}
-	srec.LastAccess = rec.GetTime()
-	return wd.db.UpdateStats(srec)
 }
 
 func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
@@ -124,18 +133,41 @@ func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
 	return ans
 }
 
-func NewLGWatchdog(conf BotDetectionConf, db StoreHandler) *Watchdog[*logging.LGRequestRecord] {
+func (wd *Watchdog[T]) assertTelemetry(rec *logging.LGRequestRecord) {
+	go func() {
+		delayDuration := time.Duration(wd.telemetryConf.DataDelaySecs) * time.Second
+		time.Sleep(delayDuration)
+		diff, err := wd.db.CalcStatsTelemetryDiscrepancy(rec.IPAddress, rec.SessionID, 30) // TODO
+		if err != nil {
+			log.Print("ERROR: failed to check for telemetry vs. stats discrepancy: ", err)
+		}
+		for i := 0; i < diff; i++ {
+			err := wd.db.InsertBotLikeTelemetry(rec.IPAddress, rec.SessionID)
+			if err != nil {
+				log.Print("ERROR: failed to insert bot-like telemetry: ", err)
+			}
+		}
+	}()
+}
+
+func NewLGWatchdog(
+	conf *Conf,
+	telemetryConf *telemetry.Conf,
+	db StoreHandler,
+) *Watchdog[*logging.LGRequestRecord] {
 	analysis := make(chan *logging.LGRequestRecord)
 	wd := &Watchdog[*logging.LGRequestRecord]{
 		statistics:     make(map[string]*IPProcData),
 		suspicions:     make(map[string]IPProcData),
 		conf:           conf,
+		telemetryConf:  telemetryConf,
 		onlineAnalysis: analysis,
 		db:             db,
 	}
 	go func() {
 		for item := range analysis {
 			err := wd.analyze(item)
+			wd.assertTelemetry(item)
 			if err != nil {
 				log.Print("ERROR: ", err)
 			}

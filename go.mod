@@ -6,7 +6,6 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/gorilla/mux v1.8.0
 	github.com/influxdata/influxdb-client-go/v2 v2.8.2
-	github.com/patrikeh/go-deep v0.0.0-20220129152125-82b8db494fe5
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/net v0.0.0-20220425223048-2871e0cb64e4
 )

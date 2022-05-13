@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package neural
+package entropy
 
 import (
 	"fmt"

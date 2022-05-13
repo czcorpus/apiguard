@@ -17,7 +17,7 @@ import (
 	"wum/telemetry/backend"
 	"wum/telemetry/backend/counting"
 	"wum/telemetry/backend/dumb"
-	"wum/telemetry/backend/neural"
+	"wum/telemetry/backend/entropy"
 )
 
 type Backend interface {
@@ -101,10 +101,10 @@ func NewAnalyzer(
 			backend: dumb.NewAnalyzer(db),
 			storage: statsStorage,
 		}, nil
-	case "neural":
+	case "entropy":
 		return &Analyzer{
 			conf:    conf,
-			backend: neural.NewAnalyzer(db, monitoringConf, telemetryConf),
+			backend: entropy.NewAnalyzer(db, monitoringConf, telemetryConf),
 			storage: statsStorage,
 		}, nil
 	default:

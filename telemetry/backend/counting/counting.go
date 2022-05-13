@@ -54,14 +54,14 @@ func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
 
 }
 
-func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
+func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	telemetry, err := a.db.LoadTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	if len(telemetry) == 0 {
-		return 0, backend.ErrUnknownClient
+		return -1, backend.ErrUnknownClient
 	}
 
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
@@ -72,10 +72,10 @@ func (a *Analyzer) Evaluate(req *http.Request) (float64, error) {
 			log.Printf(
 				"DEBUG: invalid counts for %v. Expecting %f to be %f±%f",
 				key, counts[key], rule.count, rule.tolerance)
-			return 0, nil
+			return 1, nil
 		}
 	}
-	return 1, nil
+	return 0, nil
 }
 
 func prepareCountingRules(rulesData []*telemetry.CountingRule) (rules map[TileActionKey]CountingRuleValue) {

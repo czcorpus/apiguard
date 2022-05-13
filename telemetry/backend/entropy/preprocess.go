@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package neural
+package entropy
 
 import (
 	"fmt"
@@ -72,6 +72,9 @@ func findInteractionChunks(data []*telemetry.ActionRecord) []*Interaction {
 }
 
 func normalizeTimes(actions []*telemetry.ActionRecord) *NormalizedInteraction {
+	if len(actions) == 0 {
+		return &NormalizedInteraction{Actions: []*telemetry.NormalizedActionRecord{}}
+	}
 	time0 := actions[0].Created
 	timeDiff := actions[len(actions)-1].Created.Sub(time0)
 	normalizedActions := make([]*telemetry.NormalizedActionRecord, len(actions))

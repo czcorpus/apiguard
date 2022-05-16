@@ -41,6 +41,12 @@ type CmdOptions struct {
 	Host            string
 	Port            int
 	ReadTimeoutSecs int
+	TTL             int
+}
+
+type BanContext struct {
+	IP string
+	DB *storage.MySQLAdapter
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -171,17 +177,33 @@ func runService(cmdOpts *CmdOptions) {
 	}
 }
 
+func GetBanContext(cmdOpts *CmdOptions) BanContext {
+	conf := config.LoadConfig(flag.Arg(2))
+	db, err := storage.NewMySQLAdapter(
+		conf.Storage.Host,
+		conf.Storage.User,
+		conf.Storage.Password,
+		conf.Storage.Database,
+	)
+	if err != nil {
+		log.Fatal("FATAL: failed to connect to a storage database - ", err)
+	}
+
+	return BanContext{IP: flag.Arg(1), DB: db}
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
 	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on (overrides conf.json)")
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on (overrided conf.json)")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Read timeout in seconds (overrides conf.json)")
+	flag.IntVar(&cmdOpts.TTL, "ttl", 86400, "Ban TTL")
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
-			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start config.json\n\t%s [options] version\n",
-			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start config.json\n\t%s [options] version\n\t%s [options] ban [ip address] conf.json\n\t%s [options] unban [ip address] conf.json\n",
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -202,6 +224,12 @@ func main() {
 		return
 	case "start":
 		runService(cmdOpts)
+	case "ban":
+		banContext := GetBanContext(cmdOpts)
+		banContext.DB.InsertBan(banContext.IP, cmdOpts.TTL)
+	case "unban":
+		banContext := GetBanContext(cmdOpts)
+		banContext.DB.RemoveBan(banContext.IP)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

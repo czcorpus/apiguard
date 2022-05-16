@@ -51,6 +51,12 @@ CREATE TABLE client_counting_rules (
 	PRIMARY KEY (tile_name, action_name)
 );
 
+CREATE TABLE client_bans (
+	ip_address VARCHAR(15) NOT NULL,
+	ttl int NOT NULL DEFAULT 86400,
+	created datetime NOT NULL DEFAULT NOW(),
+	PRIMARY KEY (ip_address)
+);
 
 
 */
@@ -252,6 +258,37 @@ func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 		ans = append(ans, &item)
 	}
 	return ans, nil
+}
+
+func (c *MySQLAdapter) InsertBan(ip_address string, ttl int) error {
+	tx, err := c.StartTx()
+	if err != nil {
+		return err
+	}
+	if ttl > 0 {
+		_, err = tx.Exec(`INSERT INTO client_bans (ip_address, ttl) VALUES (?, ?)`, ip_address, ttl)
+
+	} else {
+		_, err = tx.Exec(`INSERT INTO client_bans (ip_address) VALUES (?)`, ip_address)
+	}
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	return err
+}
+
+func (c *MySQLAdapter) RemoveBan(ip_address string) error {
+	tx, err := c.StartTx()
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(`DELETE FROM client_bans WHERE ip_address = ?`, ip_address)
+	if err != nil {
+		return err
+	}
+	err = tx.Commit()
+	return err
 }
 
 func (c *MySQLAdapter) CleanOldTelemetry(sessionID, clientIP string, maxAgeSecs int) {

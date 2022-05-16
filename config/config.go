@@ -34,6 +34,7 @@ type Configuration struct {
 	LanguageGuide         lguide.Conf               `json:"languageGuide"`
 	Cache                 reqcache.Conf             `json:"cache"`
 	Monitoring            monitoring.ConnectionConf `json:"monitoring"`
+	LogPath               string                    `json:"logPath"`
 }
 
 func (c *Configuration) Validate() error {

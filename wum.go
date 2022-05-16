@@ -41,6 +41,7 @@ type CmdOptions struct {
 	Host            string
 	Port            int
 	ReadTimeoutSecs int
+	LogPath         string
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -81,6 +82,22 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		)
 		origConf.ServerReadTimeoutSecs = config.DfltServerReadTimeoutSecs
 	}
+	if cmdConf.LogPath != "" {
+		origConf.LogPath = cmdConf.LogPath
+
+	} else if origConf.LogPath == "" {
+		log.Printf("WARNING: logPath not specified, using stderr")
+	}
+}
+
+func setupLog(path string) {
+	if path != "" {
+		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatalf("Failed to initialize log. File: %s", path)
+		}
+		log.SetOutput(logf) // runtime should close the file when program exits
+	}
 }
 
 func runService(cmdOpts *CmdOptions) {
@@ -90,7 +107,7 @@ func runService(cmdOpts *CmdOptions) {
 	if confErr != nil {
 		log.Fatal("FATAL: ", confErr)
 	}
-
+	setupLog(conf.LogPath)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -184,6 +201,7 @@ func main() {
 	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on (overrides conf.json)")
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on (overrided conf.json)")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Read timeout in seconds (overrides conf.json)")
+	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,

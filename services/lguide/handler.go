@@ -160,6 +160,9 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		return
 	}
 	parsed := Parse(responseHTML)
+	if len(parsed.items) > 0 {
+		log.Printf("More data available for `%s` in `items`: %v", query, parsed.items)
+	}
 	if parsed.Error != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionErrorFrom(err), http.StatusInternalServerError)
 	}

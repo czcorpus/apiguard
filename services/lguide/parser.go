@@ -18,9 +18,11 @@ type ParsedData struct {
 	CSSLinks        []string    `json:"cssLinks"`
 	Heading         string      `json:"heading"`
 	Syllabification string      `json:"syllabification"`
+	Gender          string      `json:"gender"`
 	Conjugation     Conjugation `json:"conjugation"`
 	GrammarCase     GrammarCase `json:"grammarCase"`
 	Comparison      Comparison  `json:"comparison"`
+	Examples        []string    `json:"examples"`
 	items           map[string]string
 	Error           error
 }
@@ -325,6 +327,10 @@ func Parse(text string) *ParsedData {
 								data.fillComparison(key_val[0], key_val[1])
 							} else if key_val[0] == "dělení" {
 								data.Syllabification = key_val[1]
+							} else if key_val[0] == "rod" {
+								data.Gender = key_val[1]
+							} else if key_val[0] == "příklady" {
+								data.Examples = strings.Split(key_val[1], "; ")
 							} else {
 								data.items[key_val[0]] = key_val[1]
 							}

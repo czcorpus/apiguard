@@ -372,8 +372,62 @@ func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 	return ans, nil
 }
 
-func (c *MySQLAdapter) CleanOldTelemetry(sessionID, clientIP string, maxAgeSecs int) {
-	// TODO implement this
+func (c *MySQLAdapter) getNumDeleted(tx *sql.Tx) (int, error) {
+	qAns := tx.QueryRow("SELECT ROW_COUNT()")
+	var numDel int
+	scanErr := qAns.Scan(&numDel)
+	if qAns.Err() != nil {
+		return -1, qAns.Err()
+	}
+	if scanErr != nil {
+		return -1, scanErr
+	}
+	return numDel, nil
+}
+
+func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
+	ans := DataCleanupResult{}
+	tx, err := c.StartTx()
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+
+	_, err = tx.Exec(
+		"DELETE FROM client_actions WHERE NOW() - INTERVAL ? DAY < created",
+		maxAgeDays,
+	)
+	if err != nil {
+		tx.Rollback()
+		ans.Error = err
+		return ans
+	}
+	numDel1, err := c.getNumDeleted(tx)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.NumDeletedActions = numDel1
+
+	_, err = tx.Exec(
+		"DELETE FROM client_stats WHERE NOW() - INTERVAL ? DAY < last_request",
+		maxAgeDays,
+	)
+	if err != nil {
+		tx.Rollback()
+		ans.Error = err
+		return ans
+	}
+	numDel2, err := c.getNumDeleted(tx)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.NumDeletedStats = numDel2
+
+	err = tx.Commit()
+	ans.Error = err
+	return ans
 }
 
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {

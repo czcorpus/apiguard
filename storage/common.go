@@ -6,7 +6,10 @@
 
 package storage
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Conf struct {
 	Host     string `json:"host"`
@@ -26,4 +29,29 @@ func (c *Conf) Validate(context string) error {
 		return fmt.Errorf("%s.database is empty/missing", context)
 	}
 	return nil
+}
+
+type DataCleanupResult struct {
+	NumDeletedStats   int
+	NumDeletedActions int
+	Error             error
+}
+
+func (dcr DataCleanupResult) MarshalJSON() ([]byte, error) {
+	var statusErr *string
+	if dcr.Error != nil {
+		tmp := dcr.Error.Error()
+		statusErr = &tmp
+	}
+	return json.Marshal(
+		struct {
+			NumDeletedStats   int     `json:"deletedStats"`
+			NumDeletedActions int     `json:"deletedActions"`
+			Error             *string `json:"error"`
+		}{
+			NumDeletedStats:   dcr.NumDeletedStats,
+			NumDeletedActions: dcr.NumDeletedActions,
+			Error:             statusErr,
+		},
+	)
 }

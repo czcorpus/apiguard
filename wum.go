@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -42,6 +43,7 @@ type CmdOptions struct {
 	Port            int
 	ReadTimeoutSecs int
 	LogPath         string
+	MaxAgeDays      int
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -88,6 +90,15 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 	} else if origConf.LogPath == "" {
 		log.Printf("WARNING: logPath not specified, using stderr")
 	}
+	if cmdConf.MaxAgeDays > 0 {
+		origConf.CleanupMaxAgeDays = cmdConf.MaxAgeDays
+
+	} else if origConf.CleanupMaxAgeDays == 0 {
+		log.Printf(
+			"WARNING: cleanupMaxAgeDays not specified, using default value %d",
+			config.DfltCleanupMaxAgeDays,
+		)
+	}
 }
 
 func setupLog(path string) {
@@ -100,9 +111,20 @@ func setupLog(path string) {
 	}
 }
 
-func runService(cmdOpts *CmdOptions) {
-	conf := config.LoadConfig(flag.Arg(1))
-	overrideConfWithCmd(conf, cmdOpts)
+func initStorage(conf *config.Configuration) *storage.MySQLAdapter {
+	db, err := storage.NewMySQLAdapter(
+		conf.Storage.Host,
+		conf.Storage.User,
+		conf.Storage.Password,
+		conf.Storage.Database,
+	)
+	if err != nil {
+		log.Fatal("FATAL: failed to connect to a storage database - ", err)
+	}
+	return db
+}
+
+func runService(conf *config.Configuration) {
 	confErr := conf.Validate()
 	if confErr != nil {
 		log.Fatal("FATAL: ", confErr)
@@ -113,15 +135,7 @@ func runService(cmdOpts *CmdOptions) {
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
 
-	db, err := storage.NewMySQLAdapter(
-		conf.Storage.Host,
-		conf.Storage.User,
-		conf.Storage.Password,
-		conf.Storage.Database,
-	)
-	if err != nil {
-		log.Fatal("FATAL: failed to connect to a storage database - ", err)
-	}
+	db := initStorage(conf)
 
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
@@ -195,6 +209,26 @@ func runService(cmdOpts *CmdOptions) {
 	}
 }
 
+func runCleanup(conf *config.Configuration) {
+	confErr := conf.Validate()
+	if confErr != nil {
+		log.Fatal("FATAL: ", confErr)
+	}
+	setupLog(conf.LogPath)
+	log.Print("INFO: running cleanup procedure")
+	db := initStorage(conf)
+	ans := db.CleanOldData(conf.CleanupMaxAgeDays)
+	if ans.Error != nil {
+		log.Fatal("FATAL: failed to cleanup old records: ", ans.Error)
+	}
+	status, err := json.Marshal(ans)
+	if err != nil {
+		log.Fatal("FATAL: failed to provide cleanup summary: ", err)
+	}
+	log.Printf("INFO: finished old data cleanup: %s", string(status))
+
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
@@ -202,11 +236,12 @@ func main() {
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on (overrided conf.json)")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Read timeout in seconds (overrides conf.json)")
 	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")
+	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 7, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
-			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start config.json\n\t%s [options] version\n",
-			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start config.json\n\t%s [options] cleanup\n\t%s [options] version\n",
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -226,7 +261,13 @@ func main() {
 			version.Version, version.BuildDate, version.GitCommit)
 		return
 	case "start":
-		runService(cmdOpts)
+		conf := config.LoadConfig(flag.Arg(1))
+		overrideConfWithCmd(conf, cmdOpts)
+		runService(conf)
+	case "cleanup":
+		conf := config.LoadConfig(flag.Arg(1))
+		overrideConfWithCmd(conf, cmdOpts)
+		runCleanup(conf)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

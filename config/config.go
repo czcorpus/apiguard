@@ -22,6 +22,7 @@ const (
 	DfltServerReadTimeoutSecs = 30
 	DftlServerPort            = 8080
 	DfltServerHost            = "localhost"
+	DfltCleanupMaxAgeDays     = 7
 )
 
 type Configuration struct {
@@ -35,6 +36,7 @@ type Configuration struct {
 	Cache                 reqcache.Conf             `json:"cache"`
 	Monitoring            monitoring.ConnectionConf `json:"monitoring"`
 	LogPath               string                    `json:"logPath"`
+	CleanupMaxAgeDays     int                       `json:"cleanupMaxAgeDays"`
 }
 
 func (c *Configuration) Validate() error {

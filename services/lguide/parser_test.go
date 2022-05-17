@@ -38,8 +38,7 @@ func TestParserNounResponse(t *testing.T) {
 
 	// položky
 	assert.Equal(t, ans.Syllabification, "okol-nost")
-	assert.Contains(t, ans.items, "rod")
-	assert.Equal(t, ans.items["rod"], "ž.")
+	assert.Equal(t, ans.Gender, "ž.")
 
 	// tabulka
 	assert.Equal(t, ans.GrammarCase.Nominative.Singular, "okolnost")
@@ -68,8 +67,11 @@ func TestParserAdjectiveResponse(t *testing.T) {
 	assert.Equal(t, ans.Syllabification, "mo-d-rý")
 	assert.Equal(t, ans.Comparison.Comparative, "modřejší")
 	assert.Equal(t, ans.Comparison.Superlative, "nejmodřejší")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "modré oči; tmavě modré šaty; tmavomodré šaty")
+	assert.ElementsMatch(t, ans.Examples, [3]string{
+		"modré oči",
+		"tmavě modré šaty",
+		"tmavomodré šaty",
+	})
 }
 
 func TestParserPronounResponse(t *testing.T) {
@@ -82,9 +84,15 @@ func TestParserPronounResponse(t *testing.T) {
 	assert.Equal(t, ans.Syllabification, "se")
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "se, předl.")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, "vzít s sebou; to se rozumí samo sebou; otevření (se) světu; vařící (se) voda; rozhodl se zúčastnit se; rozhodl se zúčastnit; rozhodl zúčastnit se",
-		ans.items["příklady"])
+	assert.ElementsMatch(t, ans.Examples, [7]string{
+		"vzít s sebou",
+		"to se rozumí samo sebou",
+		"otevření (se) světu",
+		"vařící (se) voda",
+		"rozhodl se zúčastnit se",
+		"rozhodl se zúčastnit",
+		"rozhodl zúčastnit se",
+	})
 
 	// tabulka
 	assert.Equal(t, ans.GrammarCase.Nominative.Singular, "")
@@ -112,10 +120,13 @@ func TestParserNumeralResponse(t *testing.T) {
 
 	// položky
 	assert.Equal(t, ans.Syllabification, "sto")
-	assert.Contains(t, ans.items, "rod")
-	assert.Equal(t, ans.items["rod"], "s.")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "pět set; sto padesát tři; tři sta třicet tři tisíc; asi sto lidí se sešlo před magistrátem, aby protestovalo/protestovali proti plánované stavbě")
+	assert.Equal(t, ans.Gender, "s.")
+	assert.ElementsMatch(t, ans.Examples, [4]string{
+		"pět set",
+		"sto padesát tři",
+		"tři sta třicet tři tisíc",
+		"asi sto lidí se sešlo před magistrátem, aby protestovalo/protestovali proti plánované stavbě",
+	})
 	assert.Contains(t, ans.items, "poznámky k heslu")
 	assert.Equal(t, ans.items["poznámky k heslu"], "ve spojení s výrazem dvě má tvar 1. p. mn. č. podobu stě (dvě stě); ve spojení s počítaným předmětem může v j. č. zůstat výraz sto nesklonný (ke stu korun/korunám i ke sto korunám)")
 
@@ -172,8 +183,7 @@ func TestParserAdverbResponse(t *testing.T) {
 
 	// položky
 	assert.Equal(t, ans.Syllabification, "na-ho-ře")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "Spisy jsou uloženy nahoře na polici.(na rozdíl od: Stanul na hoře Říp/Řípu.)")
+	assert.ElementsMatch(t, ans.Examples, [1]string{"Spisy jsou uloženy nahoře na polici.(na rozdíl od: Stanul na hoře Říp/Řípu.)"})
 }
 
 func TestParserPrepositionResponse(t *testing.T) {
@@ -184,8 +194,10 @@ func TestParserPrepositionResponse(t *testing.T) {
 
 	// položky
 	assert.Equal(t, ans.Syllabification, "ve-dle")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "stáli vedle sebe; dům vedle se bude opravovat")
+	assert.ElementsMatch(t, ans.Examples, [2]string{
+		"stáli vedle sebe",
+		"dům vedle se bude opravovat",
+	})
 }
 
 func TestParserConjunctionResponse(t *testing.T) {
@@ -196,8 +208,7 @@ func TestParserConjunctionResponse(t *testing.T) {
 
 	// položky
 	assert.Equal(t, ans.Syllabification, "ne-bo")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "Podejte nám zprávu písemně nebo telefonicky. Pospěšte si, nebo nám ujede vlak.")
+	assert.ElementsMatch(t, ans.Examples, [1]string{"Podejte nám zprávu písemně nebo telefonicky. Pospěšte si, nebo nám ujede vlak."})
 }
 
 func TestParserParticleResponse(t *testing.T) {
@@ -208,11 +219,10 @@ func TestParserParticleResponse(t *testing.T) {
 
 	// položky
 	assert.Equal(t, ans.Syllabification, "ať")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(
+	assert.ElementsMatch(
 		t,
-		"Ať\nuž však byl jeho úmysl jakýkoli, působil dojmem člověka, který to projel\n na celé čáře. Poradil nám, ať zajdeme za ředitelem. Ať se jde se svým\nnávrhem vycpat! Ať to byl, kdo chtěl, jasně vám dokazuji, že to měl\nudělat nějak jinak. Musí ho poslouchat všichni, ať jsou to kněží, nebo\nobchodníci.",
-		ans.items["příklady"],
+		ans.Examples,
+		[1]string{"Ať\nuž však byl jeho úmysl jakýkoli, působil dojmem člověka, který to projel\n na celé čáře. Poradil nám, ať zajdeme za ředitelem. Ať se jde se svým\nnávrhem vycpat! Ať to byl, kdo chtěl, jasně vám dokazuji, že to měl\nudělat nějak jinak. Musí ho poslouchat všichni, ať jsou to kněží, nebo\nobchodníci."},
 	)
 }
 
@@ -226,8 +236,10 @@ func TestParserInterjectionResponse(t *testing.T) {
 	assert.Equal(t, ans.Syllabification, "ha-ló")
 	assert.Contains(t, ans.items, "jiné je")
 	assert.Equal(t, ans.items["jiné je"], "haló, s.")
-	assert.Contains(t, ans.items, "příklady")
-	assert.Equal(t, ans.items["příklady"], "Haló, tady Jiřina!; Halo, právě volá vaše láska!")
+	assert.ElementsMatch(t, ans.Examples, [2]string{
+		"Haló, tady Jiřina!",
+		"Halo, právě volá vaše láska!",
+	})
 }
 
 func TestParseJavascript(t *testing.T) {

@@ -500,6 +500,25 @@ func (c *MySQLAdapter) RemoveBan(IP net.IP) error {
 	return err
 }
 
+func (c *MySQLAdapter) TestIPBan(IP net.IP) (bool, error) {
+	qAns := c.conn.QueryRow(
+		"SELECT NOW() - INTERVAL ttl SECOND < created FROM client_bans WHERE ip_address = ?",
+		IP.String(),
+	)
+	var isBanned bool
+	scanErr := qAns.Scan(&isBanned)
+	if scanErr == sql.ErrNoRows {
+		return false, nil
+
+	} else if scanErr != nil {
+		return false, scanErr
+	}
+	if qAns.Err() != nil {
+		return false, qAns.Err()
+	}
+	return isBanned, nil
+}
+
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {
 	return c.conn.Begin()
 }

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -44,6 +45,12 @@ type CmdOptions struct {
 	ReadTimeoutSecs int
 	LogPath         string
 	MaxAgeDays      int
+	BanSecs         int
+}
+
+type BanContext struct {
+	IP net.IP
+	DB *storage.MySQLAdapter
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -98,6 +105,17 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 			"WARNING: cleanupMaxAgeDays not specified, using default value %d",
 			config.DfltCleanupMaxAgeDays,
 		)
+		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
+	}
+	if cmdConf.BanSecs > 0 {
+		origConf.BanTTLSecs = cmdConf.BanSecs
+
+	} else if origConf.BanTTLSecs == 0 {
+		log.Printf(
+			"WARNING: banTTLSecs not specified, using default value %d",
+			config.DfltBanSecs,
+		)
+		origConf.BanTTLSecs = config.DfltBanSecs
 	}
 }
 
@@ -226,7 +244,13 @@ func runCleanup(conf *config.Configuration) {
 		log.Fatal("FATAL: failed to provide cleanup summary: ", err)
 	}
 	log.Printf("INFO: finished old data cleanup: %s", string(status))
+}
 
+func createBanContext(conf *config.Configuration, IP net.IP) BanContext {
+	return BanContext{
+		IP: IP,
+		DB: initStorage(conf),
+	}
 }
 
 func main() {
@@ -236,12 +260,13 @@ func main() {
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on (overrided conf.json)")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Read timeout in seconds (overrides conf.json)")
 	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")
-	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 7, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
+	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 0, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
+	flag.IntVar(&cmdOpts.BanSecs, "ban-secs", 0, "Number of seconds to ban an IP address")
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
-			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start config.json\n\t%s [options] cleanup\n\t%s [options] version\n",
-			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start [config.json]\n\t%s [options] cleanup [conf.json]\n\t%s [options] ban [ip address] [conf.json]\n\t%s [options] unban [ip address] [conf.json]\n\t%s [options] version\n",
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -268,6 +293,20 @@ func main() {
 		conf := config.LoadConfig(flag.Arg(1))
 		overrideConfWithCmd(conf, cmdOpts)
 		runCleanup(conf)
+	case "ban":
+		conf := config.LoadConfig(flag.Arg(2))
+		overrideConfWithCmd(conf, cmdOpts)
+		banContext := createBanContext(conf, net.ParseIP(flag.Arg(1)))
+		if err := banContext.DB.InsertBan(banContext.IP, cmdOpts.BanSecs); err != nil {
+			log.Fatal("FATAL: ", err)
+		}
+	case "unban":
+		conf := config.LoadConfig(flag.Arg(2))
+		overrideConfWithCmd(conf, cmdOpts)
+		banContext := createBanContext(conf, net.ParseIP(flag.Arg(1)))
+		if err := banContext.DB.RemoveBan(banContext.IP); err != nil {
+			log.Fatal("FATAL: ", err)
+		}
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

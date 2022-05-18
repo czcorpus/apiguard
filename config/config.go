@@ -23,6 +23,7 @@ const (
 	DftlServerPort            = 8080
 	DfltServerHost            = "localhost"
 	DfltCleanupMaxAgeDays     = 7
+	DfltBanSecs               = 3600
 )
 
 type Configuration struct {
@@ -37,6 +38,7 @@ type Configuration struct {
 	Monitoring            monitoring.ConnectionConf `json:"monitoring"`
 	LogPath               string                    `json:"logPath"`
 	CleanupMaxAgeDays     int                       `json:"cleanupMaxAgeDays"`
+	BanTTLSecs            int                       `json:"banTTLSecs"`
 }
 
 func (c *Configuration) Validate() error {

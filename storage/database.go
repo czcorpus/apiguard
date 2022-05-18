@@ -8,6 +8,9 @@ package storage
 
 import (
 	"database/sql"
+	"fmt"
+	"net"
+	"strings"
 	"time"
 	"wum/botwatch"
 	"wum/logging"
@@ -54,6 +57,12 @@ CREATE TABLE client_counting_rules (
 	PRIMARY KEY (tile_name, action_name)
 );
 
+CREATE TABLE client_bans (
+	ip_address VARCHAR(15) NOT NULL,
+	ttl int NOT NULL DEFAULT 86400,
+	created datetime NOT NULL DEFAULT NOW(),
+	PRIMARY KEY (ip_address)
+);
 
 
 */
@@ -372,7 +381,7 @@ func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 	return ans, nil
 }
 
-func (c *MySQLAdapter) getNumDeleted(tx *sql.Tx) (int, error) {
+func (c *MySQLAdapter) getNumAffected(tx *sql.Tx) (int, error) {
 	qAns := tx.QueryRow("SELECT ROW_COUNT()")
 	var numDel int
 	scanErr := qAns.Scan(&numDel)
@@ -402,7 +411,7 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 		ans.Error = err
 		return ans
 	}
-	numDel1, err := c.getNumDeleted(tx)
+	numDel1, err := c.getNumAffected(tx)
 	if err != nil {
 		ans.Error = err
 		return ans
@@ -418,7 +427,7 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 		ans.Error = err
 		return ans
 	}
-	numDel2, err := c.getNumDeleted(tx)
+	numDel2, err := c.getNumAffected(tx)
 	if err != nil {
 		ans.Error = err
 		return ans
@@ -428,6 +437,52 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 	err = tx.Commit()
 	ans.Error = err
 	return ans
+}
+
+func (c *MySQLAdapter) InsertBan(IP net.IP, ttl int) error {
+	tx, err := c.StartTx()
+	if err != nil {
+		return err
+	}
+	if ttl > 0 {
+		_, err = tx.Exec(`INSERT INTO client_bans (ip_address, ttl) VALUES (?, ?)`, IP.String(), ttl)
+
+	} else {
+		_, err = tx.Exec(`INSERT INTO client_bans (ip_address) VALUES (?)`, IP.String())
+	}
+	if err != nil {
+		if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
+			return fmt.Errorf("failed to insert ban - address %s already banned", IP.String())
+		}
+		return err
+	}
+	err = tx.Commit()
+	return err
+}
+
+func (c *MySQLAdapter) RemoveBan(IP net.IP) error {
+	tx, err := c.StartTx()
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	_, err = tx.Exec(`DELETE FROM client_bans WHERE ip_address = ?`, IP.String())
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	numDel, err := c.getNumAffected(tx)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	if numDel == 0 {
+		tx.Rollback()
+		return fmt.Errorf("cannot unban ip %s - address not banned", IP.String())
+	}
+	err = tx.Commit()
+	return err
 }
 
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {

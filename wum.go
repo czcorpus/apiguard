@@ -119,7 +119,7 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 }
 
 func setupLog(path string) {
-	if path != "" {
+	if path != "" && path != "stderr" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			log.Fatalf("Failed to initialize log. File: %s", path)

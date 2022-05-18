@@ -9,6 +9,7 @@ package botwatch
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"time"
 	"wum/logging"
@@ -18,6 +19,10 @@ import (
 	"wum/telemetry/backend/counting"
 	"wum/telemetry/backend/dumb"
 	"wum/telemetry/backend/entropy"
+)
+
+const (
+	ultraDuration = time.Duration(24) * time.Hour
 )
 
 type Backend interface {
@@ -34,6 +39,7 @@ type Backend interface {
 type StatsStorage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int) (*IPProcData, error)
 	LoadIPStats(clientIP string) (*IPProcData, error)
+	TestIPBan(IP net.IP) (bool, error)
 }
 
 type Analyzer struct {
@@ -43,11 +49,18 @@ type Analyzer struct {
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+	ip, sessionID := logging.ExtractRequestIdentifiers(req)
+	isBanned, err := a.storage.TestIPBan(net.ParseIP(ip))
+	if err != nil {
+		return 0, err
+	}
+	if isBanned {
+		return ultraDuration, nil
+	}
 	botScore, err := a.backend.BotScore(req)
 	if err == backend.ErrUnknownClient {
 		log.Print("DEBUG: client without telemetry")
 		// no telemetry - let's check client's request activity
-		ip, sessionID := logging.ExtractRequestIdentifiers(req)
 		stats, err := a.storage.LoadStats(ip, sessionID, a.conf.WatchedTimeWindowSecs)
 		if err != nil {
 			return 0, err

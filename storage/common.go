@@ -34,6 +34,7 @@ func (c *Conf) Validate(context string) error {
 type DataCleanupResult struct {
 	NumDeletedStats   int
 	NumDeletedActions int
+	NumDeletedBans    int
 	Error             error
 }
 
@@ -47,10 +48,12 @@ func (dcr DataCleanupResult) MarshalJSON() ([]byte, error) {
 		struct {
 			NumDeletedStats   int     `json:"deletedStats"`
 			NumDeletedActions int     `json:"deletedActions"`
+			NumDeletedBans    int     `json:"numDeletedBans"`
 			Error             *string `json:"error"`
 		}{
 			NumDeletedStats:   dcr.NumDeletedStats,
 			NumDeletedActions: dcr.NumDeletedActions,
+			NumDeletedBans:    dcr.NumDeletedBans,
 			Error:             statusErr,
 		},
 	)

@@ -13,34 +13,10 @@ import (
 	"os"
 	"path"
 	"time"
+	"wum/fsops"
 )
 
 var ErrCacheMiss = errors.New("cache miss")
-
-func isFile(path string) bool {
-	f, err := os.Open(path)
-	if err != nil {
-		return false
-	}
-	finfo, err := f.Stat()
-	if err != nil {
-		return false
-	}
-	return finfo.Mode().IsRegular()
-}
-
-func getFileMtime(filePath string) time.Time {
-	f, err := os.Open(filePath)
-	if err != nil {
-		return time.Time{}
-	}
-	finfo, err := f.Stat()
-	if err == nil {
-		return time.Unix(finfo.ModTime().Unix(), 0)
-
-	}
-	return time.Time{}
-}
 
 type Conf struct {
 	RootPath string `json:"rootPath"`
@@ -60,8 +36,8 @@ func (rc *ReqCache) createItemPath(url string) string {
 
 func (rc *ReqCache) Get(url string) (string, error) {
 	filePath := rc.createItemPath(url)
-	if !isFile(filePath) ||
-		time.Since(getFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
+	if !fsops.IsFile(filePath) ||
+		time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
 		return "", ErrCacheMiss
 	}
 	newTime := time.Now()

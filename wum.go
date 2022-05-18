@@ -52,11 +52,6 @@ type CmdOptions struct {
 	BanSecs         int
 }
 
-type BanContext struct {
-	IP net.IP
-	DB *storage.MySQLAdapter
-}
-
 func coreMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
@@ -250,13 +245,6 @@ func runCleanup(conf *config.Configuration) {
 	log.Printf("INFO: finished old data cleanup: %s", string(status))
 }
 
-func createBanContext(conf *config.Configuration, IP net.IP) BanContext {
-	return BanContext{
-		IP: IP,
-		DB: initStorage(conf),
-	}
-}
-
 func findAndLoadConfig(explicitPath string) *config.Configuration {
 	if explicitPath != "" {
 		return config.LoadConfig(explicitPath)
@@ -320,15 +308,15 @@ func main() {
 	case "ban":
 		conf := findAndLoadConfig(flag.Arg(2))
 		overrideConfWithCmd(conf, cmdOpts)
-		banContext := createBanContext(conf, net.ParseIP(flag.Arg(1)))
-		if err := banContext.DB.InsertBan(banContext.IP, cmdOpts.BanSecs); err != nil {
+		db := initStorage(conf)
+		if err := db.InsertBan(net.ParseIP(flag.Arg(1)), conf.BanTTLSecs); err != nil {
 			log.Fatal("FATAL: ", err)
 		}
 	case "unban":
 		conf := findAndLoadConfig(flag.Arg(2))
 		overrideConfWithCmd(conf, cmdOpts)
-		banContext := createBanContext(conf, net.ParseIP(flag.Arg(1)))
-		if err := banContext.DB.RemoveBan(banContext.IP); err != nil {
+		db := initStorage(conf)
+		if err := db.RemoveBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal("FATAL: ", err)
 		}
 	default:

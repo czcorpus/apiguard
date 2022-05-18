@@ -70,6 +70,7 @@ func LoadConfig(path string) *Configuration {
 	if err != nil {
 		log.Fatal("FATAL: Cannot load config - ", err)
 	}
+	log.Printf("INFO: loaded configuration from %s", path)
 	var conf Configuration
 	err = json.Unmarshal(rawData, &conf)
 	if err != nil {

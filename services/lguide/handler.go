@@ -130,7 +130,6 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		services.WriteJSONErrorResponse(w, services.NewActionError("Empty query"), 422)
 		return
 	}
-
 	respDelay, err := lga.analyzer.CalcDelay(req)
 	if err != nil {
 		services.WriteJSONErrorResponse(

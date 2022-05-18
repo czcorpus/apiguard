@@ -17,12 +17,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
 	"wum/botwatch"
 	"wum/config"
+	"wum/fsops"
 	"wum/reqcache"
 	"wum/services"
 	"wum/services/lguide"
@@ -253,6 +257,26 @@ func createBanContext(conf *config.Configuration, IP net.IP) BanContext {
 	}
 }
 
+func findAndLoadConfig(explicitPath string) *config.Configuration {
+	if explicitPath != "" {
+		return config.LoadConfig(explicitPath)
+	}
+	_, filepath, _, _ := runtime.Caller(0)
+	srcPath := path.Join(filepath, "conf.json")
+	srchPaths := []string{
+		srcPath,
+		"/usr/local/etc/wum/conf.json",
+		"/usr/local/etc/wum.json",
+	}
+	for _, path := range srchPaths {
+		if fsops.IsFile(path) {
+			return config.LoadConfig(path)
+		}
+	}
+	log.Fatalf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
+	return new(config.Configuration)
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
@@ -286,22 +310,22 @@ func main() {
 			version.Version, version.BuildDate, version.GitCommit)
 		return
 	case "start":
-		conf := config.LoadConfig(flag.Arg(1))
+		conf := findAndLoadConfig(flag.Arg(1))
 		overrideConfWithCmd(conf, cmdOpts)
 		runService(conf)
 	case "cleanup":
-		conf := config.LoadConfig(flag.Arg(1))
+		conf := findAndLoadConfig(flag.Arg(1))
 		overrideConfWithCmd(conf, cmdOpts)
 		runCleanup(conf)
 	case "ban":
-		conf := config.LoadConfig(flag.Arg(2))
+		conf := findAndLoadConfig(flag.Arg(2))
 		overrideConfWithCmd(conf, cmdOpts)
 		banContext := createBanContext(conf, net.ParseIP(flag.Arg(1)))
 		if err := banContext.DB.InsertBan(banContext.IP, cmdOpts.BanSecs); err != nil {
 			log.Fatal("FATAL: ", err)
 		}
 	case "unban":
-		conf := config.LoadConfig(flag.Arg(2))
+		conf := findAndLoadConfig(flag.Arg(2))
 		overrideConfWithCmd(conf, cmdOpts)
 		banContext := createBanContext(conf, net.ParseIP(flag.Arg(1)))
 		if err := banContext.DB.RemoveBan(banContext.IP); err != nil {

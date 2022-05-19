@@ -539,6 +539,7 @@ func NewMySQLAdapter(host, user, pass, dbName string) (*MySQLAdapter, error) {
 	conf.Passwd = pass
 	conf.DBName = dbName
 	conf.ParseTime = true
+	conf.Loc = time.Local
 	db, err := sql.Open("mysql", conf.FormatDSN())
 	if err != nil {
 		return nil, err

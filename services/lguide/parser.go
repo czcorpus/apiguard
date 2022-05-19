@@ -7,22 +7,30 @@
 package lguide
 
 import (
+	"net/url"
 	"strconv"
 	"strings"
 
 	"golang.org/x/net/html"
 )
 
+type Alternative struct {
+	Id   string `json:"id"`
+	Info string `json:"info"`
+}
+
 type ParsedData struct {
-	Scripts         []string    `json:"scripts"`
-	CSSLinks        []string    `json:"cssLinks"`
-	Heading         string      `json:"heading"`
-	Syllabification string      `json:"syllabification"`
-	Gender          string      `json:"gender"`
-	Conjugation     Conjugation `json:"conjugation"`
-	GrammarCase     GrammarCase `json:"grammarCase"`
-	Comparison      Comparison  `json:"comparison"`
-	Examples        []string    `json:"examples"`
+	Scripts         []string      `json:"scripts"`
+	CSSLinks        []string      `json:"cssLinks"`
+	Heading         string        `json:"heading"`
+	Meaning         string        `json:"meaning"`
+	Syllabification string        `json:"syllabification"`
+	Gender          string        `json:"gender"`
+	Conjugation     Conjugation   `json:"conjugation"`
+	GrammarCase     GrammarCase   `json:"grammarCase"`
+	Comparison      Comparison    `json:"comparison"`
+	Examples        []string      `json:"examples"`
+	Alternatives    []Alternative `json:"alternatives"`
 	items           map[string]string
 	Error           error
 }
@@ -269,6 +277,45 @@ func (data *ParsedData) parseTable(tkn *html.Tokenizer) {
 	}
 }
 
+func (data *ParsedData) parseAlternatives(tkn *html.Tokenizer) {
+	var alt *Alternative
+	for {
+		tt := tkn.Next()
+		switch {
+		case tt == html.ErrorToken:
+			return
+
+		case tt == html.StartTagToken:
+			t := tkn.Token()
+			if t.Data == "a" {
+				for _, attr := range t.Attr {
+					if attr.Key == "href" {
+						id, err := url.QueryUnescape(strings.Split(attr.Val, "id=")[1])
+						if err != nil {
+							data.Error = err
+						}
+						alt = &Alternative{
+							Id:   id,
+							Info: "",
+						}
+						break
+					}
+				}
+			}
+
+		case tt == html.EndTagToken:
+			t := tkn.Token()
+			if t.Data == "a" {
+				alt.Info = getNextText(tkn, "span")
+				data.Alternatives = append(data.Alternatives, *alt)
+
+			} else if t.Data == "div" {
+				return
+			}
+		}
+	}
+}
+
 func NewParsedData() *ParsedData {
 	return &ParsedData{
 		Scripts:  make([]string, 0, 10),
@@ -291,6 +338,9 @@ func Parse(text string) *ParsedData {
 		case tt == html.TextToken:
 			t := tkn.Token()
 			if strings.Contains(t.Data, "Heslové slovo bylo nalezeno také v následujících slovnících:") {
+				return data
+			} else if strings.Contains(t.Data, "Vyberte z nalezených hesel:") {
+				data.parseAlternatives(tkn)
 				return data
 			}
 
@@ -332,7 +382,11 @@ func Parse(text string) *ParsedData {
 							} else if key_val[0] == "příklady" {
 								data.Examples = strings.Split(key_val[1], "; ")
 							} else {
-								data.items[key_val[0]] = key_val[1]
+								if len(key_val) == 1 {
+									data.Meaning = key_val[0]
+								} else {
+									data.items[key_val[0]] = key_val[1]
+								}
 							}
 							break
 						}

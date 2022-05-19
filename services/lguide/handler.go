@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	targetServiceURLPath     = "/?slovo=%s"
-	targetServicePingURLPath = "?id=%s&action=single"
+	targetServiceURLPath       = "/?slovo=%s"
+	targetDirectServiceURLPath = "/?id=%s"
+	targetServicePingURLPath   = "?id=%s&action=single"
 )
 
 type LanguageGuideActions struct {
@@ -151,14 +152,34 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	}
 	time.Sleep(respDelay)
 
-	responseHTML, err := lga.createMainRequest(
-		fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
+	var responseHTML string
+	direct := req.URL.Query().Get("direct")
+	if direct == "1" {
+		responseHTML, err = lga.createMainRequest(
+			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(query)))
+	} else {
+		responseHTML, err = lga.createMainRequest(
+			fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
+	}
 
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
 	parsed := Parse(responseHTML)
+	if len(parsed.Alternatives) > 0 {
+		alts := parsed.Alternatives
+		responseHTML, err = lga.createMainRequest(
+			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(alts[0].Id)))
+
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+		parsed = Parse(responseHTML)
+		parsed.Alternatives = alts
+	}
+
 	if len(parsed.items) > 0 {
 		log.Printf("More data available for `%s` in `items`: %v", query, parsed.items)
 	}

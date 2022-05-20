@@ -16,4 +16,4 @@ type StorageProvider interface {
 	LoadCountingRules() ([]*telemetry.CountingRule, error)
 }
 
-var ErrUnknownClient = errors.New("unkown client")
+var ErrUnknownClient = errors.New("unknown client")

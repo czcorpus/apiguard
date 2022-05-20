@@ -27,6 +27,7 @@ import (
 	"wum/botwatch"
 	"wum/config"
 	"wum/fsops"
+	"wum/logging"
 	"wum/reqcache"
 	"wum/services"
 	"wum/services/lguide"
@@ -245,6 +246,85 @@ func runCleanup(conf *config.Configuration) {
 	log.Printf("INFO: finished old data cleanup: %s", string(status))
 }
 
+func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident string) {
+	confErr := conf.Validate()
+	if confErr != nil {
+		log.Fatal("FATAL: ", confErr)
+	}
+	setupLog(conf.LogPath)
+
+	ip := net.ParseIP(ident)
+	var sessionID string
+	if ip == nil {
+		var err error
+		log.Printf("assuming %s is a session ID", ident)
+		sessionID = logging.NormalizeSessionID(ident)
+		ip, err = storage.GetSessionIP(sessionID)
+		if err != nil {
+			log.Fatal("FATAL: ", err)
+		}
+		if ip == nil {
+			log.Fatal("FATAL: no IP address found for session ", sessionID)
+		}
+	}
+
+	telemetryAnalyzer, err := botwatch.NewAnalyzer(
+		&conf.Botwatch,
+		&conf.Telemetry,
+		&conf.Monitoring,
+		storage,
+		storage,
+	)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+	fakeReq, err := http.NewRequest("POST", "", nil)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+	if sessionID != "" {
+		fakeReq.AddCookie(&http.Cookie{
+			Name:  logging.WaGSessionName,
+			Value: sessionID,
+		})
+	}
+	fakeReq.RemoteAddr = ip.String()
+
+	if sessionID != "" {
+		delay, err := telemetryAnalyzer.CalcDelay(fakeReq)
+		if err != nil {
+			log.Fatal("FATAL: ", err)
+		}
+		botScore, err := telemetryAnalyzer.BotScore(fakeReq)
+		if err != nil {
+			log.Fatal("FATAL: ", err)
+		}
+		fmt.Printf(
+			"\nSession: %s"+
+				"\nbot score: %01.2f"+
+				"\nreq. delay: %v"+
+				"\n",
+			sessionID, botScore, delay,
+		)
+
+	} else {
+		ipStats, err := storage.LoadIPStats(ip.String(), conf.Telemetry.MaxAgeSecsRelevant)
+		if err != nil {
+			log.Fatal("FATAL: ", err)
+		}
+		d := time.Now().Add(-time.Duration(conf.Botwatch.WatchedTimeWindowSecs) * time.Second)
+		fmt.Println(" ", d)
+		fmt.Printf(
+			"\nShowing stats starting from: %s"+
+				"\nIP: %s"+
+				"\nNumber of requests: %d"+
+				"\nRequests stdev: %01.3f"+
+				"\n",
+			d, ip.String(), ipStats.Count, ipStats.Stdev(),
+		)
+	}
+}
+
 func findAndLoadConfig(explicitPath string) *config.Configuration {
 	if explicitPath != "" {
 		return config.LoadConfig(explicitPath)
@@ -277,8 +357,16 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
-			"WUM - WaG UJC middleware\n\nUsage:\n\t%s [options] start [config.json]\n\t%s [options] cleanup [conf.json]\n\t%s [options] ban [ip address] [conf.json]\n\t%s [options] unban [ip address] [conf.json]\n\t%s [options] version\n",
-			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			"WUM - WaG UJC middleware"+
+				"\n\nUsage:"+
+				"\n\t%s [options] start [config.json]"+
+				"\n\t%s [options] cleanup [conf.json]"+
+				"\n\t%s [options] ban [ip address] [conf.json]"+
+				"\n\t%s [options] unban [ip address] [conf.json]"+
+				"\n\t%s [options] status [session id / IP address] [conf.json]"+
+				"\n\t%s [options] version\n",
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -319,6 +407,12 @@ func main() {
 		if err := db.RemoveBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal("FATAL: ", err)
 		}
+	case "status":
+		conf := findAndLoadConfig(flag.Arg(2))
+		overrideConfWithCmd(conf, cmdOpts)
+		db := initStorage(conf)
+		runStatus(conf, db, flag.Arg(1))
+
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

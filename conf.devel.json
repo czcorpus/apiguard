@@ -13,7 +13,8 @@
         "rsdThreshold": 0.2
     },
     "telemetry": {
-        "analyzer": "dumb",
+        "analyzer": "entropy",
+        "customConfPath": "./entropies.json",
         "dataDelaySecs": 10,
         "maxAgeSecsRelevant": 3600
     },

@@ -38,7 +38,7 @@ type Backend interface {
 
 type StatsStorage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int) (*IPProcData, error)
-	LoadIPStats(clientIP string) (*IPProcData, error)
+	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
 }
 
@@ -46,6 +46,10 @@ type Analyzer struct {
 	backend Backend
 	storage StatsStorage
 	conf    *Conf
+}
+
+func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
+	return a.backend.BotScore(req)
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
@@ -75,7 +79,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 			return time.Duration(stats.Count/2) * time.Second, nil
 
 		} else {
-			stats, err := a.storage.LoadIPStats(ip)
+			stats, err := a.storage.LoadIPStats(ip, a.conf.WatchedTimeWindowSecs)
 			if err != nil {
 				return 0, err
 			}
@@ -88,8 +92,8 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 
 	} else {
 		log.Print("DEBUG: Client with telemetry...")
-		// user with telemetry waits from 0 to 25 s
-		return time.Duration(5*botScore*5*botScore) * time.Second, nil
+		// user with telemetry waits from 0 to 9 s
+		return time.Duration(3*botScore*3*botScore) * time.Second, nil
 	}
 }
 

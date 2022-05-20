@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 	"wum/botwatch"
-	"wum/logging"
 	"wum/telemetry"
 
 	"github.com/go-sql-driver/mysql"
@@ -146,30 +145,43 @@ func (c *MySQLAdapter) ResetStats(data *botwatch.IPProcData) error {
 	return err
 }
 
-func (c *MySQLAdapter) LoadIPStats(clientIP string) (*botwatch.IPProcData, error) {
+func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPAggData, error) {
 	ans := c.conn.QueryRow(
-		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
-		FROM client_stats WHERE client_ip = ?`,
-		clientIP,
+		`SELECT client_ip, SUM(mean), SUM(m2), SUM(cnt), first_request, last_request
+		FROM client_stats WHERE client_ip = ?
+		AND current_timestamp - INTERVAL ? SECOND < last_request`,
+		clientIP, maxAgeSecs,
 	)
-	var data botwatch.IPProcData
-	scanErr := ans.Scan(&data.SessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
+	var data botwatch.IPAggData
+	scanErr := ans.Scan(&data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
 	if ans.Err() != nil {
 		return nil, ans.Err()
 	}
 	if scanErr == sql.ErrNoRows {
-		return &botwatch.IPProcData{
-			SessionID: logging.EmptySessionIDPlaceholder,
-			ClientIP:  clientIP,
-			Count:     0,
-			Mean:      0,
-			M2:        0,
+		return &botwatch.IPAggData{
+			ClientIP: clientIP,
+			Count:    0,
+			Mean:     0,
+			M2:       0,
 		}, nil
 
 	} else if scanErr != nil {
 		return nil, scanErr
 	}
 	return &data, nil
+}
+
+func (c *MySQLAdapter) GetSessionIP(sessionID string) (net.IP, error) {
+	ans := c.conn.QueryRow("SELECT client_ip FROM client_stats WHERE session_id = ?", sessionID)
+	var ipStr string
+	scanErr := ans.Scan(&ipStr)
+	if ans.Err() != nil {
+		return nil, ans.Err()
+	}
+	if scanErr == sql.ErrNoRows {
+		return nil, nil
+	}
+	return net.ParseIP(ipStr), nil
 }
 
 func (c *MySQLAdapter) UpdateStats(
@@ -209,7 +221,11 @@ func (c *MySQLAdapter) UpdateStats(
 		}
 		_, err = c.conn.Exec(
 			`UPDATE client_stats SET mean = ?, m2 = ?, cnt = ?, stdev = ?, first_request = ?,
-			last_request = ? WHERE session_id = ? AND client_ip = ?`,
+			last_request = ?
+			WHERE id = (
+				SELECT q2.maxid FROM (SELECT MAX(id) AS maxid FROM client_stats
+					WHERE session_id = ? AND client_ip = ?) AS q2
+			)`,
 			data.Mean, data.M2, data.Count, data.Stdev(), data.FirstAccess, data.LastAccess,
 			data.SessionID, data.ClientIP,
 		)

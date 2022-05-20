@@ -17,7 +17,7 @@ import (
 
 const (
 	WaGSessionName            = "wag.session"
-	MaxSessionValueLength     = 64
+	maxSessionValueLength     = 64
 	EmptySessionIDPlaceholder = "-"
 )
 
@@ -27,6 +27,13 @@ func ExtractClientIP(req *http.Request) string {
 		return ip
 	}
 	return strings.Split(req.RemoteAddr, ":")[0]
+}
+
+func NormalizeSessionID(sid string) string {
+	if len(sid) <= maxSessionValueLength {
+		return sid
+	}
+	return sid[:maxSessionValueLength]
 }
 
 type LGRequestRecord struct {
@@ -56,7 +63,7 @@ func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
 	if err == nil {
-		sessionID = session.Value[:MaxSessionValueLength]
+		sessionID = NormalizeSessionID(session.Value)
 	}
 	return &LGRequestRecord{
 		IPAddress: ip,
@@ -70,7 +77,7 @@ func ExtractRequestIdentifiers(req *http.Request) (string, string) {
 	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
 	if err == nil {
-		sessionID = session.Value[:MaxSessionValueLength]
+		sessionID = NormalizeSessionID(session.Value)
 
 	} else if err == http.ErrNoCookie {
 		sessionID = EmptySessionIDPlaceholder

@@ -85,3 +85,25 @@ func (ips *IPProcData) ToIPStats(ip string) IPStats {
 		LastRequest:  ips.LastAccess.Format(time.RFC3339),
 	}
 }
+
+// ---
+
+type IPAggData struct {
+	ClientIP    string    `json:"clientIP"`
+	Count       int       `json:"count"`
+	Mean        float64   `json:"mean"`
+	M2          float64   `json:"-"`
+	FirstAccess time.Time `json:"firstAccess"`
+	LastAccess  time.Time `json:"lastAccess"`
+}
+
+func (ips *IPAggData) Variance() float64 {
+	if ips.Count == 0 {
+		return 0
+	}
+	return ips.M2 / float64(ips.Count)
+}
+
+func (ips *IPAggData) Stdev() float64 {
+	return math.Sqrt(ips.Variance())
+}

@@ -217,7 +217,7 @@ func runService(conf *config.Configuration) {
 	srv := &http.Server{
 		Handler:      router,
 		Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
-		WriteTimeout: 10 * time.Second,
+		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,
 	}
 

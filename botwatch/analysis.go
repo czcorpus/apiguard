@@ -9,6 +9,7 @@ package botwatch
 import (
 	"fmt"
 	"log"
+	"math"
 	"net"
 	"net/http"
 	"time"
@@ -42,20 +43,20 @@ type StatsStorage interface {
 	TestIPBan(IP net.IP) (bool, error)
 }
 
-// linearFn1 and linearFn2 are linear functions with intersection in x=50 where linearFn2 is
+// penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
 // more steep.
-func linearFn1(x int) int {
-	return int(1000 * (0.182*float32(x) + 0.909))
+func penaltyFn1(x int) int {
+	return int(1000 * math.Pow(0.182*float64(x)+0.909, 0.9))
 }
 
-// linearFn2 and linearFn1 are linear functions with intersection in x=50 where linearFn2 is
+// penaltyFn2 and penaltyFn1 are functions with intersection in x=50 where penaltyFn2 is
 // more steep.
-func linearFn2(x int) int {
-	return int(1000 * (0.4*float32(x) - 10))
+func penaltyFn2(x int) int {
+	return int(1000 * math.Pow(0.4*float64(x)-10, 0.9))
 }
 
-func linearFn3(x int) int {
-	return int(1000 * (0.8 * float32(x)))
+func penaltyFn3(x int) int {
+	return int(1000 * math.Pow(0.8*float64(x), 0.9))
 }
 
 type Analyzer struct {
@@ -90,13 +91,14 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 				return 0, err
 			}
 			if stats.Count > 50 {
-				// user with a "long" session waits from 10s to infinity
-				return time.Duration(linearFn2(stats.Count)) * time.Millisecond, nil
+				// user with a "long" session waits from ~8s to infinity
+				// (e.g. 100 req. => ~14s, 500 req. => ~58s)
+				return time.Duration(penaltyFn2(stats.Count)) * time.Millisecond, nil
 
 			} else if stats.Count > 1 {
 				// user with a "long" session and just a few requests
-				// waits for ~ 0.5 -- 10 seconds
-				return time.Duration(linearFn1(stats.Count)) * time.Millisecond, nil
+				// waits for ~1 to ~8 seconds
+				return time.Duration(penaltyFn1(stats.Count)) * time.Millisecond, nil
 			}
 		}
 		// no (valid) session (first request or a simple bot) => let's load stats for the whole IP
@@ -108,15 +110,15 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 			return 0, err
 		}
 		// user w
-		return time.Duration(linearFn3(stats.Count)) * time.Millisecond, nil
+		return time.Duration(penaltyFn3(stats.Count)) * time.Millisecond, nil
 
 	} else if err != nil {
 		return 0, err
 
 	} else {
 		log.Print("DEBUG: Client with telemetry...")
-		// user with telemetry waits from 0 to 9 s
-		return time.Duration(1000*3*botScore*3*botScore) * time.Millisecond, nil
+		// user with telemetry waits from 0 to ~6s
+		return time.Duration(1000*2.5*botScore*2.5*botScore) * time.Millisecond, nil
 	}
 }
 

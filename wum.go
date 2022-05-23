@@ -45,12 +45,13 @@ var (
 )
 
 type CmdOptions struct {
-	Host            string
-	Port            int
-	ReadTimeoutSecs int
-	LogPath         string
-	MaxAgeDays      int
-	BanSecs         int
+	Host             string
+	Port             int
+	ReadTimeoutSecs  int
+	WriteTimeoutSecs int
+	LogPath          string
+	MaxAgeDays       int
+	BanSecs          int
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -90,6 +91,16 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 			config.DfltServerReadTimeoutSecs,
 		)
 		origConf.ServerReadTimeoutSecs = config.DfltServerReadTimeoutSecs
+	}
+	if cmdConf.WriteTimeoutSecs != 0 {
+		origConf.ServerWriteTimeoutSecs = cmdConf.WriteTimeoutSecs
+
+	} else if origConf.ServerWriteTimeoutSecs == 0 {
+		log.Printf(
+			"WARNING: serverWriteTimeoutSecs not specified, using default value %d",
+			config.DfltServerWriteTimeoutSecs,
+		)
+		origConf.ServerWriteTimeoutSecs = config.DfltServerWriteTimeoutSecs
 	}
 	if cmdConf.LogPath != "" {
 		origConf.LogPath = cmdConf.LogPath
@@ -348,9 +359,10 @@ func findAndLoadConfig(explicitPath string) *config.Configuration {
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
-	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on (overrides conf.json)")
-	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on (overrided conf.json)")
-	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Read timeout in seconds (overrides conf.json)")
+	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on")
+	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on")
+	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Server read timeout in seconds")
+	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "write-timeout", 0, "Server write timeout in seconds")
 	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")
 	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 0, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
 	flag.IntVar(&cmdOpts.BanSecs, "ban-secs", 0, "Number of seconds to ban an IP address")

@@ -19,26 +19,28 @@ import (
 )
 
 const (
-	DfltServerReadTimeoutSecs = 30
-	DftlServerPort            = 8080
-	DfltServerHost            = "localhost"
-	DfltCleanupMaxAgeDays     = 7
-	DfltBanSecs               = 3600
+	DfltServerReadTimeoutSecs  = 10
+	DfltServerWriteTimeoutSecs = 30
+	DftlServerPort             = 8080
+	DfltServerHost             = "localhost"
+	DfltCleanupMaxAgeDays      = 7
+	DfltBanSecs                = 3600
 )
 
 type Configuration struct {
-	ServerHost            string                    `json:"serverHost"`
-	ServerPort            int                       `json:"serverPort"`
-	ServerReadTimeoutSecs int                       `json:"serverReadTimeoutSecs"`
-	Botwatch              botwatch.Conf             `json:"botwatch"`
-	Telemetry             telemetry.Conf            `json:"telemetry"`
-	Storage               storage.Conf              `json:"storage"`
-	LanguageGuide         lguide.Conf               `json:"languageGuide"`
-	Cache                 reqcache.Conf             `json:"cache"`
-	Monitoring            monitoring.ConnectionConf `json:"monitoring"`
-	LogPath               string                    `json:"logPath"`
-	CleanupMaxAgeDays     int                       `json:"cleanupMaxAgeDays"`
-	BanTTLSecs            int                       `json:"banTTLSecs"`
+	ServerHost             string                    `json:"serverHost"`
+	ServerPort             int                       `json:"serverPort"`
+	ServerReadTimeoutSecs  int                       `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                       `json:"serverWriteTimeoutSecs"`
+	Botwatch               botwatch.Conf             `json:"botwatch"`
+	Telemetry              telemetry.Conf            `json:"telemetry"`
+	Storage                storage.Conf              `json:"storage"`
+	LanguageGuide          lguide.Conf               `json:"languageGuide"`
+	Cache                  reqcache.Conf             `json:"cache"`
+	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
+	LogPath                string                    `json:"logPath"`
+	CleanupMaxAgeDays      int                       `json:"cleanupMaxAgeDays"`
+	BanTTLSecs             int                       `json:"banTTLSecs"`
 }
 
 func (c *Configuration) Validate() error {

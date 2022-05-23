@@ -9,6 +9,7 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"time"
@@ -102,7 +103,13 @@ func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPPr
 	return ans, nil
 }
 
+// LoadStats loads statistics for a specified IP and sessionID. In case nothing is found,
+// a new record is inserted.
 func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int) (*botwatch.IPProcData, error) {
+	tx, err := c.StartTx()
+	if err != nil {
+		return nil, err
+	}
 	ans := c.conn.QueryRow(
 		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
 		FROM client_stats WHERE session_id = ? AND client_ip = ? AND current_timestamp - INTERVAL ? SECOND < last_request`,
@@ -111,18 +118,31 @@ func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int) (*b
 	var data botwatch.IPProcData
 	scanErr := ans.Scan(&data.SessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
 	if ans.Err() != nil {
+		tx.Rollback()
 		return nil, ans.Err()
 	}
 	if scanErr == sql.ErrNoRows {
-		return &botwatch.IPProcData{
+		newData := &botwatch.IPProcData{
 			SessionID: sessionID,
 			ClientIP:  clientIP,
 			Count:     0,
 			Mean:      0,
 			M2:        0,
-		}, nil
+		}
+		c.resetStats(tx, newData)
+		err := tx.Commit()
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+		log.Printf(
+			"DEBUG: no stats found for session %s (ip %s) - new record created",
+			sessionID, clientIP,
+		)
+		return newData, nil
 
 	} else if scanErr != nil {
+		tx.Rollback()
 		return nil, scanErr
 	}
 	return &data, nil
@@ -133,7 +153,17 @@ func (c *MySQLAdapter) ResetStats(data *botwatch.IPProcData) error {
 	if err != nil {
 		return err
 	}
-	_, err = tx.Exec(
+	err = c.resetStats(tx, data)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = tx.Commit()
+	return err
+}
+
+func (c *MySQLAdapter) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
+	_, err := tx.Exec(
 		`INSERT INTO client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		data.SessionID, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
@@ -141,8 +171,7 @@ func (c *MySQLAdapter) ResetStats(data *botwatch.IPProcData) error {
 	if err != nil {
 		return err
 	}
-	err = tx.Commit()
-	return err
+	return nil
 }
 
 func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPAggData, error) {

@@ -18,7 +18,7 @@ import (
 )
 
 type StoreHandler interface {
-	LoadStats(clientIP, sessionID string, maxAgeSecs int) (*IPProcData, error)
+	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
 	ResetStats(data *IPProcData) error
 	UpdateStats(data *IPProcData) error
 	CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error)
@@ -81,7 +81,12 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 	srec, ok := wd.statistics[rec.GetClientID()]
 	if !ok {
 		var err error
-		srec, err = wd.db.LoadStats(rec.GetClientIP().String(), rec.GetSessionID(), wd.conf.WatchedTimeWindowSecs)
+		srec, err = wd.db.LoadStats(
+			rec.GetClientIP().String(),
+			rec.GetSessionID(),
+			wd.conf.WatchedTimeWindowSecs,
+			false,
+		)
 		if err != nil {
 			return err
 		}
@@ -135,16 +140,18 @@ func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
 
 func (wd *Watchdog[T]) assertTelemetry(rec *logging.LGRequestRecord) {
 	go func() {
-		delayDuration := time.Duration(wd.telemetryConf.DataDelaySecs) * time.Second
-		time.Sleep(delayDuration)
-		diff, err := wd.db.CalcStatsTelemetryDiscrepancy(rec.IPAddress, rec.SessionID, 30) // TODO
-		if err != nil {
-			log.Print("ERROR: failed to check for telemetry vs. stats discrepancy: ", err)
-		}
-		for i := 0; i < diff; i++ {
-			err := wd.db.InsertBotLikeTelemetry(rec.IPAddress, rec.SessionID)
+		if rec.SessionID != "" {
+			delayDuration := time.Duration(wd.telemetryConf.DataDelaySecs) * time.Second
+			time.Sleep(delayDuration)
+			diff, err := wd.db.CalcStatsTelemetryDiscrepancy(rec.IPAddress, rec.SessionID, 30) // TODO
 			if err != nil {
-				log.Print("ERROR: failed to insert bot-like telemetry: ", err)
+				log.Print("ERROR: failed to check for telemetry vs. stats discrepancy: ", err)
+			}
+			for i := 0; i < diff; i++ {
+				err := wd.db.InsertBotLikeTelemetry(rec.IPAddress, rec.SessionID)
+				if err != nil {
+					log.Print("ERROR: failed to insert bot-like telemetry: ", err)
+				}
 			}
 		}
 	}()

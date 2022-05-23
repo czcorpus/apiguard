@@ -16,9 +16,8 @@ import (
 )
 
 const (
-	WaGSessionName            = "wag.session"
-	maxSessionValueLength     = 64
-	EmptySessionIDPlaceholder = "-"
+	WaGSessionName        = "wag.session"
+	maxSessionValueLength = 64
 )
 
 func ExtractClientIP(req *http.Request) string {
@@ -80,10 +79,10 @@ func ExtractRequestIdentifiers(req *http.Request) (string, string) {
 		sessionID = NormalizeSessionID(session.Value)
 
 	} else if err == http.ErrNoCookie {
-		sessionID = EmptySessionIDPlaceholder
+		sessionID = ""
 
 	} else {
-		sessionID = EmptySessionIDPlaceholder
+		sessionID = ""
 		log.Print("WARNING: failed to fetch session cookie - ", err)
 	}
 	return ip, sessionID

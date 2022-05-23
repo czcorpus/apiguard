@@ -23,7 +23,7 @@ import (
 
 CREATE TABLE client_stats (
 	id INT NOT NULL auto_increment,
-	session_id VARCHAR(64) NOT NULL,
+	session_id VARCHAR(64),
 	client_ip VARCHAR(45) NOT NULL,
 	cnt int NOT NULL DEFAULT 0,
 	mean FLOAT NOT NULL,
@@ -45,8 +45,7 @@ CREATE TABLE client_actions (
 	is_mobile tinyint NOT NULL DEFAULT 0,
 	is_subquery tinyint NOT NULL DEFAULT 0,
 	training_flag TINYINT, -- marks training data (1 = legit usage, 0 = bot usage, NULL - not training data)
-	PRIMARY KEY (id),
-	FOREIGN KEY (session_id, client_ip) REFERENCES client_stats(session_id, client_ip)
+	PRIMARY KEY (id)
 );
 
 CREATE TABLE client_counting_rules (
@@ -64,8 +63,17 @@ CREATE TABLE client_bans (
 	PRIMARY KEY (ip_address)
 );
 
-
 */
+
+func string2NullString(s string) sql.NullString {
+	if s == "" {
+		return sql.NullString{}
+	}
+	return sql.NullString{
+		String: s,
+		Valid:  true,
+	}
+}
 
 type MySQLAdapter struct {
 	conn *sql.DB
@@ -86,8 +94,9 @@ func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPPr
 	ans := make([]*botwatch.IPProcData, 0, maxItems)
 	for result.Next() {
 		var item botwatch.IPProcData
+		var sessionID sql.NullString
 		scanErr := result.Scan(
-			&item.SessionID,
+			&sessionID,
 			&item.ClientIP,
 			&item.Mean,
 			&item.M2,
@@ -98,6 +107,9 @@ func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPPr
 		if scanErr != nil {
 			return []*botwatch.IPProcData{}, nil
 		}
+		if sessionID.Valid {
+			item.SessionID = sessionID.String
+		}
 		ans = append(ans, &item)
 	}
 	return ans, nil
@@ -105,45 +117,56 @@ func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPPr
 
 // LoadStats loads statistics for a specified IP and sessionID. In case nothing is found,
 // a new record is inserted.
-func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int) (*botwatch.IPProcData, error) {
+func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*botwatch.IPProcData, error) {
 	tx, err := c.StartTx()
 	if err != nil {
 		return nil, err
 	}
 	ans := c.conn.QueryRow(
 		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
-		FROM client_stats WHERE session_id = ? AND client_ip = ? AND current_timestamp - INTERVAL ? SECOND < last_request`,
-		sessionID, clientIP, maxAgeSecs,
+		FROM client_stats
+		WHERE (session_id = ? OR session_id IS NULL AND ? IS NULL) AND client_ip = ? AND
+		current_timestamp - INTERVAL ? SECOND < last_request`,
+		string2NullString(sessionID), string2NullString(sessionID), clientIP, maxAgeSecs,
 	)
 	var data botwatch.IPProcData
-	scanErr := ans.Scan(&data.SessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
+	var dbSessionID sql.NullString
+	scanErr := ans.Scan(&dbSessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
 	if ans.Err() != nil {
 		tx.Rollback()
 		return nil, ans.Err()
 	}
 	if scanErr == sql.ErrNoRows {
+		dt := time.Now()
 		newData := &botwatch.IPProcData{
-			SessionID: sessionID,
-			ClientIP:  clientIP,
-			Count:     0,
-			Mean:      0,
-			M2:        0,
+			SessionID:   sessionID,
+			ClientIP:    clientIP,
+			Count:       0,
+			Mean:        0,
+			M2:          0,
+			FirstAccess: dt,
+			LastAccess:  dt,
 		}
-		c.resetStats(tx, newData)
-		err := tx.Commit()
-		if err != nil {
-			tx.Rollback()
-			return nil, err
+		if insertIfNone {
+			c.resetStats(tx, newData)
+			err := tx.Commit()
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+			log.Printf(
+				"DEBUG: no stats found for session %s (ip %s) - new record inserted to DB",
+				sessionID, clientIP,
+			)
 		}
-		log.Printf(
-			"DEBUG: no stats found for session %s (ip %s) - new record created",
-			sessionID, clientIP,
-		)
 		return newData, nil
 
 	} else if scanErr != nil {
 		tx.Rollback()
 		return nil, scanErr
+	}
+	if dbSessionID.Valid {
+		data.SessionID = dbSessionID.String
 	}
 	return &data, nil
 }
@@ -163,10 +186,11 @@ func (c *MySQLAdapter) ResetStats(data *botwatch.IPProcData) error {
 }
 
 func (c *MySQLAdapter) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
+	ns := string2NullString(data.SessionID)
 	_, err := tx.Exec(
 		`INSERT INTO client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		data.SessionID, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
+		ns, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
 		data.FirstAccess, data.LastAccess)
 	if err != nil {
 		return err
@@ -176,10 +200,13 @@ func (c *MySQLAdapter) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
 
 func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPAggData, error) {
 	ans := c.conn.QueryRow(
-		`SELECT client_ip, SUM(mean), SUM(m2), SUM(cnt), first_request, last_request
-		FROM client_stats WHERE client_ip = ?
-		AND current_timestamp - INTERVAL ? SECOND < last_request
-		GROUP BY client_ip`,
+		`SELECT cs.client_ip, SUM(cs.mean), SUM(cs.m2), SUM(cs.cnt),
+		 MIN(cs.first_request), MAX(cs.last_request)
+		FROM client_stats AS cs
+		LEFT JOIN client_actions AS ca ON cs.client_ip = ca.client_ip AND cs.session_id = ca.session_id
+		WHERE cs.client_ip = ?
+		AND current_timestamp - INTERVAL ? SECOND < cs.last_request
+		GROUP BY cs.client_ip `,
 		clientIP, maxAgeSecs,
 	)
 	var data botwatch.IPAggData
@@ -202,7 +229,13 @@ func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.I
 }
 
 func (c *MySQLAdapter) GetSessionIP(sessionID string) (net.IP, error) {
-	ans := c.conn.QueryRow("SELECT client_ip FROM client_stats WHERE session_id = ?", sessionID)
+	ns := string2NullString(sessionID)
+	ans := c.conn.QueryRow(
+		`SELECT client_ip
+		FROM client_stats
+		WHERE (session_id = ? OR session_id IS NULL AND ? IS NULL)`,
+		ns, ns,
+	)
 	var ipStr string
 	scanErr := ans.Scan(&ipStr)
 	if ans.Err() != nil {
@@ -217,9 +250,12 @@ func (c *MySQLAdapter) GetSessionIP(sessionID string) (net.IP, error) {
 func (c *MySQLAdapter) UpdateStats(
 	data *botwatch.IPProcData,
 ) error {
+	ns := string2NullString(data.SessionID)
 	curr := c.conn.QueryRow(
-		`SELECT COUNT(*) FROM client_stats WHERE client_ip = ? AND session_id = ?`,
-		data.ClientIP, data.SessionID)
+		`SELECT COUNT(*)
+		FROM client_stats
+		WHERE client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)`,
+		data.ClientIP, ns, ns)
 	var cnt int
 	scanErr := curr.Scan(&cnt)
 	if curr.Err() != nil {
@@ -236,7 +272,7 @@ func (c *MySQLAdapter) UpdateStats(
 		_, err = tx.Exec(
 			`INSERT INTO client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			data.SessionID, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
+			ns, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
 			data.FirstAccess, data.LastAccess)
 		if err != nil {
 			return err
@@ -254,10 +290,10 @@ func (c *MySQLAdapter) UpdateStats(
 			last_request = ?
 			WHERE id = (
 				SELECT q2.maxid FROM (SELECT MAX(id) AS maxid FROM client_stats
-					WHERE session_id = ? AND client_ip = ?) AS q2
+					WHERE (session_id = ? OR session_id IS NULL AND ? IS NULL) AND client_ip = ?) AS q2
 			)`,
 			data.Mean, data.M2, data.Count, data.Stdev(), data.FirstAccess, data.LastAccess,
-			data.SessionID, data.ClientIP,
+			string2NullString(data.SessionID), string2NullString(data.SessionID), data.ClientIP,
 		)
 		if err != nil {
 			return err
@@ -272,9 +308,9 @@ func (c *MySQLAdapter) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string,
 		`SELECT cnt
 		FROM client_stats
 		WHERE
-			client_ip = ? AND session_id = ?
+			client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)
 		   	AND current_timestamp - interval ? SECOND < last_request`,
-		clientIP, sessionID, historySecs,
+		clientIP, string2NullString(sessionID), string2NullString(sessionID), historySecs,
 	)
 	var cnt1 int
 	scanErr := res.Scan(&cnt1)
@@ -292,10 +328,10 @@ func (c *MySQLAdapter) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string,
 		`SELECT COUNT(*)
 		FROM client_actions
 		WHERE
-			client_ip = ? AND session_id = ?
+			client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)
 			AND action_name = 'MAIN_REQUEST_QUERY_RESPONSE'
 		   	AND current_timestamp - interval ? SECOND < created`,
-		clientIP, sessionID, historySecs,
+		clientIP, string2NullString(sessionID), string2NullString(sessionID), historySecs,
 	)
 	var cnt2 int
 	scanErr = res.Scan(&cnt2)
@@ -323,7 +359,7 @@ func (c *MySQLAdapter) InsertBotLikeTelemetry(clientIP, sessionID string) error 
 		_, err = tx.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, created)
 			VALUES (?, ?, 'MAIN_SET_TILE_RENDER_SIZE', ?)`,
-			clientIP, sessionID, t0,
+			clientIP, string2NullString(sessionID), t0,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -333,7 +369,7 @@ func (c *MySQLAdapter) InsertBotLikeTelemetry(clientIP, sessionID string) error 
 	_, err = tx.Exec(`
 		INSERT INTO client_actions (client_ip, session_id, action_name, created)
 		VALUES (?, ?, 'MAIN_REQUEST_QUERY_RESPONSE', ?)`,
-		clientIP, sessionID, t0,
+		clientIP, string2NullString(sessionID), t0,
 	)
 	if err != nil {
 		tx.Rollback()
@@ -343,7 +379,7 @@ func (c *MySQLAdapter) InsertBotLikeTelemetry(clientIP, sessionID string) error 
 		_, err = tx.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, created)
 			VALUES (?, ?, 'MAIN_TILE_DATA_LOADED', ?)`,
-			clientIP, sessionID, t1,
+			clientIP, string2NullString(sessionID), t1,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -354,7 +390,7 @@ func (c *MySQLAdapter) InsertBotLikeTelemetry(clientIP, sessionID string) error 
 		_, err = tx.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, created)
 			VALUES (?, ?, 'MAIN_TILE_PARTIAL_DATA_LOADED', ?)`,
-			clientIP, sessionID, t1,
+			clientIP, string2NullString(sessionID), t1,
 		)
 		if err != nil {
 			tx.Rollback()
@@ -370,8 +406,8 @@ func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload)
 		_, err := transact.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			rec.ClientIP, rec.SessionID, rec.ActionName, rec.TileName, rec.IsMobile,
-			rec.IsSubquery, rec.Created,
+			rec.ClientIP, string2NullString(rec.SessionID), rec.ActionName, rec.TileName,
+			rec.IsMobile, rec.IsSubquery, rec.Created,
 		)
 		if err != nil {
 			return err
@@ -384,9 +420,10 @@ func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int)
 	qAns, err := c.conn.Query(
 		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created
 		FROM client_actions
-		WHERE client_ip = ? AND session_id = ? AND created >= current_timestamp - INTERVAL ? SECOND
+		WHERE client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)
+		AND created >= current_timestamp - INTERVAL ? SECOND
 		ORDER BY id ASC`,
-		clientIP, sessionID, maxAgeSecs,
+		clientIP, string2NullString(sessionID), string2NullString(sessionID), maxAgeSecs,
 	)
 	if err != nil {
 		return []*telemetry.ActionRecord{}, err
@@ -394,13 +431,17 @@ func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int)
 	ans := make([]*telemetry.ActionRecord, 0, 100)
 	for qAns.Next() {
 		var item telemetry.ActionRecord
+		var sessionID sql.NullString
 		var tileName sql.NullString
 		err := qAns.Scan(
-			&item.ClientIP, &item.SessionID, &item.ActionName, &tileName,
+			&item.ClientIP, &sessionID, &item.ActionName, &tileName,
 			&item.IsMobile, &item.IsSubquery, &item.Created,
 		)
 		if err != nil {
 			return []*telemetry.ActionRecord{}, err
+		}
+		if sessionID.Valid {
+			item.SessionID = sessionID.String
 		}
 		if tileName.Valid {
 			item.TileName = tileName.String

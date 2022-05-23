@@ -178,7 +178,8 @@ func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.I
 	ans := c.conn.QueryRow(
 		`SELECT client_ip, SUM(mean), SUM(m2), SUM(cnt), first_request, last_request
 		FROM client_stats WHERE client_ip = ?
-		AND current_timestamp - INTERVAL ? SECOND < last_request`,
+		AND current_timestamp - INTERVAL ? SECOND < last_request
+		GROUP BY client_ip`,
 		clientIP, maxAgeSecs,
 	)
 	var data botwatch.IPAggData

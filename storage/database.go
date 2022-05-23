@@ -204,7 +204,7 @@ func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.I
 		 MIN(cs.first_request), MAX(cs.last_request)
 		FROM client_stats AS cs
 		LEFT JOIN client_actions AS ca ON cs.client_ip = ca.client_ip AND cs.session_id = ca.session_id
-		WHERE cs.client_ip = ?
+		WHERE cs.client_ip = ? AND ca.id IS NULL
 		AND current_timestamp - INTERVAL ? SECOND < cs.last_request
 		GROUP BY cs.client_ip `,
 		clientIP, maxAgeSecs,

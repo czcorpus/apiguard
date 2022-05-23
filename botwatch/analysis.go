@@ -37,7 +37,7 @@ type Backend interface {
 }
 
 type StatsStorage interface {
-	LoadStats(clientIP, sessionID string, maxAgeSecs int) (*IPProcData, error)
+	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
 	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
 }
@@ -83,29 +83,32 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 			"DEBUG: client without telemetry (session %s, ip: %s)",
 			sessionID, ip,
 		)
-		// no telemetry - let's check client's request activity
-		stats, err := a.storage.LoadStats(ip, sessionID, a.conf.WatchedTimeWindowSecs)
-		if err != nil {
-			return 0, err
-		}
-		if stats.Count > 50 {
-			// user with a "long" session waits from 10s to infinity
-			return time.Duration(linearFn2(stats.Count)) * time.Millisecond, nil
-
-		} else if stats.Count > 1 {
-			// user with a "long" session and just a few requests
-			// waits for ~ 0.5 -- 10 seconds
-			return time.Duration(linearFn1(stats.Count)) * time.Millisecond, nil
-
-		} else {
-			// no (valid) session (first request or a simple bot) => let's load stats for the whole IP
-			stats, err := a.storage.LoadIPStats(ip, a.conf.WatchedTimeWindowSecs)
+		if sessionID != "" {
+			// no telemetry - let's check client's request activity
+			stats, err := a.storage.LoadStats(ip, sessionID, a.conf.WatchedTimeWindowSecs, true)
 			if err != nil {
 				return 0, err
 			}
-			// user w
-			return time.Duration(1000*linearFn3(stats.Count)) * time.Millisecond, nil
+			if stats.Count > 50 {
+				// user with a "long" session waits from 10s to infinity
+				return time.Duration(linearFn2(stats.Count)) * time.Millisecond, nil
+
+			} else if stats.Count > 1 {
+				// user with a "long" session and just a few requests
+				// waits for ~ 0.5 -- 10 seconds
+				return time.Duration(linearFn1(stats.Count)) * time.Millisecond, nil
+			}
 		}
+		// no (valid) session (first request or a simple bot) => let's load stats for the whole IP
+		stats, err := a.storage.LoadIPStats(ip, a.conf.WatchedTimeWindowSecs)
+		log.Printf(
+			"DEBUG: loaded stats of whole IP (users without telemetry), num req: %d, latest: %v",
+			stats.Count, stats.LastAccess)
+		if err != nil {
+			return 0, err
+		}
+		// user w
+		return time.Duration(linearFn3(stats.Count)) * time.Millisecond, nil
 
 	} else if err != nil {
 		return 0, err

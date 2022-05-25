@@ -17,16 +17,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
 	"path/filepath"
-	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
 	"wum/botwatch"
 	"wum/config"
-	"wum/fsops"
 	"wum/logging"
 	"wum/reqcache"
 	"wum/services"
@@ -59,75 +55,6 @@ func coreMiddleware(next http.Handler) http.Handler {
 		w.Header().Add("Content-Type", "application/json")
 		next.ServeHTTP(w, r)
 	})
-}
-
-func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
-	if cmdConf.Host != "" {
-		origConf.ServerHost = cmdConf.Host
-
-	} else if origConf.ServerHost == "" {
-		log.Printf(
-			"WARNING: serverHost not specified, using default value %s",
-			config.DfltServerHost,
-		)
-		origConf.ServerHost = config.DfltServerHost
-	}
-	if cmdConf.Port != 0 {
-		origConf.ServerPort = cmdConf.Port
-
-	} else if origConf.ServerPort == 0 {
-		log.Printf(
-			"WARNING: serverPort not specified, using default value %d",
-			config.DftlServerPort,
-		)
-		origConf.ServerPort = config.DftlServerPort
-	}
-	if cmdConf.ReadTimeoutSecs != 0 {
-		origConf.ServerReadTimeoutSecs = cmdConf.ReadTimeoutSecs
-
-	} else if origConf.ServerReadTimeoutSecs == 0 {
-		log.Printf(
-			"WARNING: serverReadTimeoutSecs not specified, using default value %d",
-			config.DfltServerReadTimeoutSecs,
-		)
-		origConf.ServerReadTimeoutSecs = config.DfltServerReadTimeoutSecs
-	}
-	if cmdConf.WriteTimeoutSecs != 0 {
-		origConf.ServerWriteTimeoutSecs = cmdConf.WriteTimeoutSecs
-
-	} else if origConf.ServerWriteTimeoutSecs == 0 {
-		log.Printf(
-			"WARNING: serverWriteTimeoutSecs not specified, using default value %d",
-			config.DfltServerWriteTimeoutSecs,
-		)
-		origConf.ServerWriteTimeoutSecs = config.DfltServerWriteTimeoutSecs
-	}
-	if cmdConf.LogPath != "" {
-		origConf.LogPath = cmdConf.LogPath
-
-	} else if origConf.LogPath == "" {
-		log.Printf("WARNING: logPath not specified, using stderr")
-	}
-	if cmdConf.MaxAgeDays > 0 {
-		origConf.CleanupMaxAgeDays = cmdConf.MaxAgeDays
-
-	} else if origConf.CleanupMaxAgeDays == 0 {
-		log.Printf(
-			"WARNING: cleanupMaxAgeDays not specified, using default value %d",
-			config.DfltCleanupMaxAgeDays,
-		)
-		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
-	}
-	if cmdConf.BanSecs > 0 {
-		origConf.BanTTLSecs = cmdConf.BanSecs
-
-	} else if origConf.BanTTLSecs == 0 {
-		log.Printf(
-			"WARNING: banTTLSecs not specified, using default value %d",
-			config.DfltBanSecs,
-		)
-		origConf.BanTTLSecs = config.DfltBanSecs
-	}
 }
 
 func setupLog(path string) {
@@ -336,26 +263,6 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 	}
 }
 
-func findAndLoadConfig(explicitPath string) *config.Configuration {
-	if explicitPath != "" {
-		return config.LoadConfig(explicitPath)
-	}
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "conf.json")
-	srchPaths := []string{
-		srcPath,
-		"/usr/local/etc/wum/conf.json",
-		"/usr/local/etc/wum.json",
-	}
-	for _, path := range srchPaths {
-		if fsops.IsFile(path) {
-			return config.LoadConfig(path)
-		}
-	}
-	log.Fatalf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
-	return new(config.Configuration)
-}
-
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
@@ -398,30 +305,25 @@ func main() {
 			version.Version, version.BuildDate, version.GitCommit)
 		return
 	case "start":
-		conf := findAndLoadConfig(flag.Arg(1))
-		overrideConfWithCmd(conf, cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		runService(conf)
 	case "cleanup":
-		conf := findAndLoadConfig(flag.Arg(1))
-		overrideConfWithCmd(conf, cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		runCleanup(conf)
 	case "ban":
-		conf := findAndLoadConfig(flag.Arg(2))
-		overrideConfWithCmd(conf, cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := initStorage(conf)
 		if err := db.InsertBan(net.ParseIP(flag.Arg(1)), conf.BanTTLSecs); err != nil {
 			log.Fatal("FATAL: ", err)
 		}
 	case "unban":
-		conf := findAndLoadConfig(flag.Arg(2))
-		overrideConfWithCmd(conf, cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := initStorage(conf)
 		if err := db.RemoveBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal("FATAL: ", err)
 		}
 	case "status":
-		conf := findAndLoadConfig(flag.Arg(2))
-		overrideConfWithCmd(conf, cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := initStorage(conf)
 		runStatus(conf, db, flag.Arg(1))
 

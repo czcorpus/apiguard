@@ -114,6 +114,7 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 			wd.suspicions[rec.GetClientID()] = *srec
 		}
 	}
+	// TODO IsSuspicious should not reset stats HERE !!!!
 	if srec.IsSuspicious(wd.conf) || rec.GetTime().Sub(srec.FirstAccess) > time.Duration(wd.conf.WatchedTimeWindowSecs)*time.Second {
 		srec.FirstAccess = rec.GetTime()
 		srec.Count = 0

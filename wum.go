@@ -81,10 +81,6 @@ func initStorage(conf *config.Configuration) *storage.MySQLAdapter {
 }
 
 func runService(conf *config.Configuration) {
-	confErr := conf.Validate()
-	if confErr != nil {
-		log.Fatal("FATAL: ", confErr)
-	}
 	setupLog(conf.LogPath)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -166,10 +162,6 @@ func runService(conf *config.Configuration) {
 }
 
 func runCleanup(conf *config.Configuration) {
-	confErr := conf.Validate()
-	if confErr != nil {
-		log.Fatal("FATAL: ", confErr)
-	}
 	setupLog(conf.LogPath)
 	log.Print("INFO: running cleanup procedure")
 	db := initStorage(conf)
@@ -185,10 +177,6 @@ func runCleanup(conf *config.Configuration) {
 }
 
 func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident string) {
-	confErr := conf.Validate()
-	if confErr != nil {
-		log.Fatal("FATAL: ", confErr)
-	}
 	setupLog(conf.LogPath)
 
 	ip := net.ParseIP(ident)

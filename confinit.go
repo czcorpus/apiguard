@@ -16,25 +16,34 @@ import (
 )
 
 func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configuration {
+	var conf *config.Configuration
 	if explicitPath != "" {
-		return config.LoadConfig(explicitPath)
-	}
-	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "conf.json")
-	srchPaths := []string{
-		srcPath,
-		"/usr/local/etc/wum/conf.json",
-		"/usr/local/etc/wum.json",
-	}
-	for _, path := range srchPaths {
-		if fsops.IsFile(path) {
-			conf := config.LoadConfig(path)
-			overrideConfWithCmd(conf, cmdOpts)
-			return conf
+		conf = config.LoadConfig(explicitPath)
+
+	} else {
+		_, filepath, _, _ := runtime.Caller(0)
+		srcPath := path.Join(filepath, "conf.json")
+		srchPaths := []string{
+			srcPath,
+			"/usr/local/etc/wum/conf.json",
+			"/usr/local/etc/wum.json",
+		}
+		for _, path := range srchPaths {
+			if fsops.IsFile(path) {
+				conf = config.LoadConfig(path)
+				break
+			}
+		}
+		if conf == nil {
+			log.Fatalf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
 		}
 	}
-	log.Fatalf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
-	return new(config.Configuration)
+	overrideConfWithCmd(conf, cmdOpts)
+	validErr := conf.Validate()
+	if validErr != nil {
+		log.Fatal("FATAL: ", validErr)
+	}
+	return conf
 }
 
 func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {

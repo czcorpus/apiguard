@@ -285,7 +285,7 @@ func main() {
 			os.Stderr,
 			"WUM - WaG UJC middleware"+
 				"\n\nUsage:"+
-				"\n\t%s [options] start [config.json]"+
+				"\n\t%s [options] start [conf.json]"+
 				"\n\t%s [options] cleanup [conf.json]"+
 				"\n\t%s [options] ban [ip address] [conf.json]"+
 				"\n\t%s [options] unban [ip address] [conf.json]"+

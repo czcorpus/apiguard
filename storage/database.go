@@ -542,7 +542,10 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 	}
 
 	_, err = tx.Exec(
-		"DELETE FROM client_actions WHERE NOW() - INTERVAL ? DAY > created",
+		`DELETE FROM client_actions
+		WHERE
+			NOW() - INTERVAL ? DAY > created AND
+			training_flag IS NULL`,
 		maxAgeDays,
 	)
 	if err != nil {

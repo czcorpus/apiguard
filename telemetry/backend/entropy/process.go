@@ -9,6 +9,7 @@ package entropy
 import (
 	"fmt"
 	"math"
+	"wum/telemetry/preprocess"
 )
 
 type ActionBin struct {
@@ -22,7 +23,7 @@ func (ab *ActionBin) String() string {
 		ab.idx, ab.totalCount, ab.actionCount)
 }
 
-func calculateEntropy(interactions []*NormalizedInteraction, actionName string) (entropy float64) {
+func CalculateEntropy(interactions []*preprocess.NormalizedInteraction, actionName string) (entropy float64) {
 	timeBins := make(map[int]*ActionBin)
 	for _, interaction := range interactions {
 		for _, action := range interaction.Actions {

@@ -6,7 +6,10 @@
 
 package telemetry
 
-import "fmt"
+import (
+	"fmt"
+	"wum/fsops"
+)
 
 type Conf struct {
 	Analyzer string `json:"analyzer"`
@@ -20,6 +23,8 @@ type Conf struct {
 	// MaxAgeSecsRelevant specifies how old telemetry is considered
 	// for client behavior analysis
 	MaxAgeSecsRelevant int `json:"maxAgeSecsRelevant"`
+
+	InternalDataPath string `json:"internalDataPath"`
 }
 
 func (bdc *Conf) Validate(context string) error {
@@ -31,6 +36,9 @@ func (bdc *Conf) Validate(context string) error {
 	}
 	if bdc.MaxAgeSecsRelevant == 0 {
 		return fmt.Errorf("%s.maxAgeSecsRelevant cannot be 0", context)
+	}
+	if !fsops.IsDir(bdc.InternalDataPath) {
+		return fmt.Errorf("%s.internalDataPath does not specify a valid directory", context)
 	}
 	return nil
 }

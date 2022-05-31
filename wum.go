@@ -251,6 +251,25 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 	}
 }
 
+func runLearn(conf *config.Configuration, storage *storage.MySQLAdapter) {
+	setupLog(conf.LogPath)
+
+	telemetryAnalyzer, err := botwatch.NewAnalyzer(
+		&conf.Botwatch,
+		&conf.Telemetry,
+		&conf.Monitoring,
+		storage,
+		storage,
+	)
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+	err = telemetryAnalyzer.Learn()
+	if err != nil {
+		log.Fatal("FATAL: ", err)
+	}
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
 	cmdOpts := new(CmdOptions)
@@ -271,9 +290,11 @@ func main() {
 				"\n\t%s [options] ban [ip address] [conf.json]"+
 				"\n\t%s [options] unban [ip address] [conf.json]"+
 				"\n\t%s [options] status [session id / IP address] [conf.json]"+
+				"\n\t%s [options] learn [conf.json]"+
 				"\n\t%s [options] version\n",
 			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -314,7 +335,10 @@ func main() {
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := initStorage(conf)
 		runStatus(conf, db, flag.Arg(1))
-
+	case "learn":
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		db := initStorage(conf)
+		runLearn(conf, db)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

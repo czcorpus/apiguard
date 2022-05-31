@@ -30,7 +30,7 @@ type CountingRuleValue struct {
 }
 
 type Analyzer struct {
-	db            backend.StorageProvider
+	db            backend.TelemetryStorage
 	countingRules map[TileActionKey]CountingRuleValue
 }
 
@@ -50,13 +50,14 @@ func (a *Analyzer) processTelemetry(telemetry []*telemetry.ActionRecord) (counts
 	return
 }
 
-func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
-
+func (a *Analyzer) Learn() error {
+	log.Print("WARNING: The 'counting' backend provides no learning capabilities")
+	return nil
 }
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	telemetry, err := a.db.LoadTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry)
+	telemetry, err := a.db.LoadClientTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry, 0)
 	if err != nil {
 		return -1, err
 	}
@@ -86,7 +87,7 @@ func prepareCountingRules(rulesData []*telemetry.CountingRule) (rules map[TileAc
 	return
 }
 
-func NewAnalyzer(db backend.StorageProvider) *Analyzer {
+func NewAnalyzer(db backend.TelemetryStorage) *Analyzer {
 	rulesData, err := db.LoadCountingRules()
 	if err != nil {
 		log.Print("ERROR: ", err) // TODO return error

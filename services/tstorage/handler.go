@@ -52,8 +52,10 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 	}
 	for i, item := range payloadTmp.Telemetry {
 		payload.Telemetry[i] = &telemetry.ActionRecord{
-			SessionID:  sessionID,
-			ClientIP:   ip,
+			Client: telemetry.Client{
+				SessionID: sessionID,
+				IP:        ip,
+			},
 			ActionName: item.ActionName,
 			IsMobile:   item.IsMobile,
 			IsSubquery: item.IsSubquery,

@@ -18,17 +18,18 @@ const (
 )
 
 type Analyzer struct {
-	db backend.StorageProvider
+	db backend.TelemetryStorage
 }
 
-func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
-
+func (a *Analyzer) Learn() error {
+	log.Print("WARNING: The 'dumb' backend provides no learning capabilities")
+	return nil
 }
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
-	data, err := a.db.LoadTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry)
+	data, err := a.db.LoadClientTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry, 0)
 	if err != nil {
 		return -1, err
 	}
@@ -38,6 +39,6 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	return 0, nil
 }
 
-func NewAnalyzer(db backend.StorageProvider) *Analyzer {
+func NewAnalyzer(db backend.TelemetryStorage) *Analyzer {
 	return &Analyzer{db: db}
 }

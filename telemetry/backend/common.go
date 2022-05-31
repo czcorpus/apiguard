@@ -11,8 +11,9 @@ import (
 	"wum/telemetry"
 )
 
-type StorageProvider interface {
-	LoadTelemetry(sessionID, clientIP string, maxAgeSecs int) ([]*telemetry.ActionRecord, error)
+type TelemetryStorage interface {
+	LoadClientTelemetry(sessionID, clientIP string, maxAgeSecs, minAgeSecs int) ([]*telemetry.ActionRecord, error)
+	FindLearningClients(maxAgeSecs, minAgeSecs int) ([]*telemetry.Client, error)
 	LoadCountingRules() ([]*telemetry.CountingRule, error)
 }
 

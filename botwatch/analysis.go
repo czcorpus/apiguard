@@ -20,6 +20,7 @@ import (
 	"wum/telemetry/backend/counting"
 	"wum/telemetry/backend/dumb"
 	"wum/telemetry/backend/entropy"
+	"wum/telemetry/backend/neural"
 )
 
 const (
@@ -27,7 +28,7 @@ const (
 )
 
 type Backend interface {
-	Learn(req *http.Request, isLegit bool)
+	Learn() error
 
 	// BotScore should evaluate client legitimacy using
 	// interval 0 to 1 where:
@@ -67,6 +68,10 @@ type Analyzer struct {
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	return a.backend.BotScore(req)
+}
+
+func (a *Analyzer) Learn() error {
+	return a.backend.Learn()
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
@@ -126,7 +131,7 @@ func NewAnalyzer(
 	conf *Conf,
 	telemetryConf *telemetry.Conf,
 	monitoringConf *monitoring.ConnectionConf,
-	db backend.StorageProvider,
+	db backend.TelemetryStorage,
 	statsStorage StatsStorage,
 ) (*Analyzer, error) {
 	switch telemetryConf.Analyzer {
@@ -144,6 +149,19 @@ func NewAnalyzer(
 		}, nil
 	case "entropy":
 		backend, err := entropy.NewAnalyzer(db, monitoringConf, telemetryConf)
+		if err != nil {
+			return nil, err
+		}
+		return &Analyzer{
+			conf:    conf,
+			backend: backend,
+			storage: statsStorage,
+		}, nil
+	case "neural":
+		backend, err := neural.NewAnalyzer(
+			db,
+			telemetryConf,
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -35,3 +35,18 @@ func GetFileMtime(filePath string) time.Time {
 	}
 	return time.Time{}
 }
+
+// IsDir tests whether a provided path represents
+// a directory. If not or in case of an IO error,
+// false is returned.
+func IsDir(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	finfo, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return finfo.Mode().IsDir()
+}

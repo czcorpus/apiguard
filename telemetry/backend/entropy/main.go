@@ -18,6 +18,7 @@ import (
 	"wum/monitoring"
 	"wum/telemetry"
 	"wum/telemetry/backend"
+	"wum/telemetry/preprocess"
 )
 
 type conf struct {
@@ -38,20 +39,21 @@ func loadConf(path string) (*conf, error) {
 }
 
 type Analyzer struct {
-	db         backend.StorageProvider
+	db         backend.TelemetryStorage
 	conf       *telemetry.Conf
 	customConf *conf
 	monitoring chan<- *monitoring.TelemetryEntropy
 }
 
-func (a *Analyzer) Learn(req *http.Request, isLegit bool) {
-
+func (a *Analyzer) Learn() error {
+	log.Print("WARNING: The 'entropy' backend provides no learning capabilities")
+	return nil
 }
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
-	data, err := a.db.LoadTelemetry(sessionID, ip, a.conf.MaxAgeSecsRelevant)
+	data, err := a.db.LoadClientTelemetry(sessionID, ip, a.conf.MaxAgeSecsRelevant, 0)
 	if err != nil {
 		return -1, err
 	}
@@ -59,18 +61,14 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 		return -1, backend.ErrUnknownClient
 	}
 
-	rawIntractions := findInteractionChunks(data)
-	interactions := make([]*NormalizedInteraction, len(rawIntractions))
-	for i, interact := range rawIntractions {
-		interactions[i] = normalizeTimes(interact.Actions)
-	}
-	ent1 := calculateEntropy(interactions, "MAIN_TILE_DATA_LOADED")
+	interactions := preprocess.FindNormalizedInteractions(data)
+	ent1 := CalculateEntropy(interactions, "MAIN_TILE_DATA_LOADED")
 	optim1 := a.customConf.Entropies["MAIN_TILE_DATA_LOADED"]
 	score1 := math.Abs(ent1 - optim1)
-	ent2 := calculateEntropy(interactions, "MAIN_TILE_PARTIAL_DATA_LOADED")
+	ent2 := CalculateEntropy(interactions, "MAIN_TILE_PARTIAL_DATA_LOADED")
 	optim2 := a.customConf.Entropies["MAIN_TILE_PARTIAL_DATA_LOADED"]
 	score2 := math.Abs(ent2 - optim2)
-	ent3 := calculateEntropy(interactions, "MAIN_SET_TILE_RENDER_SIZE")
+	ent3 := CalculateEntropy(interactions, "MAIN_SET_TILE_RENDER_SIZE")
 	optim3 := a.customConf.Entropies["MAIN_SET_TILE_RENDER_SIZE"]
 	score3 := math.Abs(ent3 - optim3)
 	totalScore := math.Abs(2*1/(1+math.Exp((score1+score2+score3)/3)) - 1)
@@ -89,7 +87,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 }
 
 func NewAnalyzer(
-	db backend.StorageProvider,
+	db backend.TelemetryStorage,
 	monitoringConf *monitoring.ConnectionConf,
 	telemetryConf *telemetry.Conf,
 ) (*Analyzer, error) {

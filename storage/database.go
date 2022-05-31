@@ -406,7 +406,7 @@ func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload)
 		_, err := transact.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-			rec.ClientIP, string2NullString(rec.SessionID), rec.ActionName, rec.TileName,
+			rec.Client.IP, string2NullString(rec.Client.SessionID), rec.ActionName, rec.TileName,
 			rec.IsMobile, rec.IsSubquery, rec.Created,
 		)
 		if err != nil {
@@ -416,39 +416,91 @@ func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload)
 	return nil
 }
 
-func (c *MySQLAdapter) LoadTelemetry(sessionID, clientIP string, maxAgeSecs int) ([]*telemetry.ActionRecord, error) {
-	qAns, err := c.conn.Query(
-		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created
-		FROM client_actions
-		WHERE client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)
-		AND created >= current_timestamp - INTERVAL ? SECOND
-		ORDER BY id ASC`,
-		clientIP, string2NullString(sessionID), string2NullString(sessionID), maxAgeSecs,
-	)
-	if err != nil {
-		return []*telemetry.ActionRecord{}, err
-	}
+func (c *MySQLAdapter) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRecord, error) {
 	ans := make([]*telemetry.ActionRecord, 0, 100)
-	for qAns.Next() {
+	for rows.Next() {
 		var item telemetry.ActionRecord
 		var sessionID sql.NullString
 		var tileName sql.NullString
-		err := qAns.Scan(
-			&item.ClientIP, &sessionID, &item.ActionName, &tileName,
-			&item.IsMobile, &item.IsSubquery, &item.Created,
+		var trainingFlag sql.NullInt16
+		err := rows.Scan(
+			&item.Client.IP, &sessionID, &item.ActionName, &tileName,
+			&item.IsMobile, &item.IsSubquery, &item.Created, &trainingFlag,
 		)
 		if err != nil {
 			return []*telemetry.ActionRecord{}, err
 		}
 		if sessionID.Valid {
-			item.SessionID = sessionID.String
+			item.Client.SessionID = sessionID.String
 		}
 		if tileName.Valid {
 			item.TileName = tileName.String
 		}
+		if trainingFlag.Valid {
+			item.TrainingFlag = int(trainingFlag.Int16)
+
+		} else {
+			item.TrainingFlag = -1
+		}
 		ans = append(ans, &item)
 	}
 	return ans, nil
+}
+
+// FindLearningClients finds all the clients involved in telemetry data during a specified
+// time interval (maxAgeSecs is including, minAgeSecs is excluding)
+func (c *MySQLAdapter) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*telemetry.Client, error) {
+	rows, err := c.conn.Query(
+		`SELECT DISTINCT client_ip, session_id
+		FROM client_actions
+		WHERE
+			created >= current_timestamp - INTERVAL ? SECOND AND
+			created < current_timestamp - INTERVAL ? SECOND AND
+			training_flag IS NOT NULL
+		ORDER BY id ASC`,
+		maxAgeSecs,
+		minAgeSecs,
+	)
+	if err != nil {
+		return []*telemetry.Client{}, err
+	}
+	ans := make([]*telemetry.Client, 0, 100)
+	for rows.Next() {
+		var sessionID sql.NullString
+		var client telemetry.Client
+		err := rows.Scan(&client.IP, &sessionID)
+		if err != nil {
+			return []*telemetry.Client{}, err
+		}
+		if sessionID.Valid {
+			client.SessionID = sessionID.String
+		}
+		ans = append(ans, &client)
+	}
+	return ans, nil
+}
+
+// LoadClient loads telemetry for a defined client and time limit
+func (c *MySQLAdapter) LoadClientTelemetry(
+	sessionID, clientIP string,
+	maxAgeSecs, minAgeSecs int,
+) ([]*telemetry.ActionRecord, error) {
+	rows, err := c.conn.Query(
+		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created, training_flag
+		FROM client_actions
+		WHERE
+			client_ip = ? AND
+			(session_id = ? OR session_id IS NULL AND ? IS NULL) AND
+			created >= current_timestamp - INTERVAL ? SECOND AND
+			created < current_timestamp - INTERVAL ? SECOND
+		ORDER BY id ASC`,
+		clientIP, string2NullString(sessionID), string2NullString(sessionID), maxAgeSecs, minAgeSecs,
+	)
+	if err != nil {
+		return []*telemetry.ActionRecord{}, err
+	}
+	x, err := c.exportTelemetryRows(rows)
+	return x, err
 }
 
 func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {

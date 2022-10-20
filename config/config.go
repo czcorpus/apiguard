@@ -13,6 +13,7 @@ import (
 	"wum/botwatch"
 	"wum/monitoring"
 	"wum/reqcache"
+	"wum/services/assc"
 	"wum/services/lguide"
 	"wum/storage"
 	"wum/telemetry"
@@ -27,6 +28,11 @@ const (
 	DfltBanSecs                = 3600
 )
 
+type servicesSection struct {
+	LanguageGuide lguide.Conf `json:"languageGuide"`
+	ASSC          assc.Conf   `json:"assc"`
+}
+
 type Configuration struct {
 	ServerHost             string                    `json:"serverHost"`
 	ServerPort             int                       `json:"serverPort"`
@@ -35,7 +41,7 @@ type Configuration struct {
 	Botwatch               botwatch.Conf             `json:"botwatch"`
 	Telemetry              telemetry.Conf            `json:"telemetry"`
 	Storage                storage.Conf              `json:"storage"`
-	LanguageGuide          lguide.Conf               `json:"languageGuide"`
+	Services               servicesSection           `json:"services"`
 	Cache                  reqcache.Conf             `json:"cache"`
 	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
 	LogPath                string                    `json:"logPath"`
@@ -57,7 +63,11 @@ func (c *Configuration) Validate() error {
 	if err != nil {
 		return err
 	}
-	err = c.LanguageGuide.Validate("languageGuide")
+	err = c.Services.LanguageGuide.Validate("services/languageGuide")
+	if err != nil {
+		return err
+	}
+	err = c.Services.LanguageGuide.Validate("services/assc")
 	if err != nil {
 		return err
 	}

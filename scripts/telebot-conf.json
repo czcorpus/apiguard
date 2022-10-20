@@ -1,9 +1,41 @@
 {
     "queries": ["modrý", "nahoře", "nebo", "haló", "okolnost"],
     "actions": {
-        "MAIN_REQUEST_QUERY_RESPONSE": 1,
-        "MAIN_SET_TILE_RENDER_SIZE": 3,
-        "MAIN_TILE_DATA_LOADED": 4,
-        "MAIN_TILE_PARTIAL_DATA_LOADED": 4
+        "simple": [
+            {
+                "sequence": ["MAIN_SET_TILE_RENDER_SIZE"],
+                "instances": 3,
+                "ignoreOrder": true
+            },
+            {
+                "sequence": ["MAIN_REQUEST_QUERY_RESPONSE"],
+                "instances": 1,
+                "ignoreOrder": true
+            },
+            {
+                "sequence": ["MAIN_TILE_PARTIAL_DATA_LOADED"],
+                "instances": 4,
+                "ignoreOrder": true
+            },
+            {
+                "sequence": ["MAIN_TILE_DATA_LOADED"],
+                "instances": 4,
+                "ignoreOrder": true
+            }
+        ],
+        "advanced": [
+            {
+                "sequence": ["MAIN_SET_TILE_RENDER_SIZE"],
+                "instances": 3
+            },
+            {
+                "sequence": ["MAIN_REQUEST_QUERY_RESPONSE"],
+                "instances": 1
+            },
+            {
+                "sequence": ["MAIN_TILE_DATA_LOADED", "MAIN_TILE_PARTIAL_DATA_LOADED"],
+                "instances": 4
+            }
+        ]
     }
 }

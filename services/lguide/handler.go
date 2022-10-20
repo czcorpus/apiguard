@@ -63,25 +63,7 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 func (lga *LanguageGuideActions) createMainRequest(url string) (string, error) {
 	cachedResult, err := lga.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
-		transport := &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-		}
-		client := &http.Client{Transport: transport}
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			return "", err
-		}
-		req.Header.Set("User-Agent", lga.conf.ClientUserAgent)
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", err
-		}
-		defer resp.Body.Close()
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return "", err
-		}
-		sbody := string(body)
+		sbody, err := services.GetRequest(url, lga.conf.ClientUserAgent)
 		err = lga.cache.Set(url, sbody)
 		if err != nil {
 			return "", err
@@ -92,7 +74,6 @@ func (lga *LanguageGuideActions) createMainRequest(url string) (string, error) {
 		return "", err
 	}
 	return cachedResult, nil
-
 }
 
 func (lga *LanguageGuideActions) createResourceRequest(url string) error {
@@ -128,7 +109,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 
 	query := req.URL.Query().Get("q")
 	if query == "" {
-		services.WriteJSONErrorResponse(w, services.NewActionError("Empty query"), 422)
+		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
 	respDelay, err := lga.analyzer.CalcDelay(req)

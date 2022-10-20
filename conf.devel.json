@@ -2,9 +2,15 @@
     "serverHost": "127.0.0.1",
     "serverPort": 3010,
     "serverReadTimeoutSecs": 5,
-    "languageGuide": {
-        "baseURL": "http://localhost:8081",
-        "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+    "services": {
+        "languageGuide": {
+            "baseURL": "http://localhost:8081",
+            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+        },
+        "assc": {
+            "baseURL": "https://slovnikcestiny.cz",
+            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+        }
     },
     "botwatch": {
         "botDefsPath": "",
@@ -16,7 +22,8 @@
         "analyzer": "entropy",
         "customConfPath": "./entropies.json",
         "dataDelaySecs": 10,
-        "maxAgeSecsRelevant": 3600
+        "maxAgeSecsRelevant": 3600,
+        "internalDataPath": "/var/opt/wum/data"
     },
     "storage": {
         "host": "10.0.3.130",

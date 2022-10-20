@@ -8,10 +8,11 @@ package botwatch
 
 import (
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	"wum/logging"
 	"wum/telemetry"
@@ -108,7 +109,7 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 		srec.M2 += delta * delta2
 	}
 	if srec.IsSuspicious(wd.conf) {
-		log.Printf("WARNING: detected suspicious statistics for %v", srec)
+		log.Warn().Msgf("detected suspicious statistics for %v", srec)
 		prev, ok := wd.suspicions[rec.GetClientID()]
 		if !ok || srec.ReqPerSecod() > prev.ReqPerSecod() {
 			wd.suspicions[rec.GetClientID()] = *srec
@@ -146,12 +147,12 @@ func (wd *Watchdog[T]) assertTelemetry(rec *logging.LGRequestRecord) {
 			time.Sleep(delayDuration)
 			diff, err := wd.db.CalcStatsTelemetryDiscrepancy(rec.IPAddress, rec.SessionID, 30) // TODO
 			if err != nil {
-				log.Print("ERROR: failed to check for telemetry vs. stats discrepancy: ", err)
+				log.Error().Err(err).Msg("failed to check for telemetry vs. stats discrepancy")
 			}
 			for i := 0; i < diff; i++ {
 				err := wd.db.InsertBotLikeTelemetry(rec.IPAddress, rec.SessionID)
 				if err != nil {
-					log.Print("ERROR: failed to insert bot-like telemetry: ", err)
+					log.Error().Err(err).Msg("failed to insert bot-like telemetry")
 				}
 			}
 		}
@@ -177,7 +178,7 @@ func NewLGWatchdog(
 			err := wd.analyze(item)
 			wd.assertTelemetry(item)
 			if err != nil {
-				log.Print("ERROR: ", err)
+				log.Error().Err(err).Msg("")
 			}
 		}
 	}()

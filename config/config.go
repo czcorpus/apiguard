@@ -9,7 +9,6 @@ package config
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"wum/botwatch"
 	"wum/monitoring"
 	"wum/reqcache"
@@ -17,6 +16,8 @@ import (
 	"wum/services/lguide"
 	"wum/storage"
 	"wum/telemetry"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -76,17 +77,16 @@ func (c *Configuration) Validate() error {
 
 func LoadConfig(path string) *Configuration {
 	if path == "" {
-		log.Fatal("FATAL: Cannot load config - path not specified")
+		log.Fatal().Msg("Cannot load config - path not specified")
 	}
 	rawData, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal("FATAL: Cannot load config - ", err)
+		log.Fatal().Err(err).Msg("Cannot load config")
 	}
-	log.Printf("INFO: loaded configuration from %s", path)
 	var conf Configuration
 	err = json.Unmarshal(rawData, &conf)
 	if err != nil {
-		log.Fatal("FATAL: Cannot load config - ", err)
+		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	return &conf
 }

@@ -7,10 +7,11 @@
 package dumb
 
 import (
-	"log"
 	"net/http"
 	"wum/logging"
 	"wum/telemetry/backend"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -22,13 +23,13 @@ type Analyzer struct {
 }
 
 func (a *Analyzer) Learn() error {
-	log.Print("WARNING: The 'dumb' backend provides no learning capabilities")
+	log.Warn().Msg("The 'dumb' backend provides no learning capabilities")
 	return nil
 }
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
+	log.Debug().Msgf("about to evaluate IP %s and sessionID %s", ip, sessionID)
 	data, err := a.db.LoadClientTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry, 0)
 	if err != nil {
 		return -1, err

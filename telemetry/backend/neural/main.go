@@ -9,7 +9,6 @@ package neural
 import (
 	"encoding/gob"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -19,6 +18,8 @@ import (
 	"wum/telemetry/backend"
 	"wum/telemetry/backend/entropy"
 	"wum/telemetry/preprocess"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/patrikeh/go-deep"
 	"github.com/patrikeh/go-deep/training"
@@ -48,7 +49,7 @@ func (a *Analyzer) importTelemetry() (training.Examples, error) {
 			if len(interactions) == 0 {
 				continue
 			}
-			log.Println("DEBUG: learnBlock ", learnBlock, " [ ", maxAge, ", ", minAge, " ], num interactions: ", len(interactions))
+			log.Debug().Msgf("learnBlock %d [%d, %d], num interactions: %d", learnBlock, maxAge, minAge, len(interactions))
 			if err != nil {
 				return training.Examples{}, nil
 			}
@@ -96,7 +97,7 @@ func (a *Analyzer) Learn() error {
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
+	log.Debug().Msgf("about to evaluate IP %s and sessionID %s", ip, sessionID)
 	data, err := a.db.LoadClientTelemetry(sessionID, ip, a.conf.MaxAgeSecsRelevant, 0)
 	if err != nil {
 		return -1, err
@@ -110,7 +111,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ent2 := entropy.CalculateEntropy(interactions, "MAIN_TILE_PARTIAL_DATA_LOADED")
 	ent3 := entropy.CalculateEntropy(interactions, "MAIN_SET_TILE_RENDER_SIZE")
 	ans := a.network.Predict([]float64{ent1, ent2, ent3})
-	fmt.Println("BOT SCORE PREDICTION >>>>> ", ans)
+	log.Debug().Msgf("BOT SCORE PREDICTION >>>>> %v", ans)
 	return ans[0], nil
 }
 

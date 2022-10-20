@@ -18,7 +18,8 @@ package monitoring
 
 import (
 	"fmt"
-	"log"
+
+	"github.com/rs/zerolog/log"
 )
 
 type ConfirmMsg struct {
@@ -42,17 +43,17 @@ func RunWriteConsumer[T Influxable](conf *ConnectionConf, incomingData <-chan T)
 		if conf.IsConfigured() {
 			var err error
 			errListener := func(err error) {
-				log.Print("ERROR: ", err)
+				log.Error().Err(err).Msg("")
 			}
 			client, err := NewRecordWriter[T](conf, errListener)
 			if err != nil {
-				log.Printf("ERROR: %s", err)
+				log.Error().Err(err).Msg("")
 			}
 			for rec := range incomingData {
 				client.AddRecord(rec)
 			}
 			if err != nil {
-				log.Printf("ERROR: %s", err)
+				log.Error().Err(err).Msg("")
 			}
 
 		} else {

@@ -9,12 +9,13 @@ package storage
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 	"time"
 	"wum/botwatch"
 	"wum/telemetry"
+
+	"github.com/rs/zerolog/log"
 
 	"github.com/go-sql-driver/mysql"
 )
@@ -154,8 +155,8 @@ func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int, ins
 				tx.Rollback()
 				return nil, err
 			}
-			log.Printf(
-				"DEBUG: no stats found for session %s (ip %s) - new record inserted to DB",
+			log.Debug().Msgf(
+				"no stats found for session %s (ip %s) - new record inserted to DB",
 				sessionID, clientIP,
 			)
 		}

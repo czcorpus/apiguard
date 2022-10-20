@@ -8,11 +8,12 @@ package logging
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -83,7 +84,7 @@ func ExtractRequestIdentifiers(req *http.Request) (string, string) {
 
 	} else {
 		sessionID = ""
-		log.Print("WARNING: failed to fetch session cookie - ", err)
+		log.Warn().Err(err).Msg("failed to fetch session cookie - ")
 	}
 	return ip, sessionID
 }

@@ -7,15 +7,16 @@
 package main
 
 import (
-	"log"
 	"path"
 	"runtime"
 	"strings"
 	"wum/config"
 	"wum/fsops"
+
+	"github.com/rs/zerolog/log"
 )
 
-func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configuration {
+func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions, setupLog func(string)) *config.Configuration {
 	var conf *config.Configuration
 	if explicitPath != "" {
 		conf = config.LoadConfig(explicitPath)
@@ -35,13 +36,15 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 			}
 		}
 		if conf == nil {
-			log.Fatalf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
+			log.Fatal().Msgf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
 		}
 	}
+	setupLog(conf.LogPath)
+	log.Info().Msgf("loaded configuration from %s", explicitPath)
 	overrideConfWithCmd(conf, cmdOpts)
 	validErr := conf.Validate()
 	if validErr != nil {
-		log.Fatal("FATAL: ", validErr)
+		log.Fatal().Err(validErr).Msg("")
 	}
 	return conf
 }
@@ -51,8 +54,8 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.ServerHost = cmdConf.Host
 
 	} else if origConf.ServerHost == "" {
-		log.Printf(
-			"WARNING: serverHost not specified, using default value %s",
+		log.Warn().Msgf(
+			"serverHost not specified, using default value %s",
 			config.DfltServerHost,
 		)
 		origConf.ServerHost = config.DfltServerHost
@@ -61,8 +64,8 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.ServerPort = cmdConf.Port
 
 	} else if origConf.ServerPort == 0 {
-		log.Printf(
-			"WARNING: serverPort not specified, using default value %d",
+		log.Warn().Msgf(
+			"serverPort not specified, using default value %d",
 			config.DftlServerPort,
 		)
 		origConf.ServerPort = config.DftlServerPort
@@ -71,8 +74,8 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.ServerReadTimeoutSecs = cmdConf.ReadTimeoutSecs
 
 	} else if origConf.ServerReadTimeoutSecs == 0 {
-		log.Printf(
-			"WARNING: serverReadTimeoutSecs not specified, using default value %d",
+		log.Warn().Msgf(
+			"serverReadTimeoutSecs not specified, using default value %d",
 			config.DfltServerReadTimeoutSecs,
 		)
 		origConf.ServerReadTimeoutSecs = config.DfltServerReadTimeoutSecs
@@ -81,8 +84,8 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.ServerWriteTimeoutSecs = cmdConf.WriteTimeoutSecs
 
 	} else if origConf.ServerWriteTimeoutSecs == 0 {
-		log.Printf(
-			"WARNING: serverWriteTimeoutSecs not specified, using default value %d",
+		log.Warn().Msgf(
+			"serverWriteTimeoutSecs not specified, using default value %d",
 			config.DfltServerWriteTimeoutSecs,
 		)
 		origConf.ServerWriteTimeoutSecs = config.DfltServerWriteTimeoutSecs
@@ -91,14 +94,14 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.LogPath = cmdConf.LogPath
 
 	} else if origConf.LogPath == "" {
-		log.Printf("WARNING: logPath not specified, using stderr")
+		log.Warn().Msg("logPath not specified, using stderr")
 	}
 	if cmdConf.MaxAgeDays > 0 {
 		origConf.CleanupMaxAgeDays = cmdConf.MaxAgeDays
 
 	} else if origConf.CleanupMaxAgeDays == 0 {
-		log.Printf(
-			"WARNING: cleanupMaxAgeDays not specified, using default value %d",
+		log.Warn().Msgf(
+			"cleanupMaxAgeDays not specified, using default value %d",
 			config.DfltCleanupMaxAgeDays,
 		)
 		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
@@ -107,8 +110,8 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.BanTTLSecs = cmdConf.BanSecs
 
 	} else if origConf.BanTTLSecs == 0 {
-		log.Printf(
-			"WARNING: banTTLSecs not specified, using default value %d",
+		log.Warn().Msgf(
+			"banTTLSecs not specified, using default value %d",
 			config.DfltBanSecs,
 		)
 		origConf.BanTTLSecs = config.DfltBanSecs

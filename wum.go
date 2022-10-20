@@ -26,6 +26,7 @@ import (
 	"wum/logging"
 	"wum/reqcache"
 	"wum/services"
+	"wum/services/assc"
 	"wum/services/lguide"
 	"wum/services/requests"
 	"wum/services/tstorage"
@@ -113,8 +114,10 @@ func runService(conf *config.Configuration) {
 		log.Print("INFO: using NULL cache (path not specified)")
 	}
 
+	// "Jazyková příručka ÚJČ"
+
 	langGuideActions := lguide.NewLanguageGuideActions(
-		&conf.LanguageGuide,
+		&conf.Services.LanguageGuide,
 		&conf.Botwatch,
 		&conf.Telemetry,
 		conf.ServerReadTimeoutSecs,
@@ -123,6 +126,16 @@ func runService(conf *config.Configuration) {
 		cache,
 	)
 	router.HandleFunc("/language-guide", langGuideActions.Query)
+
+	// "Akademický slovník současné češtiny"
+
+	asscActions := assc.NewASSCActions(
+		&conf.Services.ASSC,
+		cache,
+	)
+	router.HandleFunc("/assc", asscActions.Query)
+
+	// administration/monitoring actions
 
 	telemetryActions := tstorage.NewActions(db)
 	router.HandleFunc("/telemetry", telemetryActions.Store).Methods(http.MethodPost)

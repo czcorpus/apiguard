@@ -8,7 +8,6 @@ package botwatch
 
 import (
 	"fmt"
-	"log"
 	"math"
 	"net"
 	"net/http"
@@ -21,6 +20,8 @@ import (
 	"wum/telemetry/backend/dumb"
 	"wum/telemetry/backend/entropy"
 	"wum/telemetry/backend/neural"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -85,8 +86,8 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 	}
 	botScore, err := a.backend.BotScore(req)
 	if err == backend.ErrUnknownClient {
-		log.Printf(
-			"DEBUG: client without telemetry (session %s, ip: %s)",
+		log.Debug().Msgf(
+			"client without telemetry (session %s, ip: %s)",
 			sessionID, ip,
 		)
 		if sessionID != "" {
@@ -108,8 +109,8 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 		}
 		// no (valid) session (first request or a simple bot) => let's load stats for the whole IP
 		stats, err := a.storage.LoadIPStats(ip, a.conf.WatchedTimeWindowSecs)
-		log.Printf(
-			"DEBUG: loaded stats of whole IP (users without telemetry), num req: %d, latest: %v",
+		log.Debug().Msgf(
+			"loaded stats of whole IP (users without telemetry), num req: %d, latest: %v",
 			stats.Count, stats.LastAccess)
 		if err != nil {
 			return 0, err
@@ -121,7 +122,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 		return 0, err
 
 	} else {
-		log.Print("DEBUG: Client with telemetry...")
+		log.Debug().Msg("Client with telemetry...")
 		// user with telemetry waits from 0 to ~6s
 		return time.Duration(1000*2.5*botScore*2.5*botScore) * time.Millisecond, nil
 	}

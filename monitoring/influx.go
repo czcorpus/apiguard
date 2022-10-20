@@ -9,8 +9,9 @@
 package monitoring
 
 import (
-	"log"
 	"time"
+
+	"github.com/rs/zerolog/log"
 
 	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
 	influxdb2api "github.com/influxdata/influxdb-client-go/v2/api"
@@ -90,7 +91,7 @@ func NewRecordWriter[T Influxable](
 	}
 	go func() {
 		for err := range ourErrChan {
-			log.Print("ERROR: error writing data to InfluxDB: ", err)
+			log.Error().Err(err).Msg("error writing data to InfluxDB")
 			onError(err)
 		}
 	}()

@@ -9,13 +9,14 @@ package tstorage
 import (
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"time"
 	"wum/logging"
 	"wum/services"
 	"wum/storage"
 	"wum/telemetry"
+
+	"github.com/rs/zerolog/log"
 )
 
 type actionRecord struct {
@@ -66,20 +67,20 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 
 	transact, err := a.db.StartTx()
 	if err != nil {
-		log.Print("ERROR: ", err)
+		log.Error().Err(err).Msg("")
 		return
 	}
 
 	err = a.db.InsertTelemetry(transact, payload)
 	if err != nil {
-		log.Print("ERROR: ", err)
+		log.Error().Err(err).Msg("")
 		a.db.RollbackTx(transact)
 		return
 	}
 
 	err = a.db.CommitTx(transact)
 	if err != nil {
-		log.Print("ERROR: ", err)
+		log.Error().Err(err).Msg("")
 	}
 
 }

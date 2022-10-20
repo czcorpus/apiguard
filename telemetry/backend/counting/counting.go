@@ -7,12 +7,13 @@
 package counting
 
 import (
-	"log"
 	"math"
 	"net/http"
 	"wum/logging"
 	"wum/telemetry"
 	"wum/telemetry/backend"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -51,7 +52,7 @@ func (a *Analyzer) processTelemetry(telemetry []*telemetry.ActionRecord) (counts
 }
 
 func (a *Analyzer) Learn() error {
-	log.Print("WARNING: The 'counting' backend provides no learning capabilities")
+	log.Warn().Msg("The 'counting' backend provides no learning capabilities")
 	return nil
 }
 
@@ -65,12 +66,12 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 		return -1, backend.ErrUnknownClient
 	}
 
-	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
+	log.Debug().Msgf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
 	counts := a.processTelemetry(telemetry)
 
 	for key, rule := range a.countingRules {
 		if math.Abs(float64(rule.count-counts[key])) > float64(rule.tolerance) {
-			log.Printf(
+			log.Debug().Msgf(
 				"DEBUG: invalid counts for %v. Expecting %f to be %f±%f",
 				key, counts[key], rule.count, rule.tolerance)
 			return 1, nil
@@ -90,7 +91,7 @@ func prepareCountingRules(rulesData []*telemetry.CountingRule) (rules map[TileAc
 func NewAnalyzer(db backend.TelemetryStorage) *Analyzer {
 	rulesData, err := db.LoadCountingRules()
 	if err != nil {
-		log.Print("ERROR: ", err) // TODO return error
+		log.Error().Err(err).Msg("") // TODO return error
 	}
 
 	return &Analyzer{db: db, countingRules: prepareCountingRules(rulesData)}

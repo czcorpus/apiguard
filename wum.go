@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"math/rand"
 	"net"
 	"net/http"
@@ -33,6 +32,8 @@ import (
 	"wum/storage"
 
 	"github.com/gorilla/mux"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 var (
@@ -59,12 +60,20 @@ func coreMiddleware(next http.Handler) http.Handler {
 }
 
 func setupLog(path string) {
-	if path != "" && path != "stderr" {
+	if path != "" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatalf("Failed to initialize log. File: %s", path)
+			log.Fatal().Msgf("Failed to initialize log. File: %s", path)
 		}
-		log.SetOutput(logf) // runtime should close the file when program exits
+		log.Logger = log.Output(logf)
+
+	} else {
+		log.Logger = log.Output(
+			zerolog.ConsoleWriter{
+				Out:        os.Stderr,
+				TimeFormat: time.RFC3339,
+			},
+		)
 	}
 }
 
@@ -76,13 +85,12 @@ func initStorage(conf *config.Configuration) *storage.MySQLAdapter {
 		conf.Storage.Database,
 	)
 	if err != nil {
-		log.Fatal("FATAL: failed to connect to a storage database - ", err)
+		log.Fatal().Msgf("FATAL: failed to connect to a storage database - %s", err)
 	}
 	return db
 }
 
 func runService(conf *config.Configuration) {
-	setupLog(conf.LogPath)
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -98,7 +106,7 @@ func runService(conf *config.Configuration) {
 		db,
 	)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err).Msg("")
 	}
 
 	router := mux.NewRouter()
@@ -107,11 +115,11 @@ func runService(conf *config.Configuration) {
 	var cache services.Cache
 	if conf.Cache.RootPath != "" {
 		cache = reqcache.NewReqCache(&conf.Cache)
-		log.Printf("INFO: using request cache (path: %s)", conf.Cache.RootPath)
+		log.Info().Msgf("using request cache (path: %s)", conf.Cache.RootPath)
 
 	} else {
 		cache = reqcache.NewNullCache()
-		log.Print("INFO: using NULL cache (path not specified)")
+		log.Info().Msg("using NULL cache (path not specified)")
 	}
 
 	// "Jazyková příručka ÚJČ"
@@ -149,7 +157,7 @@ func runService(conf *config.Configuration) {
 		close(exitEvent)
 	}()
 
-	log.Printf("INFO: starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
+	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 	srv := &http.Server{
 		Handler:      router,
 		Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
@@ -160,7 +168,7 @@ func runService(conf *config.Configuration) {
 	go func() {
 		err := srv.ListenAndServe()
 		if err != nil {
-			log.Print(err)
+			log.Error().Err(err).Msg("")
 		}
 		syscallChan <- syscall.SIGTERM
 	}()
@@ -170,40 +178,38 @@ func runService(conf *config.Configuration) {
 	defer cancel()
 	err = srv.Shutdown(ctx)
 	if err != nil {
-		log.Printf("Shutdown request error: %v", err)
+		log.Error().Err(err).Msg("Shutdown request error")
 	}
 }
 
 func runCleanup(conf *config.Configuration) {
-	setupLog(conf.LogPath)
-	log.Print("INFO: running cleanup procedure")
+	log.Info().Msg("running cleanup procedure")
 	db := initStorage(conf)
 	ans := db.CleanOldData(conf.CleanupMaxAgeDays)
 	if ans.Error != nil {
-		log.Fatal("FATAL: failed to cleanup old records: ", ans.Error)
+		log.Fatal().Err(ans.Error).Msg("failed to cleanup old records")
 	}
 	status, err := json.Marshal(ans)
 	if err != nil {
-		log.Fatal("FATAL: failed to provide cleanup summary: ", err)
+		log.Fatal().Err(err).Msg("failed to provide cleanup summary")
 	}
-	log.Printf("INFO: finished old data cleanup: %s", string(status))
+	log.Info().Msgf("finished old data cleanup: %s", string(status))
 }
 
 func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident string) {
-	setupLog(conf.LogPath)
 
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {
 		var err error
-		log.Printf("assuming %s is a session ID", ident)
+		log.Info().Msgf("assuming %s is a session ID", ident)
 		sessionID = logging.NormalizeSessionID(ident)
 		ip, err = storage.GetSessionIP(sessionID)
 		if err != nil {
-			log.Fatal("FATAL: ", err)
+			log.Fatal().Err(err).Msg("")
 		}
 		if ip == nil {
-			log.Fatal("FATAL: no IP address found for session ", sessionID)
+			log.Fatal().Msgf("no IP address found for session %s", sessionID)
 		}
 	}
 
@@ -215,11 +221,11 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 		storage,
 	)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err).Msg("")
 	}
 	fakeReq, err := http.NewRequest("POST", "", nil)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err).Msg("")
 	}
 	if sessionID != "" {
 		fakeReq.AddCookie(&http.Cookie{
@@ -232,11 +238,11 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 	if sessionID != "" {
 		delay, err := telemetryAnalyzer.CalcDelay(fakeReq)
 		if err != nil {
-			log.Fatal("FATAL: ", err)
+			log.Fatal().Err(err).Msg("")
 		}
 		botScore, err := telemetryAnalyzer.BotScore(fakeReq)
 		if err != nil {
-			log.Fatal("FATAL: ", err)
+			log.Fatal().Err(err).Msg("")
 		}
 		fmt.Printf(
 			"\nSession: %s"+
@@ -249,7 +255,7 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 	} else {
 		ipStats, err := storage.LoadIPStats(ip.String(), conf.Telemetry.MaxAgeSecsRelevant)
 		if err != nil {
-			log.Fatal("FATAL: ", err)
+			log.Fatal().Err(err).Msg("")
 		}
 		d := time.Now().Add(-time.Duration(conf.Botwatch.WatchedTimeWindowSecs) * time.Second)
 		fmt.Println(" ", d)
@@ -265,7 +271,6 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 }
 
 func runLearn(conf *config.Configuration, storage *storage.MySQLAdapter) {
-	setupLog(conf.LogPath)
 
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
@@ -275,11 +280,11 @@ func runLearn(conf *config.Configuration, storage *storage.MySQLAdapter) {
 		storage,
 	)
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err).Msg("")
 	}
 	err = telemetryAnalyzer.Learn()
 	if err != nil {
-		log.Fatal("FATAL: ", err)
+		log.Fatal().Err(err).Msg("")
 	}
 }
 
@@ -327,29 +332,29 @@ func main() {
 			version.Version, version.BuildDate, version.GitCommit)
 		return
 	case "start":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
 		runService(conf)
 	case "cleanup":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
 		runCleanup(conf)
 	case "ban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
 		db := initStorage(conf)
 		if err := db.InsertBan(net.ParseIP(flag.Arg(1)), conf.BanTTLSecs); err != nil {
-			log.Fatal("FATAL: ", err)
+			log.Fatal().Err(err).Msg("")
 		}
 	case "unban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
 		db := initStorage(conf)
 		if err := db.RemoveBan(net.ParseIP(flag.Arg(1))); err != nil {
-			log.Fatal("FATAL: ", err)
+			log.Fatal().Err(err).Msg("")
 		}
 	case "status":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
 		db := initStorage(conf)
 		runStatus(conf, db, flag.Arg(1))
 	case "learn":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
 		db := initStorage(conf)
 		runLearn(conf, db)
 	default:

@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -22,6 +21,8 @@ import (
 	"wum/services"
 	"wum/storage"
 	"wum/telemetry"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -119,10 +120,10 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 			services.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
-		log.Print("ERROR: failed to analyze client ", err)
+		log.Error().Err(err).Msg("failed to analyze client")
 		return
 	}
-	log.Printf("Client is going to wait for %v", respDelay)
+	log.Info().Msgf("Client is going to wait for %v", respDelay)
 	if respDelay.Seconds() >= float64(lga.readTimeoutSecs) {
 		services.WriteJSONErrorResponse(
 			w,
@@ -162,7 +163,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	}
 
 	if len(parsed.items) > 0 {
-		log.Printf("More data available for `%s` in `items`: %v", query, parsed.items)
+		log.Info().Msgf("More data available for `%s` in `items`: %v", query, parsed.items)
 	}
 	if parsed.Error != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionErrorFrom(err), http.StatusInternalServerError)

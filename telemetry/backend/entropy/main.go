@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"math"
 	"net/http"
 	"time"
@@ -19,6 +18,8 @@ import (
 	"wum/telemetry"
 	"wum/telemetry/backend"
 	"wum/telemetry/preprocess"
+
+	"github.com/rs/zerolog/log"
 )
 
 type conf struct {
@@ -46,13 +47,13 @@ type Analyzer struct {
 }
 
 func (a *Analyzer) Learn() error {
-	log.Print("WARNING: The 'entropy' backend provides no learning capabilities")
+	log.Warn().Msg("The 'entropy' backend provides no learning capabilities")
 	return nil
 }
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	log.Printf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
+	log.Debug().Msgf("about to evaluate IP %s and sessionID %s", ip, sessionID)
 	data, err := a.db.LoadClientTelemetry(sessionID, ip, a.conf.MaxAgeSecsRelevant, 0)
 	if err != nil {
 		return -1, err
@@ -72,8 +73,8 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	optim3 := a.customConf.Entropies["MAIN_SET_TILE_RENDER_SIZE"]
 	score3 := math.Abs(ent3 - optim3)
 	totalScore := math.Abs(2*1/(1+math.Exp((score1+score2+score3)/3)) - 1)
-	fmt.Println("DEBUG: TOTAL SCORE: ", totalScore, ", avg entropy diff: ", (score1+score2+score3)/3)
-	log.Printf("DEBUG: {\"MAIN_TILE_DATA_LOADED\": %01.4f, \"MAIN_TILE_PARTIAL_DATA_LOADED\": %01.4f, \"MAIN_SET_TILE_RENDER_SIZE\": %01.4f}", ent1, ent2, ent3)
+	log.Debug().Msgf("TOTAL SCORE: %01.4f avg entropy diff: %01.4f", totalScore, (score1+score2+score3)/3)
+	log.Debug().Msgf("{\"MAIN_TILE_DATA_LOADED\": %01.4f, \"MAIN_TILE_PARTIAL_DATA_LOADED\": %01.4f, \"MAIN_SET_TILE_RENDER_SIZE\": %01.4f}", ent1, ent2, ent3)
 	a.monitoring <- &monitoring.TelemetryEntropy{
 		Created:                       time.Now(),
 		ClientIP:                      ip,

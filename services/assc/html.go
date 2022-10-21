@@ -7,7 +7,6 @@
 package assc
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -64,10 +63,10 @@ func NewDataStruct() dataStruct {
 	}
 }
 
-func normalizeHTML(src string) (string, error) {
+func parseData(src string) ([]dataItem, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(src))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	subcont := doc.Find("div.subcont")
 	ds := NewDataStruct()
@@ -75,8 +74,7 @@ func normalizeHTML(src string) (string, error) {
 		processNodes(s, &ds)
 	})
 
-	js, err := json.Marshal(ds.data)
-	return string(js), err
+	return ds.data, err
 }
 
 func processNodes(s *goquery.Selection, ds *dataStruct) {

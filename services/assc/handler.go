@@ -41,18 +41,21 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	responseHTML, err = normalizeHTML(responseHTML)
+	data, err := parseData(responseHTML)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	services.WriteJSONResponse(w, responseHTML)
+	services.WriteJSONResponse(w, data)
 }
 
 func (aa *ASSCActions) createMainRequest(url string) (string, error) {
 	cachedResult, err := aa.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
 		sbody, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		if err != nil {
+			return "", err
+		}
 		err = aa.cache.Set(url, sbody)
 		if err != nil {
 			return "", err

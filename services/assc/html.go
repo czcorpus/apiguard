@@ -9,7 +9,10 @@ package assc
 import (
 	"strings"
 
+	"golang.org/x/net/html"
+
 	"github.com/PuerkitoBio/goquery"
+	"github.com/rs/zerolog/log"
 )
 
 type meaningItem struct {
@@ -130,13 +133,39 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		return
 	}
 
-	// TODO, there is problematic document structure
+	// Here we have to use `html.Tokenizer`, because there is problematic document structure
 	if s.HasClass("exeplifikace") {
-		s.First().Children().Each(func(i int, s *goquery.Selection) {
-			if len(s.Text()) > 0 {
-				ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, s.Text())
+		data, err := s.Children().First().Html()
+		if err != nil {
+			log.Warn().Msgf("Error when getting raw `exeplifikace` html: %s", err)
+			return
+		}
+
+		tkn := html.NewTokenizer(strings.NewReader(data))
+		text := ""
+
+		for {
+			tt := tkn.Next()
+			switch {
+			case tt == html.ErrorToken:
+				if len(text) > 0 {
+					ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, text)
+				}
+				return
+
+			case tt == html.TextToken:
+				t := tkn.Token()
+				text += t.Data
+
+			case tt == html.SelfClosingTagToken:
+				t := tkn.Token()
+				if t.Data == "br" {
+					if len(text) > 0 {
+						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, text)
+						text = ""
+					}
+				}
 			}
-		})
-		return
+		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 type meaningItem struct {
 	Explanation     string   `json:"explanation"`
 	MetaExplanation string   `json:"metaExplanation"`
+	Synonyms        []string `json:"synonyms"`
 	Examples        []string `json:"examples"`
 }
 
@@ -25,6 +26,7 @@ func NewMeaningItem(def string) meaningItem {
 	return meaningItem{
 		Explanation:     def,
 		MetaExplanation: "",
+		Synonyms:        make([]string, 0),
 		Examples:        make([]string, 0),
 	}
 }
@@ -84,6 +86,15 @@ func normalizeString(str string) string {
 	return strings.Replace(strings.TrimSpace(strings.Trim(str, ":")), "\u00a0", " ", -1)
 }
 
+func listContains(data []string, val string) bool {
+	for _, v := range data {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
 func processNodes(s *goquery.Selection, ds *dataStruct) {
 	subsel := s.Find("span.heslo span.mainVar")
 	if subsel.Length() > 0 {
@@ -132,6 +143,12 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	if s.HasClass("vyznam_wrapper") {
 		meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
 		meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
+		s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
+			syn := normalizeString(s.Find("span.synonymum").Text())
+			if syn != "" && !listContains(meaning.Synonyms, syn) {
+				meaning.Synonyms = append(meaning.Synonyms, syn)
+			}
+		})
 		ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
 		ds.lastItem.lastMeaningItem = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
 		return

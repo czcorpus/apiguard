@@ -18,6 +18,7 @@ import (
 type meaningItem struct {
 	Explanation     string   `json:"explanation"`
 	MetaExplanation string   `json:"metaExplanation"`
+	Synonyms        []string `json:"synonyms"`
 	Examples        []string `json:"examples"`
 }
 
@@ -25,6 +26,7 @@ func NewMeaningItem(def string) meaningItem {
 	return meaningItem{
 		Explanation:     def,
 		MetaExplanation: "",
+		Synonyms:        make([]string, 0),
 		Examples:        make([]string, 0),
 	}
 }
@@ -80,25 +82,38 @@ func parseData(src string) ([]dataItem, error) {
 	return ds.data, err
 }
 
+func normalizeString(str string) string {
+	return strings.Replace(strings.TrimSpace(strings.Trim(str, ":")), "\u00a0", " ", -1)
+}
+
+func listContains(data []string, val string) bool {
+	for _, v := range data {
+		if v == val {
+			return true
+		}
+	}
+	return false
+}
+
 func processNodes(s *goquery.Selection, ds *dataStruct) {
 	subsel := s.Find("span.heslo span.mainVar")
 	if subsel.Length() > 0 {
-		ds.AddItem(NewDataItem(subsel.Text()))
+		ds.AddItem(NewDataItem(normalizeString(subsel.Text())))
 		return
 	}
 
 	if s.HasClass("vyslovnost") {
-		ds.lastItem.Pronunciation = s.Text()
+		ds.lastItem.Pronunciation = normalizeString(s.Text())
 		return
 	}
 
 	if s.HasClass("stylKval") {
-		ds.lastItem.Quality = s.Text()
+		ds.lastItem.Quality = normalizeString(s.Text())
 		return
 	}
 
 	if s.HasClass("ext_pozn_wrapper") {
-		ds.lastItem.Note = s.Find("span.ext_pozn").Text()
+		ds.lastItem.Note = normalizeString(s.Find("span.ext_pozn").Text())
 		return
 	}
 
@@ -107,13 +122,13 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		var key string
 		subsel.Children().Each(func(i int, s *goquery.Selection) {
 			if s.HasClass("varianta-tvarChar") {
-				key = s.Text()
+				key = normalizeString(s.Text())
 			} else if s.HasClass("varianta-tvarChar-koncovka-tvar") {
 				value, ok := ds.lastItem.Forms[key]
 				if ok {
-					ds.lastItem.Forms[key] = value + ", " + s.Text()
+					ds.lastItem.Forms[key] = value + ", " + normalizeString(s.Text())
 				} else {
-					ds.lastItem.Forms[key] = s.Text()
+					ds.lastItem.Forms[key] = normalizeString(s.Text())
 				}
 			}
 		})
@@ -121,13 +136,19 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	}
 
 	if s.HasClass("sl_druh") {
-		ds.lastItem.POS = s.Text()
+		ds.lastItem.POS = normalizeString(s.Text())
 		return
 	}
 
 	if s.HasClass("vyznam_wrapper") {
-		meaning := NewMeaningItem(s.Find("span.vyznam").Text())
-		meaning.MetaExplanation = s.Find("span.metavyklad").Text()
+		meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
+		meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
+		s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
+			syn := normalizeString(s.Find("span.synonymum").Text())
+			if syn != "" && !listContains(meaning.Synonyms, syn) {
+				meaning.Synonyms = append(meaning.Synonyms, syn)
+			}
+		})
 		ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
 		ds.lastItem.lastMeaningItem = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
 		return
@@ -149,7 +170,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			switch {
 			case tt == html.ErrorToken:
 				if len(text) > 0 {
-					ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, text)
+					ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
 				}
 				return
 
@@ -161,7 +182,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 				t := tkn.Token()
 				if t.Data == "br" {
 					if len(text) > 0 {
-						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, text)
+						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
 						text = ""
 					}
 				}

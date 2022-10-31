@@ -31,6 +31,12 @@ func NewMeaningItem(def string) meaningItem {
 	}
 }
 
+type phrasemeItem struct {
+	Phraseme    string   `json:"phraseme"`
+	Explanation string   `json:"explanation"`
+	Examples    []string `json:"examples"`
+}
+
 type dataItem struct {
 	Key           string            `json:"key"`
 	Pronunciation string            `json:"pronunciation"`
@@ -38,16 +44,19 @@ type dataItem struct {
 	Forms         map[string]string `json:"forms"`
 	POS           string            `json:"pos"`
 	Meaning       []meaningItem     `json:"meaning"`
+	Phrasemes     []phrasemeItem    `json:"phrasemes"`
 	Note          string            `json:"note"`
 
-	lastMeaningItem *meaningItem
+	lastMeaningItem  *meaningItem
+	lastPhrasemeItem *phrasemeItem
 }
 
 func NewDataItem(heslo string) dataItem {
 	return dataItem{
-		Key:     heslo,
-		Forms:   make(map[string]string),
-		Meaning: make([]meaningItem, 0),
+		Key:       heslo,
+		Forms:     make(map[string]string),
+		Meaning:   make([]meaningItem, 0),
+		Phrasemes: make([]phrasemeItem, 0),
 	}
 }
 
@@ -151,6 +160,25 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		})
 		ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
 		ds.lastItem.lastMeaningItem = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
+		ds.lastItem.lastPhrasemeItem = nil
+		return
+	}
+
+	subsel = s.Find("span.frazem")
+	if subsel.Length() > 0 {
+		phraseme := phrasemeItem{
+			Phraseme:    normalizeString(subsel.Text()),
+			Explanation: "",
+			Examples:    make([]string, 0),
+		}
+		ds.lastItem.Phrasemes = append(ds.lastItem.Phrasemes, phraseme)
+		ds.lastItem.lastMeaningItem = nil
+		ds.lastItem.lastPhrasemeItem = &ds.lastItem.Phrasemes[len(ds.lastItem.Phrasemes)-1]
+		return
+	}
+
+	if s.HasClass("vyznam_wrapper_link") {
+		ds.lastItem.lastPhrasemeItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
 		return
 	}
 
@@ -170,7 +198,13 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			switch {
 			case tt == html.ErrorToken:
 				if len(text) > 0 {
-					ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
+					if ds.lastItem.lastMeaningItem != nil {
+						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
+					} else if ds.lastItem.lastPhrasemeItem != nil {
+						ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
+					} else {
+						log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
+					}
 				}
 				return
 
@@ -182,7 +216,13 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 				t := tkn.Token()
 				if t.Data == "br" {
 					if len(text) > 0 {
-						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
+						if ds.lastItem.lastMeaningItem != nil {
+							ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
+						} else if ds.lastItem.lastPhrasemeItem != nil {
+							ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
+						} else {
+							log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
+						}
 						text = ""
 					}
 				}

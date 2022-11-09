@@ -599,6 +599,21 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 	}
 	ans.NumDeletedBans = numDel3
 
+	_, err = tx.Exec(
+		"DELETE FROM delay_log WHERE NOW() - INTERVAL delay SECOND > created",
+	)
+	if err != nil {
+		tx.Rollback()
+		ans.Error = err
+		return ans
+	}
+	numDel4, err := c.getNumAffected(tx)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.NumDeletedDelayLogs = numDel4
+
 	err = tx.Commit()
 	ans.Error = err
 	return ans

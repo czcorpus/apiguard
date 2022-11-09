@@ -10,6 +10,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
+	"wum/botwatch"
+
+	"github.com/rs/zerolog/log"
 )
 
 // WriteJSONResponse writes 'value' to an HTTP response encoded as JSON
@@ -59,4 +63,28 @@ func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int,
 	}
 	w.WriteHeader(status)
 	w.Write(jsonAns)
+}
+
+func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer *botwatch.Analyzer) error {
+	respDelay, err := analyzer.CalcDelay(req)
+	if err != nil {
+		WriteJSONErrorResponse(
+			w,
+			NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		log.Error().Err(err).Msg("failed to analyze client")
+		return err
+	}
+	log.Info().Msgf("Client is going to wait for %v", respDelay)
+	if respDelay.Seconds() >= float64(readTimeoutSecs) {
+		WriteJSONErrorResponse(
+			w,
+			NewActionError("Service overloaded"),
+			http.StatusServiceUnavailable,
+		)
+		return err
+	}
+	time.Sleep(respDelay)
+	return nil
 }

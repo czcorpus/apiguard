@@ -85,6 +85,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		)
 		return err
 	}
+	go analyzer.RegisterDelayLog(respDelay)
 	time.Sleep(respDelay)
 	return nil
 }

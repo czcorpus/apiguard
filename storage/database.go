@@ -64,6 +64,13 @@ CREATE TABLE client_bans (
 	PRIMARY KEY (ip_address)
 );
 
+CREATE TABLE delay_log (
+	id INT NOT NULL auto_increment,
+	created datetime NOT NULL DEFAULT NOW(),
+	delay FLOAT NOT NULL,
+	PRIMARY KEY (id)
+);
+
 */
 
 func string2NullString(s string) sql.NullString {
@@ -660,6 +667,24 @@ func (c *MySQLAdapter) TestIPBan(IP net.IP) (bool, error) {
 		return false, qAns.Err()
 	}
 	return isBanned, nil
+}
+
+func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
+	tx, err := c.StartTx()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(
+		"INSERT INTO delay_log (delay) VALUES (?)",
+		delay.Seconds(),
+	)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {

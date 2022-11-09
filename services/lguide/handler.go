@@ -113,26 +113,11 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
-	respDelay, err := lga.analyzer.CalcDelay(req)
+
+	err := services.RestrictResponseTime(w, req, lga.readTimeoutSecs, lga.analyzer)
 	if err != nil {
-		services.WriteJSONErrorResponse(
-			w,
-			services.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		log.Error().Err(err).Msg("failed to analyze client")
 		return
 	}
-	log.Info().Msgf("Client is going to wait for %v", respDelay)
-	if respDelay.Seconds() >= float64(lga.readTimeoutSecs) {
-		services.WriteJSONErrorResponse(
-			w,
-			services.NewActionError("Service overloaded"),
-			http.StatusServiceUnavailable,
-		)
-		return
-	}
-	time.Sleep(respDelay)
 
 	var responseHTML string
 	direct := req.URL.Query().Get("direct")

@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 	"wum/botwatch"
-	"wum/common"
 	"wum/telemetry"
 
 	"github.com/rs/zerolog/log"
@@ -688,19 +687,27 @@ func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
 	return tx.Commit()
 }
 
-func (c *MySQLAdapter) GetDelayLog() ([]*common.DelayLogItem, error) {
-	ans := make([]*common.DelayLogItem, 0, 100)
-	rows, err := c.conn.Query("SELECT created, delay FROM delay_log")
+func (c *MySQLAdapter) AnalyzeDelayLog() (map[string]int, error) {
+	rows, err := c.conn.Query(`
+		SELECT
+			CONVERT(MIN(FLOOR(delay*10)/10, 5), CHAR) AS delay_bin,
+			COUNT(*) as count
+		FROM delay_log
+		GROUP BY delay_bin
+		ORDER BY delay_bin
+	`)
 	if err != nil {
 		return nil, err
 	}
+	ans := make(map[string]int)
 	for rows.Next() {
-		var item common.DelayLogItem
-		err := rows.Scan(&item.Created, &item.Delay)
+		var delayBin string
+		var count int
+		err := rows.Scan(&delayBin, &count)
 		if err != nil {
 			return nil, err
 		}
-		ans = append(ans, &item)
+		ans[delayBin] = count
 	}
 	return ans, nil
 }

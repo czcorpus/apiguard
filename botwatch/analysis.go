@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"time"
-	"wum/common"
 	"wum/logging"
 	"wum/monitoring"
 	"wum/telemetry"
@@ -45,7 +44,7 @@ type StatsStorage interface {
 	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
 	RegisterDelayLog(delay time.Duration) error
-	GetDelayLog() ([]*common.DelayLogItem, error)
+	AnalyzeDelayLog() (map[string]int, error)
 }
 
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is

@@ -10,8 +10,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
+	"wum/botwatch"
 	"wum/reqcache"
 	"wum/services"
+
+	"github.com/rs/zerolog/log"
 )
 
 /*
@@ -27,6 +31,7 @@ type ASSCActions struct {
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
+	analyzer        *botwatch.Analyzer
 }
 
 func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
@@ -35,6 +40,28 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
+
+	respDelay, err := aa.analyzer.CalcDelay(req)
+	if err != nil {
+		services.WriteJSONErrorResponse(
+			w,
+			services.NewActionErrorFrom(err),
+			http.StatusInternalServerError,
+		)
+		log.Error().Err(err).Msg("failed to analyze client")
+		return
+	}
+	log.Info().Msgf("Client is going to wait for %v", respDelay)
+	if respDelay.Seconds() >= float64(aa.readTimeoutSecs) {
+		services.WriteJSONErrorResponse(
+			w,
+			services.NewActionError("Service overloaded"),
+			http.StatusServiceUnavailable,
+		)
+		return
+	}
+	time.Sleep(respDelay)
+
 	responseHTML, err := aa.createMainRequest(
 		fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))
 	if err != nil {
@@ -68,9 +95,10 @@ func (aa *ASSCActions) createMainRequest(url string) (string, error) {
 	return cachedResult, nil
 }
 
-func NewASSCActions(conf *Conf, cache services.Cache) *ASSCActions {
+func NewASSCActions(conf *Conf, cache services.Cache, analyzer *botwatch.Analyzer) *ASSCActions {
 	return &ASSCActions{
-		conf:  conf,
-		cache: cache,
+		conf:     conf,
+		cache:    cache,
+		analyzer: analyzer,
 	}
 }

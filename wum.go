@@ -140,6 +140,7 @@ func runService(conf *config.Configuration) {
 	asscActions := assc.NewASSCActions(
 		&conf.Services.ASSC,
 		cache,
+		telemetryAnalyzer,
 	)
 	router.HandleFunc("/assc", asscActions.Query)
 

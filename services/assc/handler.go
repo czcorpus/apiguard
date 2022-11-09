@@ -10,12 +10,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"time"
 	"wum/botwatch"
 	"wum/reqcache"
 	"wum/services"
-
-	"github.com/rs/zerolog/log"
 )
 
 /*
@@ -41,26 +38,10 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	respDelay, err := aa.analyzer.CalcDelay(req)
+	err := services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
-		services.WriteJSONErrorResponse(
-			w,
-			services.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		log.Error().Err(err).Msg("failed to analyze client")
 		return
 	}
-	log.Info().Msgf("Client is going to wait for %v", respDelay)
-	if respDelay.Seconds() >= float64(aa.readTimeoutSecs) {
-		services.WriteJSONErrorResponse(
-			w,
-			services.NewActionError("Service overloaded"),
-			http.StatusServiceUnavailable,
-		)
-		return
-	}
-	time.Sleep(respDelay)
 
 	responseHTML, err := aa.createMainRequest(
 		fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))

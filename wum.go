@@ -152,6 +152,16 @@ func runService(conf *config.Configuration) {
 	requestsActions := requests.NewActions(db)
 	router.HandleFunc("/requests", requestsActions.List)
 
+	router.HandleFunc("/delayLogsAnalysis", func(w http.ResponseWriter, req *http.Request) {
+		ans, err := db.AnalyzeDelayLog()
+		if err != nil {
+			services.WriteJSONErrorResponse(
+				w, services.NewActionError(err.Error()), http.StatusInternalServerError)
+		} else {
+			services.WriteJSONResponse(w, ans)
+		}
+	})
+
 	go func() {
 		evt := <-syscallChan
 		exitEvent <- evt

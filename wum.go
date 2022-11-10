@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -153,7 +154,28 @@ func runService(conf *config.Configuration) {
 	router.HandleFunc("/requests", requestsActions.List)
 
 	router.HandleFunc("/delayLogsAnalysis", func(w http.ResponseWriter, req *http.Request) {
-		ans, err := db.AnalyzeDelayLog()
+		binWidth, otherLimit := 0.1, 5.0
+		var err error
+
+		queryValue := req.URL.Query().Get("binwidth")
+		if queryValue != "" {
+			binWidth, err = strconv.ParseFloat(queryValue, 64)
+			if err != nil {
+				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), http.StatusBadRequest)
+				return
+			}
+		}
+
+		queryValue = req.URL.Query().Get("otherlimit")
+		if queryValue != "" {
+			otherLimit, err = strconv.ParseFloat(queryValue, 64)
+			if err != nil {
+				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), http.StatusBadRequest)
+				return
+			}
+		}
+
+		ans, err := db.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
 			services.WriteJSONErrorResponse(
 				w, services.NewActionError(err.Error()), http.StatusInternalServerError)

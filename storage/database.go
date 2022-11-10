@@ -706,15 +706,15 @@ func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
 type delayLogsHistogram struct {
 	OldestRecord *time.Time     `json:"oldestRecord"`
 	BinWidth     float64        `json:"binWidth"`
-	OtherValue   float64        `json:"otherValue"`
+	OtherLimit   float64        `json:"otherLimit"`
 	Data         map[string]int `json:"data"`
 }
 
-func (c *MySQLAdapter) AnalyzeDelayLog() (*delayLogsHistogram, error) {
+func (c *MySQLAdapter) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*delayLogsHistogram, error) {
 	histogram := delayLogsHistogram{
 		OldestRecord: nil,
-		BinWidth:     0.1,
-		OtherValue:   5.0,
+		BinWidth:     binWidth,
+		OtherLimit:   otherLimit,
 		Data:         make(map[string]int),
 	}
 	rows, err := c.conn.Query(fmt.Sprintf(`
@@ -724,7 +724,7 @@ func (c *MySQLAdapter) AnalyzeDelayLog() (*delayLogsHistogram, error) {
 		FROM client_delay_log
 		GROUP BY delay_bin
 		ORDER BY delay_bin
-	`, histogram.BinWidth, histogram.BinWidth, histogram.OtherValue))
+	`, binWidth, binWidth, otherLimit))
 	if err != nil {
 		return nil, err
 	}

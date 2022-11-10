@@ -76,10 +76,16 @@ func (aa *ASSCActions) createMainRequest(url string) (string, error) {
 	return cachedResult, nil
 }
 
-func NewASSCActions(conf *Conf, cache services.Cache, analyzer *botwatch.Analyzer) *ASSCActions {
+func NewASSCActions(
+	conf *Conf,
+	cache services.Cache,
+	analyzer *botwatch.Analyzer,
+	readTimeoutSecs int,
+) *ASSCActions {
 	return &ASSCActions{
-		conf:     conf,
-		cache:    cache,
-		analyzer: analyzer,
+		conf:            conf,
+		cache:           cache,
+		analyzer:        analyzer,
+		readTimeoutSecs: readTimeoutSecs,
 	}
 }

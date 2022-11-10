@@ -64,6 +64,13 @@ CREATE TABLE client_bans (
 	PRIMARY KEY (ip_address)
 );
 
+CREATE TABLE client_delay_log (
+	id INT NOT NULL auto_increment,
+	created datetime NOT NULL DEFAULT NOW(),
+	delay FLOAT NOT NULL,
+	PRIMARY KEY (id)
+);
+
 */
 
 func string2NullString(s string) sql.NullString {
@@ -592,6 +599,22 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 	}
 	ans.NumDeletedBans = numDel3
 
+	_, err = tx.Exec(
+		"DELETE FROM client_delay_log WHERE NOW() - INTERVAL ? DAY > created",
+		maxAgeDays,
+	)
+	if err != nil {
+		tx.Rollback()
+		ans.Error = err
+		return ans
+	}
+	numDel4, err := c.getNumAffected(tx)
+	if err != nil {
+		ans.Error = err
+		return ans
+	}
+	ans.NumDeletedDelayLogs = numDel4
+
 	err = tx.Commit()
 	ans.Error = err
 	return ans
@@ -660,6 +683,72 @@ func (c *MySQLAdapter) TestIPBan(IP net.IP) (bool, error) {
 		return false, qAns.Err()
 	}
 	return isBanned, nil
+}
+
+func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
+	tx, err := c.StartTx()
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(
+		"INSERT INTO client_delay_log (delay) VALUES (?)",
+		delay.Seconds(),
+	)
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit()
+}
+
+type delayLogsHistogram struct {
+	OldestRecord *time.Time     `json:"oldestRecord"`
+	BinWidth     float64        `json:"binWidth"`
+	OtherLimit   float64        `json:"otherLimit"`
+	Data         map[string]int `json:"data"`
+}
+
+func (c *MySQLAdapter) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*delayLogsHistogram, error) {
+	histogram := delayLogsHistogram{
+		OldestRecord: nil,
+		BinWidth:     binWidth,
+		OtherLimit:   otherLimit,
+		Data:         make(map[string]int),
+	}
+	rows, err := c.conn.Query(fmt.Sprintf(`
+		SELECT
+			CONVERT(LEAST(FLOOR(delay/%f)*%f, %f), CHAR) AS delay_bin,
+			COUNT(*) as count
+		FROM client_delay_log
+		GROUP BY delay_bin
+		ORDER BY delay_bin
+	`, binWidth, binWidth, otherLimit))
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var delayBin string
+		var count int
+		err := rows.Scan(&delayBin, &count)
+		if err != nil {
+			return nil, err
+		}
+		histogram.Data[delayBin] = count
+	}
+	if len(histogram.Data) > 0 {
+		var oldestRecord time.Time
+		row := c.conn.QueryRow(`
+			SELECT created
+			FROM client_delay_log
+			ORDER BY created
+			LIMIT 1
+		`)
+		row.Scan(&oldestRecord)
+		histogram.OldestRecord = &oldestRecord
+	}
+	return &histogram, nil
 }
 
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {

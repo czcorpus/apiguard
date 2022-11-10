@@ -32,10 +32,11 @@ func (c *Conf) Validate(context string) error {
 }
 
 type DataCleanupResult struct {
-	NumDeletedStats   int
-	NumDeletedActions int
-	NumDeletedBans    int
-	Error             error
+	NumDeletedStats     int
+	NumDeletedActions   int
+	NumDeletedBans      int
+	NumDeletedDelayLogs int
+	Error               error
 }
 
 func (dcr DataCleanupResult) MarshalJSON() ([]byte, error) {
@@ -46,15 +47,18 @@ func (dcr DataCleanupResult) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		struct {
-			NumDeletedStats   int     `json:"deletedStats"`
-			NumDeletedActions int     `json:"deletedActions"`
-			NumDeletedBans    int     `json:"numDeletedBans"`
-			Error             *string `json:"error"`
+			NumDeletedStats     int `json:"deletedStats"`
+			NumDeletedActions   int `json:"deletedActions"`
+			NumDeletedBans      int `json:"numDeletedBans"`
+			NumDeletedDelayLogs int `json:"numDeletedDelayLogs"`
+
+			Error *string `json:"error"`
 		}{
-			NumDeletedStats:   dcr.NumDeletedStats,
-			NumDeletedActions: dcr.NumDeletedActions,
-			NumDeletedBans:    dcr.NumDeletedBans,
-			Error:             statusErr,
+			NumDeletedStats:     dcr.NumDeletedStats,
+			NumDeletedActions:   dcr.NumDeletedActions,
+			NumDeletedBans:      dcr.NumDeletedBans,
+			NumDeletedDelayLogs: dcr.NumDeletedDelayLogs,
+			Error:               statusErr,
 		},
 	)
 }

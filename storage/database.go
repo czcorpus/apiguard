@@ -64,7 +64,7 @@ CREATE TABLE client_bans (
 	PRIMARY KEY (ip_address)
 );
 
-CREATE TABLE delay_log (
+CREATE TABLE client_delay_log (
 	id INT NOT NULL auto_increment,
 	created datetime NOT NULL DEFAULT NOW(),
 	delay FLOAT NOT NULL,
@@ -600,7 +600,7 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 	ans.NumDeletedBans = numDel3
 
 	_, err = tx.Exec(
-		"DELETE FROM delay_log WHERE NOW() - INTERVAL delay SECOND > created",
+		"DELETE FROM client_delay_log WHERE NOW() - INTERVAL delay SECOND > created",
 	)
 	if err != nil {
 		tx.Rollback()
@@ -691,7 +691,7 @@ func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO delay_log (delay) VALUES (?)",
+		"INSERT INTO client_delay_log (delay) VALUES (?)",
 		delay.Seconds(),
 	)
 	if err != nil {
@@ -702,19 +702,29 @@ func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
 	return tx.Commit()
 }
 
-func (c *MySQLAdapter) AnalyzeDelayLog() (map[string]int, error) {
-	rows, err := c.conn.Query(`
+type delayLogsHistogram struct {
+	BinWidth   float64        `json:"binWidth"`
+	OtherValue float64        `json:"otherValue"`
+	Data       map[string]int `json:"data"`
+}
+
+func (c *MySQLAdapter) AnalyzeDelayLog() (*delayLogsHistogram, error) {
+	histogram := delayLogsHistogram{
+		BinWidth:   0.1,
+		OtherValue: 5.0,
+		Data:       make(map[string]int),
+	}
+	rows, err := c.conn.Query(fmt.Sprintf(`
 		SELECT
-			CONVERT(MIN(FLOOR(delay*10)/10, 5), CHAR) AS delay_bin,
+			CONVERT(LEAST(FLOOR(delay/%f)*%f, %f), CHAR) AS delay_bin,
 			COUNT(*) as count
-		FROM delay_log
+		FROM client_delay_log
 		GROUP BY delay_bin
 		ORDER BY delay_bin
-	`)
+	`, histogram.BinWidth, histogram.BinWidth, histogram.OtherValue))
 	if err != nil {
 		return nil, err
 	}
-	ans := make(map[string]int)
 	for rows.Next() {
 		var delayBin string
 		var count int
@@ -722,9 +732,9 @@ func (c *MySQLAdapter) AnalyzeDelayLog() (map[string]int, error) {
 		if err != nil {
 			return nil, err
 		}
-		ans[delayBin] = count
+		histogram.Data[delayBin] = count
 	}
-	return ans, nil
+	return &histogram, nil
 }
 
 func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {

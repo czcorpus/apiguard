@@ -127,8 +127,7 @@ func TestParserNumeralResponse(t *testing.T) {
 		"tři sta třicet tři tisíc",
 		"asi sto lidí se sešlo před magistrátem, aby protestovalo/protestovali proti plánované stavbě",
 	})
-	assert.Contains(t, ans.items, "poznámky k heslu")
-	assert.Equal(t, ans.items["poznámky k heslu"], "ve spojení s výrazem dvě má tvar 1. p. mn. č. podobu stě (dvě stě); ve spojení s počítaným předmětem může v j. č. zůstat výraz sto nesklonný (ke stu korun/korunám i ke sto korunám)")
+	assert.Equal(t, ans.Notes, "ve spojení s výrazem dvě má tvar 1. p. mn. č. podobu stě (dvě stě); ve spojení s počítaným předmětem může v j. č. zůstat výraz sto nesklonný (ke stu korun/korunám i ke sto korunám)")
 
 	// tabulka
 	assert.Equal(t, ans.GrammarCase.Nominative.Singular, "sto")
@@ -240,6 +239,40 @@ func TestParserInterjectionResponse(t *testing.T) {
 		"Haló, tady Jiřina!",
 		"Halo, právě volá vaše láska!",
 	})
+}
+
+func TestParserBoosterResponse(t *testing.T) {
+	content := loadTestingFile("testdata/lguide/booster.html", t)
+	ans := Parse(content)
+	assert.NoError(t, ans.Error)
+	assert.Equal(t, ans.Heading, "booster")
+	assert.Equal(t, ans.Pronunciation, "[bústr]")
+
+	// položky
+	assert.Equal(t, ans.Syllabification, "bo-os-ter")
+	assert.Equal(t, ans.Gender, "m. neživ.")
+
+	// tabulka
+	assert.Equal(t, ans.GrammarCase.Nominative.Singular, "booster")
+	assert.Equal(t, ans.GrammarCase.Nominative.Plural, "boostery, boostry")
+	assert.Equal(t, ans.GrammarCase.Genitive.Singular, "boosteru, boostru")
+	assert.Equal(t, ans.GrammarCase.Genitive.Plural, "boosterů, boostrů")
+	assert.Equal(t, ans.GrammarCase.Dative.Singular, "boosteru, boostru")
+	assert.Equal(t, ans.GrammarCase.Dative.Plural, "boosterům, boostrům")
+	assert.Equal(t, ans.GrammarCase.Accusative.Singular, "booster")
+	assert.Equal(t, ans.GrammarCase.Accusative.Plural, "boostery, boostry")
+	assert.Equal(t, ans.GrammarCase.Vocative.Singular, "boostere, boostre")
+	assert.Equal(t, ans.GrammarCase.Vocative.Plural, "boostery, boostry")
+	assert.Equal(t, ans.GrammarCase.Locative.Singular, "boosteru, boostru")
+	assert.Equal(t, ans.GrammarCase.Locative.Plural, "boosterech, boostrech")
+	assert.Equal(t, ans.GrammarCase.Instrumental.Singular, "boosterem, boostrem")
+	assert.Equal(t, ans.GrammarCase.Instrumental.Plural, "boostery, boostry")
+
+	assert.ElementsMatch(t, ans.Examples, [1]string{
+		"Pomocí boosteru můžete zvýšit výkon. Jaký je rozdíl mezi krémy s boostrem a sérem?",
+	})
+
+	assert.Contains(t, ans.Notes, "Počeštěná varianta bustr, uvedená v NASCS, se téměř neužívá.Varianta s vypouštěným -e- (boostru, boostrů apod.) je méně častá.")
 }
 
 func TestParseJavascript(t *testing.T) {

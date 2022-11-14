@@ -40,6 +40,7 @@ type phrasemeItem struct {
 type dataItem struct {
 	Key           string            `json:"key"`
 	Pronunciation string            `json:"pronunciation"`
+	AudioFile     string            `json:"audioFile"`
 	Quality       string            `json:"quality"`
 	Forms         map[string]string `json:"forms"`
 	POS           string            `json:"pos"`
@@ -112,8 +113,43 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	}
 
 	if s.HasClass("vyslovnost") {
-		ds.lastItem.Pronunciation = normalizeString(s.Text())
-		return
+		src, ok := s.Find("span.mediPlayer audio source").Attr("src")
+		if ok {
+			ds.lastItem.AudioFile = src
+		}
+
+		data, err := s.Html()
+		if err != nil {
+			log.Warn().Msgf("Error when getting raw `vyslovnost` html: %s", err)
+			return
+		}
+		tkn := html.NewTokenizer(strings.NewReader(data))
+		text := ""
+
+		for {
+			tt := tkn.Next()
+			switch {
+			case tt == html.ErrorToken:
+				ds.lastItem.Pronunciation = normalizeString(text)
+				return
+
+			case tt == html.TextToken:
+				t := tkn.Token()
+				text += t.Data
+
+			case tt == html.StartTagToken:
+				t := tkn.Token()
+				switch t.Data {
+				case "span":
+					for _, attr := range t.Attr {
+						if attr.Key == "class" && attr.Val == "mediPlayer" {
+							ds.lastItem.Pronunciation = normalizeString(text)
+							return
+						}
+					}
+				}
+			}
+		}
 	}
 
 	if s.HasClass("stylKval") {

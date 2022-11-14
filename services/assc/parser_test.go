@@ -156,3 +156,45 @@ func TestParserCenovkaResponse(t *testing.T) {
 
 	assert.Len(t, first.Phrasemes, 0)
 }
+
+func TestParserBytResponse(t *testing.T) {
+	content := loadTestingFile("testdata/assc/byt.html", t)
+	ans, err := parseData(content)
+	assert.NoError(t, err)
+	assert.Len(t, ans, 3)
+
+	first := ans[0]
+	assert.Equal(t, first.Key, "být")
+	assert.Equal(t, first.Pronunciation, "[biːt]")
+	assert.Equal(t, first.AudioFile, "")
+	assert.Equal(t, first.Quality, "")
+	assert.Equal(t, first.POS, "sloveso nedokonavé")
+	assert.Equal(t, first.Note, "")
+
+	assert.Equal(t, first.Meaning[0].Explanation, "trvat, vyskytovat se v prostoru a čase")
+	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
+	assert.ElementsMatch(t, first.Meaning[0].Synonyms, [1]string{"existovat"})
+	assert.ElementsMatch(t, first.Meaning[0].Examples, [8]string{
+		"Na světě je spousta krásných věcí.",
+		"Dříve nebylo tolik aut.",
+		"Takové slovo není.",
+		"Je na Marsu život?",
+		"Strašidla jsou jen v pohádkách.",
+		"Jsou lidé, kteří nemají smysl pro humor.",
+		"Descartes řekl: myslím, tedy jsem.",
+		"Byl jednou jeden král…, Žili, byli…, Bylo nebylo… úvodní formule v pohádkách",
+	})
+
+	assert.Equal(t, first.Collocations[0].Collocation, "nebýt toho")
+	assert.Equal(t, first.Collocations[0].Explanation, "")
+	assert.ElementsMatch(t, first.Collocations[0].Examples, [0]string{})
+	assert.Equal(t, first.Collocations[1].Collocation, "nebýt někoho / něčeho")
+	assert.Equal(t, first.Collocations[1].Explanation, "pokud by nenastala určitá skutečnost (něco by se uskutečnilo)")
+	assert.ElementsMatch(t, first.Collocations[1].Examples, [3]string{
+		"Nebýt toho, že informace vynesli hackeři, zůstalo by všechno tajemstvím.",
+		"Nebýt války, mohla z ní být klavírní virtuoska.",
+		"Nebýt maminky, vůbec bych to nezvládla.",
+	})
+
+	// TODO here can be much more tests
+}

@@ -251,7 +251,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 
 	// Here we have to use `html.Tokenizer`, because there is problematic document structure
 	if s.HasClass("exeplifikace") {
-		data, err := s.Children().First().Html()
+		data, err := s.Html()
 		if err != nil {
 			log.Warn().Msgf("Error when getting raw `exeplifikace` html: %s", err)
 			return

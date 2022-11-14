@@ -23,6 +23,7 @@ type ParsedData struct {
 	Scripts         []string      `json:"scripts"`
 	CSSLinks        []string      `json:"cssLinks"`
 	Heading         string        `json:"heading"`
+	Pronunciation   string        `json:"pronunciation"`
 	Meaning         string        `json:"meaning"`
 	Syllabification string        `json:"syllabification"`
 	Gender          string        `json:"gender"`
@@ -31,6 +32,7 @@ type ParsedData struct {
 	Comparison      Comparison    `json:"comparison"`
 	Examples        []string      `json:"examples"`
 	Alternatives    []Alternative `json:"alternatives"`
+	Notes           string        `json:"notes"`
 	items           map[string]string
 	Error           error
 }
@@ -381,6 +383,10 @@ func Parse(text string) *ParsedData {
 								data.Gender = key_val[1]
 							} else if key_val[0] == "příklady" {
 								data.Examples = strings.Split(key_val[1], "; ")
+							} else if key_val[0] == "poznámky k heslu" {
+								data.Notes = key_val[1]
+							} else if key_val[0] == "výslovnost" {
+								data.Pronunciation = key_val[1]
 							} else {
 								if len(key_val) == 1 {
 									data.Meaning = key_val[0]

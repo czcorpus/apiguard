@@ -122,3 +122,37 @@ func TestParserDrakResponse(t *testing.T) {
 
 	assert.Len(t, second.Phrasemes, 0)
 }
+
+func TestParserCenovkaResponse(t *testing.T) {
+	content := loadTestingFile("testdata/assc/cenovka.html", t)
+	ans, err := parseData(content)
+	assert.NoError(t, err)
+	assert.Len(t, ans, 1)
+
+	first := ans[0]
+	assert.Equal(t, first.Key, "cenovka")
+	assert.Equal(t, first.Pronunciation, "[cenofka], 2. mn. [cenovek]")
+	assert.Equal(t, first.AudioFile, "cenovka_soubory/14474.ogg")
+	assert.Equal(t, first.Quality, "")
+	assert.Equal(t, first.POS, "podstatné jméno rodu ženského")
+	assert.Equal(t, first.Note, "")
+
+	assert.Contains(t, first.Forms, "2. j.")
+	assert.Equal(t, first.Forms["2. j."], "-vky")
+	assert.Contains(t, first.Forms, "2. mn.")
+	assert.Equal(t, first.Forms["2. mn."], "-vek")
+
+	assert.Len(t, first.Meaning, 1)
+	assert.Equal(t, first.Meaning[0].Explanation, "štítek, visačka s cenou zboží (často i s dalšími údaji)")
+	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
+	assert.Len(t, first.Meaning[0].Synonyms, 0)
+	assert.ElementsMatch(t, first.Meaning[0].Examples, [5]string{
+		"papírové / elektronické cenovky",
+		"regálová cenovka",
+		"cenovka s popisem a čárovým kódem",
+		"lepit cenovky na zboží",
+		"označit výrobek cenovkou",
+	})
+
+	assert.Len(t, first.Phrasemes, 0)
+}

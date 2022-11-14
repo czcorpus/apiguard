@@ -37,6 +37,12 @@ type phrasemeItem struct {
 	Examples    []string `json:"examples"`
 }
 
+type collocationItem struct {
+	Collocation string   `json:"phraseme"`
+	Explanation string   `json:"explanation"`
+	Examples    []string `json:"examples"`
+}
+
 type dataItem struct {
 	Key           string            `json:"key"`
 	Pronunciation string            `json:"pronunciation"`
@@ -46,18 +52,21 @@ type dataItem struct {
 	POS           string            `json:"pos"`
 	Meaning       []meaningItem     `json:"meaning"`
 	Phrasemes     []phrasemeItem    `json:"phrasemes"`
+	Collocations  []collocationItem `json:"collocations"`
 	Note          string            `json:"note"`
 
-	lastMeaningItem  *meaningItem
-	lastPhrasemeItem *phrasemeItem
+	lastMeaningItem     *meaningItem
+	lastPhrasemeItem    *phrasemeItem
+	lastCollocationItem *collocationItem
 }
 
 func NewDataItem(heslo string) dataItem {
 	return dataItem{
-		Key:       heslo,
-		Forms:     make(map[string]string),
-		Meaning:   make([]meaningItem, 0),
-		Phrasemes: make([]phrasemeItem, 0),
+		Key:          heslo,
+		Forms:        make(map[string]string),
+		Meaning:      make([]meaningItem, 0),
+		Phrasemes:    make([]phrasemeItem, 0),
+		Collocations: make([]collocationItem, 0),
 	}
 }
 
@@ -197,6 +206,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
 		ds.lastItem.lastMeaningItem = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
 		ds.lastItem.lastPhrasemeItem = nil
+		ds.lastItem.lastCollocationItem = nil
 		return
 	}
 
@@ -210,11 +220,32 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		ds.lastItem.Phrasemes = append(ds.lastItem.Phrasemes, phraseme)
 		ds.lastItem.lastMeaningItem = nil
 		ds.lastItem.lastPhrasemeItem = &ds.lastItem.Phrasemes[len(ds.lastItem.Phrasemes)-1]
+		ds.lastItem.lastCollocationItem = nil
+		return
+	}
+
+	subsel = s.Find("span.souslovi")
+	if subsel.Length() > 0 {
+		collocation := collocationItem{
+			Collocation: normalizeString(subsel.Text()),
+			Explanation: "",
+			Examples:    make([]string, 0),
+		}
+		ds.lastItem.Collocations = append(ds.lastItem.Collocations, collocation)
+		ds.lastItem.lastMeaningItem = nil
+		ds.lastItem.lastPhrasemeItem = nil
+		ds.lastItem.lastCollocationItem = &ds.lastItem.Collocations[len(ds.lastItem.Collocations)-1]
 		return
 	}
 
 	if s.HasClass("vyznam_wrapper_link") {
-		ds.lastItem.lastPhrasemeItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		if ds.lastItem.lastPhrasemeItem != nil {
+			ds.lastItem.lastPhrasemeItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		} else if ds.lastItem.lastCollocationItem != nil {
+			ds.lastItem.lastCollocationItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		} else {
+			log.Warn().Msgf("Unknown `span.vyznam` parent: %s", s.Text())
+		}
 		return
 	}
 
@@ -238,6 +269,8 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
 					} else if ds.lastItem.lastPhrasemeItem != nil {
 						ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
+					} else if ds.lastItem.lastCollocationItem != nil {
+						ds.lastItem.lastCollocationItem.Examples = append(ds.lastItem.lastCollocationItem.Examples, normalizeString(text))
 					} else {
 						log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
 					}
@@ -256,6 +289,8 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 							ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
 						} else if ds.lastItem.lastPhrasemeItem != nil {
 							ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
+						} else if ds.lastItem.lastCollocationItem != nil {
+							ds.lastItem.lastCollocationItem.Examples = append(ds.lastItem.lastCollocationItem.Examples, normalizeString(text))
 						} else {
 							log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
 						}

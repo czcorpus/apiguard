@@ -38,7 +38,7 @@ type phrasemeItem struct {
 }
 
 type collocationItem struct {
-	Collocation string   `json:"phraseme"`
+	Collocation string   `json:"collocation"`
 	Explanation string   `json:"explanation"`
 	Examples    []string `json:"examples"`
 }

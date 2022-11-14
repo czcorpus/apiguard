@@ -156,3 +156,18 @@ func TestParserCenovkaResponse(t *testing.T) {
 
 	assert.Len(t, first.Phrasemes, 0)
 }
+
+func TestParserBytResponse(t *testing.T) {
+	content := loadTestingFile("testdata/assc/byt.html", t)
+	ans, err := parseData(content)
+	assert.NoError(t, err)
+	assert.Len(t, ans, 3)
+
+	first := ans[0]
+	assert.Equal(t, first.Key, "být")
+	assert.Equal(t, first.Pronunciation, "[biːt]")
+	assert.Equal(t, first.AudioFile, "")
+	assert.Equal(t, first.Quality, "")
+	assert.Equal(t, first.POS, "sloveso nedokonavé")
+	assert.Equal(t, first.Note, "")
+}

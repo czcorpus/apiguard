@@ -198,10 +198,14 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 
 	if s.HasClass("vyznam_wrapper") {
 		meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
+		predvyklad := normalizeString(s.Find("span.predvyklad_wrap").Text())
+		if len(predvyklad) > 0 {
+			meaning.Explanation += " " + predvyklad
+		}
 		meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
 		meaning.Attachement = normalizeString(s.Find("span.vazebnost").Text())
 		s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
-			syn := normalizeString(s.Find("span.synonymum").Text())
+			syn := normalizeString(s.Text())
 			if syn != "" && !listContains(meaning.Synonyms, syn) {
 				meaning.Synonyms = append(meaning.Synonyms, syn)
 			}
@@ -284,7 +288,9 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			case tt == html.TextToken:
 				t := tkn.Token()
 				if isNote {
-					text += "(" + t.Data + ")"
+					if len(normalizeString(t.Data)) > 0 {
+						text += "(" + normalizeString(t.Data) + ")"
+					}
 					isNote = false
 				} else {
 					text += t.Data

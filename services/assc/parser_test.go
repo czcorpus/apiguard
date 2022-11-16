@@ -266,5 +266,70 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Collocations[2].Explanation, "to znamená, zkr. tj.")
 	assert.ElementsMatch(t, first.Collocations[2].Examples, [0]string{})
 
+	// --- 5
+
+	assert.Equal(t, first.Meaning[4].Explanation, "mít určitou vlastnost, jakost, jevit se nějakým")
+	assert.Equal(t, first.Meaning[4].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[4].Attachement, "(kdo, co je jaký; z čeho)")
+	assert.ElementsMatch(t, first.Meaning[4].Synonyms, [0]string{})
+	assert.ElementsMatch(t, first.Meaning[4].Examples, [11]string{
+		"Sedačka je kožená.",
+		"Knihovna je ze dřeva.",
+		"Všichni jsou už unavení.",
+		"Plášť byl hodně obnošený.",
+		"Řešení nebude rychlé ani jednoduché.",
+		"Loučení rodiny bylo smutné.",
+		"Bára je odvážná.",
+		"Pokoje v hotelu byly čisté.",
+		"Oběd už je hotový.",
+		"Úroda bude letos bohatší.",
+		"(kniž.) Pavel je vysoké postavy.",
+	})
+
+	// --- 6
+
+	assert.Equal(t, first.Meaning[5].Explanation, "nacházet se v nějakém stavu")
+	assert.Equal(t, first.Meaning[5].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[5].Attachement, "(kdo, co je v něj. stavu)")
+	assert.ElementsMatch(t, first.Meaning[5].Synonyms, [0]string{})
+	assert.ElementsMatch(t, first.Meaning[5].Examples, [11]string{
+		"být ve zkušební době",
+		"být bez citu",
+		"Pacient je v bezvědomí.",
+		"Měsíc byl skoro v úplňku.",
+		"Děti jsou pod dohledem učitelů.",
+		"Všichni jsme v dobré kondici.",
+		"Dům je na prodej.",
+		"Výsledky jsou k dispozici na internetu.",
+		"Jsem v kontaktu s bývalými spolužáky.",
+		"Řidič nebyl pod vlivem alkoholu.",
+		"Doufám, že vše bude bez problémů.",
+	})
+
+	// --- 9
+
+	assert.Equal(t, first.Meaning[8].Explanation, "mít původ, počátek")
+	assert.Equal(t, first.Meaning[8].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[8].Attachement, "(kdo, co je odkud; z čeho)")
+	assert.ElementsMatch(t, first.Meaning[8].Synonyms, [1]string{"pocházet"})
+	assert.ElementsMatch(t, first.Meaning[8].Examples, [4]string{
+		"Odkud jste?",
+		"Nejsme z Prahy.",
+		"Byla z bohaté rodiny.",
+		"Dům je z minulého století.",
+	})
+
+	// --- 12
+
+	assert.Equal(t, first.Meaning[11].Explanation, "vyhovovat velikostí a tvarem, sedět (o oblečení, o obuvi)")
+	assert.Equal(t, first.Meaning[11].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[11].Attachement, "(co je komu; komu jak)")
+	assert.ElementsMatch(t, first.Meaning[11].Synonyms, [0]string{})
+	assert.ElementsMatch(t, first.Meaning[11].Examples, [3]string{
+		"Ty šaty mi jsou akorát.",
+		"Měl velkou nohu, žádné boty mu nebyly.",
+		"Nemám co na sebe, nic mi není.",
+	})
+
 	// TODO here can be much more tests
 }

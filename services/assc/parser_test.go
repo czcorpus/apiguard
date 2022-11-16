@@ -171,8 +171,11 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.POS, "sloveso nedokonavé")
 	assert.Equal(t, first.Note, "")
 
+	// --- 1
+
 	assert.Equal(t, first.Meaning[0].Explanation, "trvat, vyskytovat se v prostoru a čase")
 	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[0].Attachement, "(kdo, co je ~; kde)")
 	assert.ElementsMatch(t, first.Meaning[0].Synonyms, [1]string{"existovat"})
 	assert.ElementsMatch(t, first.Meaning[0].Examples, [8]string{
 		"Na světě je spousta krásných věcí.",
@@ -182,7 +185,7 @@ func TestParserBytResponse(t *testing.T) {
 		"Strašidla jsou jen v pohádkách.",
 		"Jsou lidé, kteří nemají smysl pro humor.",
 		"Descartes řekl: myslím, tedy jsem.",
-		"Byl jednou jeden král…, Žili, byli…, Bylo nebylo… úvodní formule v pohádkách",
+		"Byl jednou jeden král…, Žili, byli…, Bylo nebylo… (úvodní formule v pohádkách)",
 	})
 
 	assert.Equal(t, first.Collocations[0].Collocation, "nebýt toho")
@@ -195,6 +198,73 @@ func TestParserBytResponse(t *testing.T) {
 		"Nebýt války, mohla z ní být klavírní virtuoska.",
 		"Nebýt maminky, vůbec bych to nezvládla.",
 	})
+
+	// --- 2
+
+	assert.Equal(t, first.Meaning[1].Explanation, "nacházet se na určitém místě")
+	assert.Equal(t, first.Meaning[1].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[1].Attachement, "(kdo, co je kde)")
+	assert.ElementsMatch(t, first.Meaning[1].Synonyms, [0]string{})
+	assert.ElementsMatch(t, first.Meaning[1].Examples, [10]string{
+		"Postel je u zdi.",
+		"Kde je vypínač?",
+		"Matka byla v kuchyni.",
+		"Večer budu doma.",
+		"Šanony jsou na polici.",
+		"Arktida je na severu.",
+		"Silnice není na mapě.",
+		"Zlín je blízko hranic se Slovenskem.",
+		"Okna jsou na jih. (vedou)",
+		"„Kde jsi?“ – „V práci.“",
+	})
+
+	// --- 3
+
+	assert.Equal(t, first.Meaning[2].Explanation, "trvat, uskutečňovat se v určitém čase")
+	assert.Equal(t, first.Meaning[2].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[2].Attachement, "(co je kdy) (~ je kdy)")
+	assert.ElementsMatch(t, first.Meaning[2].Synonyms, [0]string{})
+	assert.ElementsMatch(t, first.Meaning[2].Examples, [10]string{
+		"Dnes je úterý.",
+		"Brzy bude jaro.",
+		"Kdy je Kateřiny? (má svátek)",
+		"Konečně už jsou prázdniny.",
+		"Ordinační doba je od 13 do 18 hodin.",
+		"V roce 2002 byly povodně.",
+		"Začátek majálesu bude v poledne.",
+		"Tréninky jsou v pátek.",
+		"Výstava je až do neděle.",
+		"Je to hodina, co se to stalo.",
+	})
+
+	// --- 4
+
+	assert.Equal(t, first.Meaning[3].Explanation, "patřit, náležet do určité třídy věcí, jevů, skupiny ap. • mít stejnou platnost, jevit se totožným, odpovídat, rovnat se")
+	assert.Equal(t, first.Meaning[3].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[3].Attachement, "(kdo, co je kdo, co; kým, čím; kde)")
+	assert.ElementsMatch(t, first.Meaning[3].Synonyms, [0]string{})
+	assert.ElementsMatch(t, first.Meaning[3].Examples, [16]string{
+		"být učitel / pekař",
+		"být u policie (pracovat)",
+		"Otec byl skaut.",
+		"Jsem občanem ČR.",
+		"Táta nebyl ve straně.",
+		"Sestra je lékařkou v krajské nemocnici.",
+		"Kytovci jsou savci.",
+		"Rakytník je dvoudomá rostlina.",
+		"Epilepsie je onemocnění nervového systému.",
+		"Její manžel je hlupák.",
+		"Genetika je věda o dědičnosti.",
+		"Já jsem Petr Novák.",
+		"Dvě a dvě jsou čtyři.",
+		"Paříž je hlavním městem módy.",
+		"P  je chemická značka fosforu.", // TODO here are two spaces
+		"Ukázalo se, že opak je pravdou.",
+	})
+
+	assert.Equal(t, first.Collocations[2].Collocation, "to jest")
+	assert.Equal(t, first.Collocations[2].Explanation, "to znamená, zkr. tj.")
+	assert.ElementsMatch(t, first.Collocations[2].Examples, [0]string{})
 
 	// TODO here can be much more tests
 }

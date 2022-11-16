@@ -18,6 +18,7 @@ import (
 type meaningItem struct {
 	Explanation     string   `json:"explanation"`
 	MetaExplanation string   `json:"metaExplanation"`
+	Attachement     string   `json:"attachement"`
 	Synonyms        []string `json:"synonyms"`
 	Examples        []string `json:"examples"`
 }
@@ -26,6 +27,7 @@ func NewMeaningItem(def string) meaningItem {
 	return meaningItem{
 		Explanation:     def,
 		MetaExplanation: "",
+		Attachement:     "",
 		Synonyms:        make([]string, 0),
 		Examples:        make([]string, 0),
 	}
@@ -102,7 +104,7 @@ func parseData(src string) ([]dataItem, error) {
 }
 
 func normalizeString(str string) string {
-	return strings.Replace(strings.TrimSpace(strings.Trim(str, ":")), "\u00a0", " ", -1)
+	return strings.Replace(strings.TrimSpace(strings.Trim(str, ": ")), "\u00a0", " ", -1)
 }
 
 func listContains(data []string, val string) bool {
@@ -197,6 +199,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	if s.HasClass("vyznam_wrapper") {
 		meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
 		meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
+		meaning.Attachement = normalizeString(s.Find("span.vazebnost").Text())
 		s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
 			syn := normalizeString(s.Find("span.synonymum").Text())
 			if syn != "" && !listContains(meaning.Synonyms, syn) {
@@ -259,6 +262,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 
 		tkn := html.NewTokenizer(strings.NewReader(data))
 		text := ""
+		isNote := false
 
 		for {
 			tt := tkn.Next()
@@ -279,7 +283,20 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 
 			case tt == html.TextToken:
 				t := tkn.Token()
-				text += t.Data
+				if isNote {
+					text += "(" + t.Data + ")"
+					isNote = false
+				} else {
+					text += t.Data
+				}
+
+			case tt == html.StartTagToken:
+				t := tkn.Token()
+				for _, attr := range t.Attr {
+					if attr.Key == "class" && attr.Val == "small" {
+						isNote = true
+					}
+				}
 
 			case tt == html.SelfClosingTagToken:
 				t := tkn.Token()

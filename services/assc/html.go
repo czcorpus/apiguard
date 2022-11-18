@@ -175,6 +175,11 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		return
 	}
 
+	if s.HasClass("sl_druh") {
+		ds.lastItem.POS = normalizeString(s.Text())
+		return
+	}
+
 	if s.HasClass("ext_pozn_wrapper") {
 		noteHTML, err := s.Find("span.ext_pozn").Html()
 		if err != nil {
@@ -185,31 +190,8 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		return
 	}
 
-	subsel = s.Find("span.tvCh")
-	if subsel.Length() > 0 {
-		var key string
-		subsel.Children().Each(func(i int, s *goquery.Selection) {
-			if s.HasClass("varianta-tvarChar") {
-				key = normalizeString(s.Text())
-			} else if s.HasClass("varianta-tvarChar-koncovka-tvar") {
-				value, ok := ds.lastItem.Forms[key]
-				if ok {
-					ds.lastItem.Forms[key] = value + ", " + normalizeString(s.Text())
-				} else {
-					ds.lastItem.Forms[key] = normalizeString(s.Text())
-				}
-			}
-		})
-		return
-	}
-
-	if s.HasClass("sl_druh") {
-		ds.lastItem.POS = normalizeString(s.Text())
-		return
-	}
-
 	if s.HasClass("vyznam_wrapper") {
-		if len(s.Find("span.vyz_count_num").Nodes) > 0 {
+		if s.Find("span.vyz_count_num").Length() > 0 {
 			meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
 			predvyklad := normalizeString(s.Find("span.predvyklad_wrap").Text())
 			if len(predvyklad) > 0 {
@@ -235,7 +217,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 				},
 			)
 			ds.lastItem.lastMeaning.lastExample = &ds.lastItem.lastMeaning.Examples[len(ds.lastItem.lastMeaning.Examples)-1]
-		} else if len(s.Find("span.vyz_count_bull").Nodes) > 0 {
+		} else if s.Find("span.vyz_count_bull").Length() > 0 {
 			ds.lastItem.lastMeaning.Examples = append(
 				ds.lastItem.lastMeaning.Examples,
 				exampleItem{
@@ -265,6 +247,9 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	}
 
 	subsel = s.Find("span.souslovi")
+	if subsel.Length() == 0 {
+		subsel = s.Find("span.viceslovne")
+	}
 	if subsel.Length() > 0 {
 		collocation := collocationItem{
 			Collocation: normalizeString(subsel.Text()),
@@ -355,5 +340,25 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 				}
 			}
 		}
+	}
+
+	// this has to be at the end, because more elements can contain `tvCh`
+	// need to parse `vyznam_wrapper` first
+	subsel = s.Find("span.tvCh")
+	if subsel.Length() > 0 {
+		var key string
+		subsel.Children().Each(func(i int, s *goquery.Selection) {
+			if s.HasClass("varianta-tvarChar") {
+				key = normalizeString(s.Text())
+			} else if s.HasClass("varianta-tvarChar-koncovka-tvar") {
+				value, ok := ds.lastItem.Forms[key]
+				if ok {
+					ds.lastItem.Forms[key] = value + ", " + normalizeString(s.Text())
+				} else {
+					ds.lastItem.Forms[key] = normalizeString(s.Text())
+				}
+			}
+		})
+		return
 	}
 }

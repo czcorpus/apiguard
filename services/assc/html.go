@@ -15,19 +15,28 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type exampleItem struct {
+	Usage string   `json:"usage"`
+	Data  []string `json:"data"`
+}
+
 type meaningItem struct {
-	Explanation     string   `json:"explanation"`
-	MetaExplanation string   `json:"metaExplanation"`
-	Synonyms        []string `json:"synonyms"`
-	Examples        []string `json:"examples"`
+	Explanation     string        `json:"explanation"`
+	MetaExplanation string        `json:"metaExplanation"`
+	Attachement     string        `json:"attachement"`
+	Synonyms        []string      `json:"synonyms"`
+	Examples        []exampleItem `json:"examples"`
+
+	lastExample *exampleItem
 }
 
 func NewMeaningItem(def string) meaningItem {
 	return meaningItem{
 		Explanation:     def,
 		MetaExplanation: "",
+		Attachement:     "",
 		Synonyms:        make([]string, 0),
-		Examples:        make([]string, 0),
+		Examples:        make([]exampleItem, 0),
 	}
 }
 
@@ -53,11 +62,10 @@ type dataItem struct {
 	Meaning       []meaningItem     `json:"meaning"`
 	Phrasemes     []phrasemeItem    `json:"phrasemes"`
 	Collocations  []collocationItem `json:"collocations"`
-	Note          string            `json:"note"`
 
-	lastMeaningItem     *meaningItem
-	lastPhrasemeItem    *phrasemeItem
-	lastCollocationItem *collocationItem
+	lastMeaning     *meaningItem
+	lastPhraseme    *phrasemeItem
+	lastCollocation *collocationItem
 }
 
 func NewDataItem(heslo string) dataItem {
@@ -71,23 +79,26 @@ func NewDataItem(heslo string) dataItem {
 }
 
 type dataStruct struct {
+	Items []dataItem `json:"items"`
+	Notes []string   `json:"notes"`
+
 	lastItem *dataItem
-	data     []dataItem
 }
 
 func (ds *dataStruct) AddItem(item dataItem) {
-	ds.data = append(ds.data, item)
-	ds.lastItem = &ds.data[len(ds.data)-1]
+	ds.Items = append(ds.Items, item)
+	ds.lastItem = &ds.Items[len(ds.Items)-1]
 }
 
 func NewDataStruct() dataStruct {
 	return dataStruct{
+		Items:    make([]dataItem, 0, 10),
+		Notes:    make([]string, 0),
 		lastItem: nil,
-		data:     make([]dataItem, 0, 10),
 	}
 }
 
-func parseData(src string) ([]dataItem, error) {
+func parseData(src string) (*dataStruct, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(src))
 	if err != nil {
 		return nil, err
@@ -98,11 +109,11 @@ func parseData(src string) ([]dataItem, error) {
 		processNodes(s, &ds)
 	})
 
-	return ds.data, err
+	return &ds, err
 }
 
 func normalizeString(str string) string {
-	return strings.Replace(strings.TrimSpace(strings.Trim(str, ":")), "\u00a0", " ", -1)
+	return strings.Replace(strings.TrimSpace(strings.Trim(str, ": ")), "\u00a0", " ", -1)
 }
 
 func listContains(data []string, val string) bool {
@@ -166,47 +177,60 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		return
 	}
 
-	if s.HasClass("ext_pozn_wrapper") {
-		ds.lastItem.Note = normalizeString(s.Find("span.ext_pozn").Text())
-		return
-	}
-
-	subsel = s.Find("span.tvCh")
-	if subsel.Length() > 0 {
-		var key string
-		subsel.Children().Each(func(i int, s *goquery.Selection) {
-			if s.HasClass("varianta-tvarChar") {
-				key = normalizeString(s.Text())
-			} else if s.HasClass("varianta-tvarChar-koncovka-tvar") {
-				value, ok := ds.lastItem.Forms[key]
-				if ok {
-					ds.lastItem.Forms[key] = value + ", " + normalizeString(s.Text())
-				} else {
-					ds.lastItem.Forms[key] = normalizeString(s.Text())
-				}
-			}
-		})
-		return
-	}
-
 	if s.HasClass("sl_druh") {
 		ds.lastItem.POS = normalizeString(s.Text())
 		return
 	}
 
+	if s.HasClass("ext_pozn_wrapper") {
+		noteHTML, err := s.Find("span.ext_pozn").Html()
+		if err != nil {
+			log.Warn().Msgf("Error when getting raw `span.ext_pozn` html: %s", err)
+		} else {
+			ds.Notes = append(ds.Notes, noteHTML)
+		}
+		return
+	}
+
 	if s.HasClass("vyznam_wrapper") {
-		meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
-		meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
-		s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
-			syn := normalizeString(s.Find("span.synonymum").Text())
-			if syn != "" && !listContains(meaning.Synonyms, syn) {
-				meaning.Synonyms = append(meaning.Synonyms, syn)
+		if s.Find("span.vyz_count_num").Length() > 0 {
+			meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
+			predvyklad := normalizeString(s.Find("span.predvyklad_wrap").Text())
+			if len(predvyklad) > 0 {
+				meaning.Explanation += " " + predvyklad
 			}
-		})
-		ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
-		ds.lastItem.lastMeaningItem = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
-		ds.lastItem.lastPhrasemeItem = nil
-		ds.lastItem.lastCollocationItem = nil
+			meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
+			meaning.Attachement = normalizeString(s.Find("span.vazebnost").Text())
+			s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
+				syn := normalizeString(s.Text())
+				if syn != "" && !listContains(meaning.Synonyms, syn) {
+					meaning.Synonyms = append(meaning.Synonyms, syn)
+				}
+			})
+			ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
+			ds.lastItem.lastMeaning = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
+			ds.lastItem.lastPhraseme = nil
+			ds.lastItem.lastCollocation = nil
+			ds.lastItem.lastMeaning.Examples = append(
+				ds.lastItem.lastMeaning.Examples,
+				exampleItem{
+					Usage: "",
+					Data:  make([]string, 0),
+				},
+			)
+			ds.lastItem.lastMeaning.lastExample = &ds.lastItem.lastMeaning.Examples[len(ds.lastItem.lastMeaning.Examples)-1]
+		} else if s.Find("span.vyz_count_bull").Length() > 0 {
+			ds.lastItem.lastMeaning.Examples = append(
+				ds.lastItem.lastMeaning.Examples,
+				exampleItem{
+					Usage: normalizeString(s.Children().Last().Text()),
+					Data:  make([]string, 0),
+				},
+			)
+			ds.lastItem.lastMeaning.lastExample = &ds.lastItem.lastMeaning.Examples[len(ds.lastItem.lastMeaning.Examples)-1]
+		} else {
+			log.Warn().Msgf("Unknown type of `vyznam_wrapper` element")
+		}
 		return
 	}
 
@@ -218,13 +242,16 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			Examples:    make([]string, 0),
 		}
 		ds.lastItem.Phrasemes = append(ds.lastItem.Phrasemes, phraseme)
-		ds.lastItem.lastMeaningItem = nil
-		ds.lastItem.lastPhrasemeItem = &ds.lastItem.Phrasemes[len(ds.lastItem.Phrasemes)-1]
-		ds.lastItem.lastCollocationItem = nil
+		ds.lastItem.lastMeaning = nil
+		ds.lastItem.lastPhraseme = &ds.lastItem.Phrasemes[len(ds.lastItem.Phrasemes)-1]
+		ds.lastItem.lastCollocation = nil
 		return
 	}
 
 	subsel = s.Find("span.souslovi")
+	if subsel.Length() == 0 {
+		subsel = s.Find("span.viceslovne")
+	}
 	if subsel.Length() > 0 {
 		collocation := collocationItem{
 			Collocation: normalizeString(subsel.Text()),
@@ -232,17 +259,17 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			Examples:    make([]string, 0),
 		}
 		ds.lastItem.Collocations = append(ds.lastItem.Collocations, collocation)
-		ds.lastItem.lastMeaningItem = nil
-		ds.lastItem.lastPhrasemeItem = nil
-		ds.lastItem.lastCollocationItem = &ds.lastItem.Collocations[len(ds.lastItem.Collocations)-1]
+		ds.lastItem.lastMeaning = nil
+		ds.lastItem.lastPhraseme = nil
+		ds.lastItem.lastCollocation = &ds.lastItem.Collocations[len(ds.lastItem.Collocations)-1]
 		return
 	}
 
 	if s.HasClass("vyznam_wrapper_link") {
-		if ds.lastItem.lastPhrasemeItem != nil {
-			ds.lastItem.lastPhrasemeItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
-		} else if ds.lastItem.lastCollocationItem != nil {
-			ds.lastItem.lastCollocationItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		if ds.lastItem.lastPhraseme != nil {
+			ds.lastItem.lastPhraseme.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		} else if ds.lastItem.lastCollocation != nil {
+			ds.lastItem.lastCollocation.Explanation = normalizeString(s.Find("span.vyznam").Text())
 		} else {
 			log.Warn().Msgf("Unknown `span.vyznam` parent: %s", s.Text())
 		}
@@ -259,18 +286,19 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 
 		tkn := html.NewTokenizer(strings.NewReader(data))
 		text := ""
+		isNote := false
 
 		for {
 			tt := tkn.Next()
 			switch {
 			case tt == html.ErrorToken:
 				if len(text) > 0 {
-					if ds.lastItem.lastMeaningItem != nil {
-						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
-					} else if ds.lastItem.lastPhrasemeItem != nil {
-						ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
-					} else if ds.lastItem.lastCollocationItem != nil {
-						ds.lastItem.lastCollocationItem.Examples = append(ds.lastItem.lastCollocationItem.Examples, normalizeString(text))
+					if ds.lastItem.lastMeaning != nil {
+						ds.lastItem.lastMeaning.lastExample.Data = append(ds.lastItem.lastMeaning.lastExample.Data, normalizeString(text))
+					} else if ds.lastItem.lastPhraseme != nil {
+						ds.lastItem.lastPhraseme.Examples = append(ds.lastItem.lastPhraseme.Examples, normalizeString(text))
+					} else if ds.lastItem.lastCollocation != nil {
+						ds.lastItem.lastCollocation.Examples = append(ds.lastItem.lastCollocation.Examples, normalizeString(text))
 					} else {
 						log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
 					}
@@ -279,18 +307,33 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 
 			case tt == html.TextToken:
 				t := tkn.Token()
-				text += t.Data
+				if isNote {
+					if len(normalizeString(t.Data)) > 0 {
+						text += "(" + normalizeString(t.Data) + ")"
+					}
+					isNote = false
+				} else {
+					text += t.Data
+				}
+
+			case tt == html.StartTagToken:
+				t := tkn.Token()
+				for _, attr := range t.Attr {
+					if attr.Key == "class" && attr.Val == "small" {
+						isNote = true
+					}
+				}
 
 			case tt == html.SelfClosingTagToken:
 				t := tkn.Token()
 				if t.Data == "br" {
 					if len(text) > 0 {
-						if ds.lastItem.lastMeaningItem != nil {
-							ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
-						} else if ds.lastItem.lastPhrasemeItem != nil {
-							ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
-						} else if ds.lastItem.lastCollocationItem != nil {
-							ds.lastItem.lastCollocationItem.Examples = append(ds.lastItem.lastCollocationItem.Examples, normalizeString(text))
+						if ds.lastItem.lastMeaning != nil {
+							ds.lastItem.lastMeaning.lastExample.Data = append(ds.lastItem.lastMeaning.lastExample.Data, normalizeString(text))
+						} else if ds.lastItem.lastPhraseme != nil {
+							ds.lastItem.lastPhraseme.Examples = append(ds.lastItem.lastPhraseme.Examples, normalizeString(text))
+						} else if ds.lastItem.lastCollocation != nil {
+							ds.lastItem.lastCollocation.Examples = append(ds.lastItem.lastCollocation.Examples, normalizeString(text))
 						} else {
 							log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
 						}
@@ -299,5 +342,25 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 				}
 			}
 		}
+	}
+
+	// this has to be at the end, because more elements can contain `tvCh`
+	// need to parse `vyznam_wrapper` first
+	subsel = s.Find("span.tvCh")
+	if subsel.Length() > 0 {
+		var key string
+		subsel.Children().Each(func(i int, s *goquery.Selection) {
+			if s.HasClass("varianta-tvarChar") {
+				key = normalizeString(s.Text())
+			} else if s.HasClass("varianta-tvarChar-koncovka-tvar") {
+				value, ok := ds.lastItem.Forms[key]
+				if ok {
+					ds.lastItem.Forms[key] = value + ", " + normalizeString(s.Text())
+				} else {
+					ds.lastItem.Forms[key] = normalizeString(s.Text())
+				}
+			}
+		})
+		return
 	}
 }

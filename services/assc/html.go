@@ -62,7 +62,6 @@ type dataItem struct {
 	Meaning       []meaningItem     `json:"meaning"`
 	Phrasemes     []phrasemeItem    `json:"phrasemes"`
 	Collocations  []collocationItem `json:"collocations"`
-	Note          string            `json:"note"`
 
 	lastMeaning     *meaningItem
 	lastPhraseme    *phrasemeItem
@@ -80,23 +79,26 @@ func NewDataItem(heslo string) dataItem {
 }
 
 type dataStruct struct {
+	Items []dataItem `json:"items"`
+	Notes []string   `json:"notes"`
+
 	lastItem *dataItem
-	data     []dataItem
 }
 
 func (ds *dataStruct) AddItem(item dataItem) {
-	ds.data = append(ds.data, item)
-	ds.lastItem = &ds.data[len(ds.data)-1]
+	ds.Items = append(ds.Items, item)
+	ds.lastItem = &ds.Items[len(ds.Items)-1]
 }
 
 func NewDataStruct() dataStruct {
 	return dataStruct{
+		Items:    make([]dataItem, 0, 10),
+		Notes:    make([]string, 0),
 		lastItem: nil,
-		data:     make([]dataItem, 0, 10),
 	}
 }
 
-func parseData(src string) ([]dataItem, error) {
+func parseData(src string) (*dataStruct, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(src))
 	if err != nil {
 		return nil, err
@@ -107,7 +109,7 @@ func parseData(src string) ([]dataItem, error) {
 		processNodes(s, &ds)
 	})
 
-	return ds.data, err
+	return &ds, err
 }
 
 func normalizeString(str string) string {
@@ -185,7 +187,7 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 		if err != nil {
 			log.Warn().Msgf("Error when getting raw `span.ext_pozn` html: %s", err)
 		} else {
-			ds.lastItem.Note = noteHTML
+			ds.Notes = append(ds.Notes, noteHTML)
 		}
 		return
 	}

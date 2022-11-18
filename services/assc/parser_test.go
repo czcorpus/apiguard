@@ -29,14 +29,13 @@ func TestParserAutoResponse(t *testing.T) {
 	content := loadTestingFile("testdata/assc/auto.html", t)
 	ans, err := parseData(content)
 	assert.NoError(t, err)
-	assert.Len(t, ans, 1)
+	assert.Len(t, ans.Items, 1)
 
-	first := ans[0]
+	first := ans.Items[0]
 	assert.Equal(t, first.Key, "auto")
 	assert.Equal(t, first.Pronunciation, "[ʔa͡uto]")
 	assert.Equal(t, first.Quality, "")
 	assert.Equal(t, first.POS, "podstatné jméno rodu středního")
-	assert.Equal(t, first.Note, "")
 
 	assert.Contains(t, first.Forms, "2. j.")
 	assert.Equal(t, first.Forms["2. j."], "auta")
@@ -51,20 +50,21 @@ func TestParserAutoResponse(t *testing.T) {
 	assert.ElementsMatch(t, first.Meaning[0].Examples[0].Data, [16]string{"nákladní / osobní auto", "ojeté auto", "policejní / hasičské auto", "závodní auto", "řidič auta", "kolona aut", "půjčovna aut", "nastartovat / zaparkovat auto", "přijet autem", "nastoupit do auta", "vystoupit z auta", "Auto prudce zabrzdilo.", "Auto havarovalo.", "Ženu srazilo auto.", "Šéf naboural služební auto.", "Dáš si pivo? – Ne, jsem tu autem."})
 
 	assert.Len(t, first.Phrasemes, 0)
+
+	assert.ElementsMatch(t, ans.Notes, [0]string{})
 }
 
 func TestParserDrakResponse(t *testing.T) {
 	content := loadTestingFile("testdata/assc/drak.html", t)
 	ans, err := parseData(content)
 	assert.NoError(t, err)
-	assert.Len(t, ans, 2)
+	assert.Len(t, ans.Items, 2)
 
-	first := ans[0]
+	first := ans.Items[0]
 	assert.Equal(t, first.Key, "drak I")
 	assert.Equal(t, first.Pronunciation, "[drak]")
 	assert.Equal(t, first.Quality, "")
 	assert.Equal(t, first.POS, "podstatné jméno rodu mužského životného")
-	assert.Equal(t, first.Note, "")
 
 	assert.Contains(t, first.Forms, "2. j.")
 	assert.Equal(t, first.Forms["2. j."], "draka")
@@ -103,12 +103,11 @@ func TestParserDrakResponse(t *testing.T) {
 	assert.Equal(t, first.Phrasemes[3].Explanation, "jet velmi rychle")
 	assert.ElementsMatch(t, first.Phrasemes[3].Examples, [0]string{})
 
-	second := ans[1]
+	second := ans.Items[1]
 	assert.Equal(t, second.Key, "dráček")
 	assert.Equal(t, second.Pronunciation, "[draːček]")
 	assert.Equal(t, second.Quality, "")
 	assert.Equal(t, second.POS, "podstatné jméno rodu mužského životného")
-	assert.Equal(t, second.Note, "")
 
 	assert.Contains(t, second.Forms, "2. j.")
 	assert.Equal(t, second.Forms["2. j."], "-čka")
@@ -126,21 +125,22 @@ func TestParserDrakResponse(t *testing.T) {
 	assert.ElementsMatch(t, second.Meaning[1].Examples[0].Data, [1]string{"Děti krásně vyzdobily papírové dráčky."})
 
 	assert.Len(t, second.Phrasemes, 0)
+
+	assert.ElementsMatch(t, ans.Notes, [0]string{})
 }
 
 func TestParserCenovkaResponse(t *testing.T) {
 	content := loadTestingFile("testdata/assc/cenovka.html", t)
 	ans, err := parseData(content)
 	assert.NoError(t, err)
-	assert.Len(t, ans, 1)
+	assert.Len(t, ans.Items, 1)
 
-	first := ans[0]
+	first := ans.Items[0]
 	assert.Equal(t, first.Key, "cenovka")
 	assert.Equal(t, first.Pronunciation, "[cenofka], 2. mn. [cenovek]")
 	assert.Equal(t, first.AudioFile, "cenovka_soubory/14474.ogg")
 	assert.Equal(t, first.Quality, "")
 	assert.Equal(t, first.POS, "podstatné jméno rodu ženského")
-	assert.Equal(t, first.Note, "")
 
 	assert.Contains(t, first.Forms, "2. j.")
 	assert.Equal(t, first.Forms["2. j."], "-vky")
@@ -161,21 +161,22 @@ func TestParserCenovkaResponse(t *testing.T) {
 	})
 
 	assert.Len(t, first.Phrasemes, 0)
+
+	assert.ElementsMatch(t, ans.Notes, [0]string{})
 }
 
 func TestParserBytResponse(t *testing.T) {
 	content := loadTestingFile("testdata/assc/byt.html", t)
 	ans, err := parseData(content)
 	assert.NoError(t, err)
-	assert.Len(t, ans, 3)
+	assert.Len(t, ans.Items, 3)
 
-	first := ans[0]
+	first := ans.Items[0]
 	assert.Equal(t, first.Key, "být")
 	assert.Equal(t, first.Pronunciation, "[biːt]")
 	assert.Equal(t, first.AudioFile, "")
 	assert.Equal(t, first.Quality, "")
 	assert.Equal(t, first.POS, "sloveso nedokonavé")
-	assert.Equal(t, first.Note, "")
 
 	// --- 1
 
@@ -388,6 +389,8 @@ func TestParserBytResponse(t *testing.T) {
 		"Webová stránka bude sloužit všem.",
 		"Budeme bojovat společně.",
 	})
+
+	assert.Len(t, ans.Notes, 1)
 
 	// TODO here can be much more tests
 }

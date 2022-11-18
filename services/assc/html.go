@@ -169,7 +169,12 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	}
 
 	if s.HasClass("ext_pozn_wrapper") {
-		ds.lastItem.Note = normalizeString(s.Find("span.ext_pozn").Text())
+		noteHTML, err := s.Find("span.ext_pozn").Html()
+		if err != nil {
+			log.Warn().Msgf("Error when getting raw `span.ext_pozn` html: %s", err)
+		} else {
+			ds.lastItem.Note = noteHTML
+		}
 		return
 	}
 

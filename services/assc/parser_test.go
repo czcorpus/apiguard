@@ -47,7 +47,8 @@ func TestParserAutoResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[0].Explanation, "motorové vozidlo (obvykle čtyřkolové) určené k přepravě osob nebo nákladů")
 	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
 	assert.ElementsMatch(t, first.Meaning[0].Synonyms, [1]string{"automobil"})
-	assert.ElementsMatch(t, first.Meaning[0].Examples, [16]string{"nákladní / osobní auto", "ojeté auto", "policejní / hasičské auto", "závodní auto", "řidič auta", "kolona aut", "půjčovna aut", "nastartovat / zaparkovat auto", "přijet autem", "nastoupit do auta", "vystoupit z auta", "Auto prudce zabrzdilo.", "Auto havarovalo.", "Ženu srazilo auto.", "Šéf naboural služební auto.", "Dáš si pivo? – Ne, jsem tu autem."})
+	assert.Equal(t, first.Meaning[0].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[0].Examples[0].Data, [16]string{"nákladní / osobní auto", "ojeté auto", "policejní / hasičské auto", "závodní auto", "řidič auta", "kolona aut", "půjčovna aut", "nastartovat / zaparkovat auto", "přijet autem", "nastoupit do auta", "vystoupit z auta", "Auto prudce zabrzdilo.", "Auto havarovalo.", "Ženu srazilo auto.", "Šéf naboural služební auto.", "Dáš si pivo? – Ne, jsem tu autem."})
 
 	assert.Len(t, first.Phrasemes, 0)
 }
@@ -80,11 +81,13 @@ func TestParserDrakResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[0].Explanation, "pohádkový netvor znázorňovaný v podobě okřídleného ještěra, často s několika hlavami")
 	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
 	assert.Len(t, first.Meaning[0].Synonyms, 0)
-	assert.ElementsMatch(t, first.Meaning[0].Examples, [5]string{"pohádkový / sedmihlavý / strašlivý drak", "souboj s drakem", "přemoct / zabít draka", "utnout drakovi hlavu", "Princ bojoval s drakem."})
+	assert.Equal(t, first.Meaning[0].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[0].Examples[0].Data, [5]string{"pohádkový / sedmihlavý / strašlivý drak", "souboj s drakem", "přemoct / zabít draka", "utnout drakovi hlavu", "Princ bojoval s drakem."})
 	assert.Equal(t, first.Meaning[1].Explanation, "dětská hračka s dřevěnou kostrou potaženou papírem nebo plátnem, pouštěná po větru do vzduchu")
 	assert.Equal(t, first.Meaning[1].MetaExplanation, "")
 	assert.Len(t, first.Meaning[1].Synonyms, 0)
-	assert.ElementsMatch(t, first.Meaning[1].Examples, [5]string{"papírový drak", "soutěž o nejhezčího draka", "pouštět draka", "Nakonec se počasí nad našimi draky slitovalo a vítr začal vát.", "Draci nám létali pěkně vysoko."})
+	assert.Equal(t, first.Meaning[1].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[1].Examples[0].Data, [5]string{"papírový drak", "soutěž o nejhezčího draka", "pouštět draka", "Nakonec se počasí nad našimi draky slitovalo a vítr začal vát.", "Draci nám létali pěkně vysoko."})
 
 	assert.Len(t, first.Phrasemes, 4)
 	assert.Equal(t, first.Phrasemes[0].Phraseme, "bojovat jak(o) drak")
@@ -114,11 +117,13 @@ func TestParserDrakResponse(t *testing.T) {
 	assert.Equal(t, second.Meaning[0].Explanation, "")
 	assert.Equal(t, second.Meaning[0].MetaExplanation, "zdrob., zprav. expr. k 1")
 	assert.Len(t, second.Meaning[0].Synonyms, 0)
-	assert.ElementsMatch(t, second.Meaning[0].Examples, [3]string{"pohádkový dráček", "Na prapor vyšila zeleného dráčka.", "Z tajemného vajíčka se vyklubal hodný dráček."})
+	assert.Equal(t, second.Meaning[0].Examples[0].Usage, "")
+	assert.ElementsMatch(t, second.Meaning[0].Examples[0].Data, [3]string{"pohádkový dráček", "Na prapor vyšila zeleného dráčka.", "Z tajemného vajíčka se vyklubal hodný dráček."})
 	assert.Equal(t, second.Meaning[1].Explanation, "")
 	assert.Equal(t, second.Meaning[1].MetaExplanation, "zdrob., zprav. expr. k 2")
 	assert.Len(t, second.Meaning[1].Synonyms, 0)
-	assert.ElementsMatch(t, second.Meaning[1].Examples, [1]string{"Děti krásně vyzdobily papírové dráčky."})
+	assert.Equal(t, second.Meaning[1].Examples[0].Usage, "")
+	assert.ElementsMatch(t, second.Meaning[1].Examples[0].Data, [1]string{"Děti krásně vyzdobily papírové dráčky."})
 
 	assert.Len(t, second.Phrasemes, 0)
 }
@@ -146,7 +151,8 @@ func TestParserCenovkaResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[0].Explanation, "štítek, visačka s cenou zboží (často i s dalšími údaji)")
 	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
 	assert.Len(t, first.Meaning[0].Synonyms, 0)
-	assert.ElementsMatch(t, first.Meaning[0].Examples, [5]string{
+	assert.Equal(t, first.Meaning[0].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[0].Examples[0].Data, [5]string{
 		"papírové / elektronické cenovky",
 		"regálová cenovka",
 		"cenovka s popisem a čárovým kódem",
@@ -177,7 +183,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[0].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[0].Attachement, "(kdo, co je ~; kde)")
 	assert.ElementsMatch(t, first.Meaning[0].Synonyms, [1]string{"existovat"})
-	assert.ElementsMatch(t, first.Meaning[0].Examples, [8]string{
+	assert.Equal(t, first.Meaning[0].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[0].Examples[0].Data, [8]string{
 		"Na světě je spousta krásných věcí.",
 		"Dříve nebylo tolik aut.",
 		"Takové slovo není.",
@@ -205,7 +212,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[1].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[1].Attachement, "(kdo, co je kde)")
 	assert.ElementsMatch(t, first.Meaning[1].Synonyms, [0]string{})
-	assert.ElementsMatch(t, first.Meaning[1].Examples, [10]string{
+	assert.Equal(t, first.Meaning[1].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[1].Examples[0].Data, [10]string{
 		"Postel je u zdi.",
 		"Kde je vypínač?",
 		"Matka byla v kuchyni.",
@@ -224,7 +232,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[2].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[2].Attachement, "(co je kdy) (~ je kdy)")
 	assert.ElementsMatch(t, first.Meaning[2].Synonyms, [0]string{})
-	assert.ElementsMatch(t, first.Meaning[2].Examples, [10]string{
+	assert.Equal(t, first.Meaning[2].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[2].Examples[0].Data, [10]string{
 		"Dnes je úterý.",
 		"Brzy bude jaro.",
 		"Kdy je Kateřiny? (má svátek)",
@@ -243,7 +252,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[3].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[3].Attachement, "(kdo, co je kdo, co; kým, čím; kde)")
 	assert.ElementsMatch(t, first.Meaning[3].Synonyms, [0]string{})
-	assert.ElementsMatch(t, first.Meaning[3].Examples, [16]string{
+	assert.Equal(t, first.Meaning[3].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[3].Examples[0].Data, [16]string{
 		"být učitel / pekař",
 		"být u policie (pracovat)",
 		"Otec byl skaut.",
@@ -272,7 +282,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[4].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[4].Attachement, "(kdo, co je jaký; z čeho)")
 	assert.ElementsMatch(t, first.Meaning[4].Synonyms, [0]string{})
-	assert.ElementsMatch(t, first.Meaning[4].Examples, [11]string{
+	assert.Equal(t, first.Meaning[4].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[4].Examples[0].Data, [11]string{
 		"Sedačka je kožená.",
 		"Knihovna je ze dřeva.",
 		"Všichni jsou už unavení.",
@@ -292,7 +303,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[5].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[5].Attachement, "(kdo, co je v něj. stavu)")
 	assert.ElementsMatch(t, first.Meaning[5].Synonyms, [0]string{})
-	assert.ElementsMatch(t, first.Meaning[5].Examples, [11]string{
+	assert.Equal(t, first.Meaning[5].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[5].Examples[0].Data, [11]string{
 		"být ve zkušební době",
 		"být bez citu",
 		"Pacient je v bezvědomí.",
@@ -312,7 +324,8 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[8].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[8].Attachement, "(kdo, co je odkud; z čeho)")
 	assert.ElementsMatch(t, first.Meaning[8].Synonyms, [1]string{"pocházet"})
-	assert.ElementsMatch(t, first.Meaning[8].Examples, [4]string{
+	assert.Equal(t, first.Meaning[8].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[8].Examples[0].Data, [4]string{
 		"Odkud jste?",
 		"Nejsme z Prahy.",
 		"Byla z bohaté rodiny.",
@@ -325,10 +338,55 @@ func TestParserBytResponse(t *testing.T) {
 	assert.Equal(t, first.Meaning[11].MetaExplanation, "")
 	assert.Equal(t, first.Meaning[11].Attachement, "(co je komu; komu jak)")
 	assert.ElementsMatch(t, first.Meaning[11].Synonyms, [0]string{})
-	assert.ElementsMatch(t, first.Meaning[11].Examples, [3]string{
+	assert.Equal(t, first.Meaning[11].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[11].Examples[0].Data, [3]string{
 		"Ty šaty mi jsou akorát.",
 		"Měl velkou nohu, žádné boty mu nebyly.",
 		"Nemám co na sebe, nic mi není.",
+	})
+
+	// --- 22
+
+	assert.Equal(t, first.Meaning[21].Explanation, "jako pomocné sloveso")
+	assert.Equal(t, first.Meaning[21].MetaExplanation, "")
+	assert.Equal(t, first.Meaning[21].Attachement, "")
+	assert.ElementsMatch(t, first.Meaning[21].Synonyms, [0]string{})
+	assert.Equal(t, first.Meaning[21].Examples[0].Usage, "")
+	assert.ElementsMatch(t, first.Meaning[21].Examples[0].Data, [0]string{})
+	assert.Equal(t, first.Meaning[21].Examples[1].Usage, "ve spojení s tvary minulého příčestí tvoří složené tvary minulého času")
+	assert.ElementsMatch(t, first.Meaning[21].Examples[1].Data, [6]string{
+		"Řekla jsem jí všechno.",
+		"Našli jste to dobře?",
+		"„Co říkal?“ zeptal jsem se.",
+		"Spaly jsme ve stanu.",
+		"Nezapomněl sis umýt ruce?",
+		"Bylas pryč strašně dlouho.",
+	})
+	assert.Equal(t, first.Meaning[21].Examples[2].Usage, "ve spojení s trpným příčestím tvoří složené tvary trpného rodu")
+	assert.ElementsMatch(t, first.Meaning[21].Examples[2].Data, [6]string{
+		"Byl zvolen poslancem.",
+		"Poslední význam je uveden s otazníkem.",
+		"Oběd je připraven.",
+		"Zpráva není určena vám.",
+		"Buďte vítáni, přátelé!",
+		"Jsem přesvědčena, že společně najdeme řešení.",
+	})
+	assert.Equal(t, first.Meaning[21].Examples[3].Usage, "ve spojení s minulým příčestím tvoří složené tvary podmiňovacího způsobu")
+	assert.ElementsMatch(t, first.Meaning[21].Examples[3].Data, [6]string{
+		"Rád bych to věděl.",
+		"Vsadila bych si na jeho výhru.",
+		"Mohl byste mi to říct.",
+		"Chtělo by to další výzkum.",
+		"Děti by takovou dálku neušly.",
+		"Je to důležitější, než bychom si mysleli.",
+	})
+	assert.Equal(t, first.Meaning[21].Examples[4].Usage, "ve spojení s infinitivem tvoří složené tvary budoucího času zprav. nedokonavých sloves")
+	assert.ElementsMatch(t, first.Meaning[21].Examples[4].Data, [5]string{
+		"Budou mít holčičku.",
+		"Co budeš dělat?",
+		"S tím člověkem už pracovat nebudu.",
+		"Webová stránka bude sloužit všem.",
+		"Budeme bojovat společně.",
 	})
 
 	// TODO here can be much more tests

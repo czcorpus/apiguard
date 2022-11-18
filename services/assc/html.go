@@ -15,12 +15,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type exampleItem struct {
+	Usage string   `json:"usage"`
+	Data  []string `json:"data"`
+}
+
 type meaningItem struct {
-	Explanation     string   `json:"explanation"`
-	MetaExplanation string   `json:"metaExplanation"`
-	Attachement     string   `json:"attachement"`
-	Synonyms        []string `json:"synonyms"`
-	Examples        []string `json:"examples"`
+	Explanation     string        `json:"explanation"`
+	MetaExplanation string        `json:"metaExplanation"`
+	Attachement     string        `json:"attachement"`
+	Synonyms        []string      `json:"synonyms"`
+	Examples        []exampleItem `json:"examples"`
+
+	lastExample *exampleItem
 }
 
 func NewMeaningItem(def string) meaningItem {
@@ -29,7 +36,7 @@ func NewMeaningItem(def string) meaningItem {
 		MetaExplanation: "",
 		Attachement:     "",
 		Synonyms:        make([]string, 0),
-		Examples:        make([]string, 0),
+		Examples:        make([]exampleItem, 0),
 	}
 }
 
@@ -57,9 +64,9 @@ type dataItem struct {
 	Collocations  []collocationItem `json:"collocations"`
 	Note          string            `json:"note"`
 
-	lastMeaningItem     *meaningItem
-	lastPhrasemeItem    *phrasemeItem
-	lastCollocationItem *collocationItem
+	lastMeaning     *meaningItem
+	lastPhraseme    *phrasemeItem
+	lastCollocation *collocationItem
 }
 
 func NewDataItem(heslo string) dataItem {
@@ -202,23 +209,44 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 	}
 
 	if s.HasClass("vyznam_wrapper") {
-		meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
-		predvyklad := normalizeString(s.Find("span.predvyklad_wrap").Text())
-		if len(predvyklad) > 0 {
-			meaning.Explanation += " " + predvyklad
-		}
-		meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
-		meaning.Attachement = normalizeString(s.Find("span.vazebnost").Text())
-		s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
-			syn := normalizeString(s.Text())
-			if syn != "" && !listContains(meaning.Synonyms, syn) {
-				meaning.Synonyms = append(meaning.Synonyms, syn)
+		if len(s.Find("span.vyz_count_num").Nodes) > 0 {
+			meaning := NewMeaningItem(normalizeString(s.Find("span.vyznam").Text()))
+			predvyklad := normalizeString(s.Find("span.predvyklad_wrap").Text())
+			if len(predvyklad) > 0 {
+				meaning.Explanation += " " + predvyklad
 			}
-		})
-		ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
-		ds.lastItem.lastMeaningItem = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
-		ds.lastItem.lastPhrasemeItem = nil
-		ds.lastItem.lastCollocationItem = nil
+			meaning.MetaExplanation = normalizeString(s.Find("span.metavyklad").Text())
+			meaning.Attachement = normalizeString(s.Find("span.vazebnost").Text())
+			s.Find("span.synonymum").Each(func(i int, s *goquery.Selection) {
+				syn := normalizeString(s.Text())
+				if syn != "" && !listContains(meaning.Synonyms, syn) {
+					meaning.Synonyms = append(meaning.Synonyms, syn)
+				}
+			})
+			ds.lastItem.Meaning = append(ds.lastItem.Meaning, meaning)
+			ds.lastItem.lastMeaning = &ds.lastItem.Meaning[len(ds.lastItem.Meaning)-1]
+			ds.lastItem.lastPhraseme = nil
+			ds.lastItem.lastCollocation = nil
+			ds.lastItem.lastMeaning.Examples = append(
+				ds.lastItem.lastMeaning.Examples,
+				exampleItem{
+					Usage: "",
+					Data:  make([]string, 0),
+				},
+			)
+			ds.lastItem.lastMeaning.lastExample = &ds.lastItem.lastMeaning.Examples[len(ds.lastItem.lastMeaning.Examples)-1]
+		} else if len(s.Find("span.vyz_count_bull").Nodes) > 0 {
+			ds.lastItem.lastMeaning.Examples = append(
+				ds.lastItem.lastMeaning.Examples,
+				exampleItem{
+					Usage: normalizeString(s.Children().Last().Text()),
+					Data:  make([]string, 0),
+				},
+			)
+			ds.lastItem.lastMeaning.lastExample = &ds.lastItem.lastMeaning.Examples[len(ds.lastItem.lastMeaning.Examples)-1]
+		} else {
+			log.Warn().Msgf("Unknown type of `vyznam_wrapper` element")
+		}
 		return
 	}
 
@@ -230,9 +258,9 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			Examples:    make([]string, 0),
 		}
 		ds.lastItem.Phrasemes = append(ds.lastItem.Phrasemes, phraseme)
-		ds.lastItem.lastMeaningItem = nil
-		ds.lastItem.lastPhrasemeItem = &ds.lastItem.Phrasemes[len(ds.lastItem.Phrasemes)-1]
-		ds.lastItem.lastCollocationItem = nil
+		ds.lastItem.lastMeaning = nil
+		ds.lastItem.lastPhraseme = &ds.lastItem.Phrasemes[len(ds.lastItem.Phrasemes)-1]
+		ds.lastItem.lastCollocation = nil
 		return
 	}
 
@@ -244,17 +272,17 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			Examples:    make([]string, 0),
 		}
 		ds.lastItem.Collocations = append(ds.lastItem.Collocations, collocation)
-		ds.lastItem.lastMeaningItem = nil
-		ds.lastItem.lastPhrasemeItem = nil
-		ds.lastItem.lastCollocationItem = &ds.lastItem.Collocations[len(ds.lastItem.Collocations)-1]
+		ds.lastItem.lastMeaning = nil
+		ds.lastItem.lastPhraseme = nil
+		ds.lastItem.lastCollocation = &ds.lastItem.Collocations[len(ds.lastItem.Collocations)-1]
 		return
 	}
 
 	if s.HasClass("vyznam_wrapper_link") {
-		if ds.lastItem.lastPhrasemeItem != nil {
-			ds.lastItem.lastPhrasemeItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
-		} else if ds.lastItem.lastCollocationItem != nil {
-			ds.lastItem.lastCollocationItem.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		if ds.lastItem.lastPhraseme != nil {
+			ds.lastItem.lastPhraseme.Explanation = normalizeString(s.Find("span.vyznam").Text())
+		} else if ds.lastItem.lastCollocation != nil {
+			ds.lastItem.lastCollocation.Explanation = normalizeString(s.Find("span.vyznam").Text())
 		} else {
 			log.Warn().Msgf("Unknown `span.vyznam` parent: %s", s.Text())
 		}
@@ -278,12 +306,12 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 			switch {
 			case tt == html.ErrorToken:
 				if len(text) > 0 {
-					if ds.lastItem.lastMeaningItem != nil {
-						ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
-					} else if ds.lastItem.lastPhrasemeItem != nil {
-						ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
-					} else if ds.lastItem.lastCollocationItem != nil {
-						ds.lastItem.lastCollocationItem.Examples = append(ds.lastItem.lastCollocationItem.Examples, normalizeString(text))
+					if ds.lastItem.lastMeaning != nil {
+						ds.lastItem.lastMeaning.lastExample.Data = append(ds.lastItem.lastMeaning.lastExample.Data, normalizeString(text))
+					} else if ds.lastItem.lastPhraseme != nil {
+						ds.lastItem.lastPhraseme.Examples = append(ds.lastItem.lastPhraseme.Examples, normalizeString(text))
+					} else if ds.lastItem.lastCollocation != nil {
+						ds.lastItem.lastCollocation.Examples = append(ds.lastItem.lastCollocation.Examples, normalizeString(text))
 					} else {
 						log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
 					}
@@ -313,12 +341,12 @@ func processNodes(s *goquery.Selection, ds *dataStruct) {
 				t := tkn.Token()
 				if t.Data == "br" {
 					if len(text) > 0 {
-						if ds.lastItem.lastMeaningItem != nil {
-							ds.lastItem.lastMeaningItem.Examples = append(ds.lastItem.lastMeaningItem.Examples, normalizeString(text))
-						} else if ds.lastItem.lastPhrasemeItem != nil {
-							ds.lastItem.lastPhrasemeItem.Examples = append(ds.lastItem.lastPhrasemeItem.Examples, normalizeString(text))
-						} else if ds.lastItem.lastCollocationItem != nil {
-							ds.lastItem.lastCollocationItem.Examples = append(ds.lastItem.lastCollocationItem.Examples, normalizeString(text))
+						if ds.lastItem.lastMeaning != nil {
+							ds.lastItem.lastMeaning.lastExample.Data = append(ds.lastItem.lastMeaning.lastExample.Data, normalizeString(text))
+						} else if ds.lastItem.lastPhraseme != nil {
+							ds.lastItem.lastPhraseme.Examples = append(ds.lastItem.lastPhraseme.Examples, normalizeString(text))
+						} else if ds.lastItem.lastCollocation != nil {
+							ds.lastItem.lastCollocation.Examples = append(ds.lastItem.lastCollocation.Examples, normalizeString(text))
 						} else {
 							log.Warn().Msgf("Unknown `exeplifikace` parent: %s", text)
 						}

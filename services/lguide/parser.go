@@ -387,6 +387,8 @@ func Parse(text string) *ParsedData {
 								data.Notes = key_val[1]
 							} else if key_val[0] == "výslovnost" {
 								data.Pronunciation = key_val[1]
+							} else if key_val[0] == "význam" {
+								data.Meaning = key_val[1]
 							} else {
 								if len(key_val) == 1 {
 									data.Meaning = key_val[0]

@@ -7,26 +7,47 @@
 package ssjc
 
 import (
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
-type dataStruct struct {
-	Entry string `json:"entry"`
-}
-
-func parseData(src string) (*dataStruct, error) {
+func lookForSTI(src string) ([]int, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(src))
 	if err != nil {
 		return nil, err
 	}
-	entry, err := doc.Find("div.entry").Html()
+	re, err := regexp.Compile(`go\('(\d+)'\)`)
 	if err != nil {
 		return nil, err
 	}
-	ds := dataStruct{
-		Entry: entry,
+	STIs := make([]int, 0)
+	doc.Find("span.hw.bo").Each(func(i int, s *goquery.Selection) {
+		val, ok := s.Attr("onclick")
+		if ok {
+			value, err := strconv.Atoi(re.FindStringSubmatch(val)[1])
+			if err != nil {
+				return
+			}
+			STIs = append(STIs, value)
+		}
+	})
+	if err != nil {
+		return nil, err
 	}
-	return &ds, nil
+	return STIs, nil
+}
+
+func parseData(src string) (string, error) {
+	doc, err := goquery.NewDocumentFromReader(strings.NewReader(src))
+	if err != nil {
+		return "", err
+	}
+	entry, err := doc.Find("div.entry").Html()
+	if err != nil {
+		return "", err
+	}
+	return entry, nil
 }

@@ -31,6 +31,15 @@ type SSJCActions struct {
 	analyzer        *botwatch.Analyzer
 }
 
+type Entry struct {
+	STI     *int   `json:"sti"`
+	Payload string `json:"payload"`
+}
+
+type Response struct {
+	Entries []Entry `json:"entries"`
+}
+
 func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query().Get("q")
 	if query == "" {
@@ -43,17 +52,51 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&sti=EMPTY&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)))
+		fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)))
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	data, err := parseData(responseHTML)
+
+	// check if there are multiple results
+	STIs, err := lookForSTI(responseHTML)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	services.WriteJSONResponse(w, data)
+
+	response := Response{Entries: make([]Entry, 0)}
+	if len(STIs) > 0 {
+		for _, STI := range STIs {
+			subResponseHTML, err := aa.createMainRequest(
+				fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI))
+			if err != nil {
+				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+				return
+			}
+			payload, err := parseData(subResponseHTML)
+			if err != nil {
+				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+				return
+			}
+			response.Entries = append(
+				response.Entries,
+				Entry{STI: &STI, Payload: payload},
+			)
+		}
+	} else {
+		payload, err := parseData(responseHTML)
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+		response.Entries = append(
+			response.Entries,
+			Entry{STI: nil, Payload: payload},
+		)
+	}
+
+	services.WriteJSONResponse(w, response)
 }
 
 func (aa *SSJCActions) createMainRequest(url string) (string, error) {

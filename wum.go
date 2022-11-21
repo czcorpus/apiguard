@@ -29,6 +29,7 @@ import (
 	"wum/services/assc"
 	"wum/services/lguide"
 	"wum/services/requests"
+	"wum/services/ssjc"
 	"wum/services/tstorage"
 	"wum/storage"
 
@@ -145,6 +146,16 @@ func runService(conf *config.Configuration) {
 		conf.ServerReadTimeoutSecs,
 	)
 	router.HandleFunc("/assc", asscActions.Query)
+
+	// "Akademický slovník současné češtiny"
+
+	ssjcActions := ssjc.NewSSJCActions(
+		&conf.Services.SSJC,
+		cache,
+		telemetryAnalyzer,
+		conf.ServerReadTimeoutSecs,
+	)
+	router.HandleFunc("/ssjc", ssjcActions.Query)
 
 	// administration/monitoring actions
 

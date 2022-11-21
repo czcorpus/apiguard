@@ -90,10 +90,12 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
-		response.Entries = append(
-			response.Entries,
-			Entry{STI: nil, Payload: payload},
-		)
+		if len(payload) > 0 {
+			response.Entries = append(
+				response.Entries,
+				Entry{STI: nil, Payload: payload},
+			)
+		}
 	}
 
 	services.WriteJSONResponse(w, response)

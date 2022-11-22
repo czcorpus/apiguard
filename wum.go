@@ -28,6 +28,7 @@ import (
 	"wum/services"
 	"wum/services/assc"
 	"wum/services/lguide"
+	"wum/services/psjc"
 	"wum/services/requests"
 	"wum/services/ssjc"
 	"wum/services/tstorage"
@@ -147,7 +148,7 @@ func runService(conf *config.Configuration) {
 	)
 	router.HandleFunc("/assc", asscActions.Query)
 
-	// "Akademický slovník současné češtiny"
+	// "Slovník spisovného jazyka českého"
 
 	ssjcActions := ssjc.NewSSJCActions(
 		&conf.Services.SSJC,
@@ -156,6 +157,16 @@ func runService(conf *config.Configuration) {
 		conf.ServerReadTimeoutSecs,
 	)
 	router.HandleFunc("/ssjc", ssjcActions.Query)
+
+	// "Příruční slovník jazyka českého"
+
+	psjcActions := psjc.NewPSJCActions(
+		&conf.Services.PSJC,
+		cache,
+		telemetryAnalyzer,
+		conf.ServerReadTimeoutSecs,
+	)
+	router.HandleFunc("/psjc", psjcActions.Query)
 
 	// administration/monitoring actions
 

@@ -27,6 +27,7 @@ import (
 	"wum/reqcache"
 	"wum/services"
 	"wum/services/assc"
+	"wum/services/kla"
 	"wum/services/lguide"
 	"wum/services/psjc"
 	"wum/services/requests"
@@ -167,6 +168,16 @@ func runService(conf *config.Configuration) {
 		conf.ServerReadTimeoutSecs,
 	)
 	router.HandleFunc("/psjc", psjcActions.Query)
+
+	// "Kartotéka lexikálního archivu"
+
+	klaActions := kla.NewKLAActions(
+		&conf.Services.KLA,
+		cache,
+		telemetryAnalyzer,
+		conf.ServerReadTimeoutSecs,
+	)
+	router.HandleFunc("/kla", klaActions.Query)
 
 	// administration/monitoring actions
 

@@ -10,7 +10,6 @@ import "fmt"
 
 type Conf struct {
 	BaseURL         string `json:"baseURL"`
-	MaxImageCount   int    `json:"maxImageCount"`
 	ClientUserAgent string `json:"clientUserAgent"`
 }
 

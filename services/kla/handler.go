@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"wum/botwatch"
 	"wum/reqcache"
 	"wum/services"
@@ -41,8 +42,18 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
+	maxImages := req.URL.Query().Get("maxImages")
+	if maxImages == "" {
+		services.WriteJSONErrorResponse(w, services.NewActionError("empty maxImages"), 422)
+		return
+	}
+	maxImageCount, err := strconv.Atoi(maxImages)
+	if err != nil {
+		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		return
+	}
 
-	err := services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
+	err = services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -53,7 +64,7 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	images, err := parseData(responseHTML, aa.conf.MaxImageCount, aa.conf.BaseURL)
+	images, err := parseData(responseHTML, maxImageCount, aa.conf.BaseURL)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return

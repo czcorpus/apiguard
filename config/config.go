@@ -15,6 +15,7 @@ import (
 	"wum/services/assc"
 	"wum/services/kla"
 	"wum/services/lguide"
+	"wum/services/neomat"
 	"wum/services/psjc"
 	"wum/services/ssjc"
 	"wum/storage"
@@ -38,6 +39,7 @@ type servicesSection struct {
 	SSJC          ssjc.Conf   `json:"ssjc"`
 	PSJC          psjc.Conf   `json:"psjc"`
 	KLA           kla.Conf    `json:"kla"`
+	Neomat        neomat.Conf `json:"neomat"`
 }
 
 type Configuration struct {

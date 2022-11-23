@@ -30,7 +30,7 @@ func parseData(src string, maxItems int) ([]string, error) {
 		s.Find(".radek_1 a").ReplaceWithHtml(word)
 		entry, err := s.Html()
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get raw HTML")
+			log.Error().Err(err).Msg("")
 			return
 		}
 		entries = append(entries, entry)

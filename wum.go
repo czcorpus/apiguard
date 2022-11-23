@@ -29,6 +29,7 @@ import (
 	"wum/services/assc"
 	"wum/services/kla"
 	"wum/services/lguide"
+	"wum/services/neomat"
 	"wum/services/psjc"
 	"wum/services/requests"
 	"wum/services/ssjc"
@@ -178,6 +179,16 @@ func runService(conf *config.Configuration) {
 		conf.ServerReadTimeoutSecs,
 	)
 	router.HandleFunc("/service/kla", klaActions.Query)
+
+	// "Neomat"
+
+	neomatActions := neomat.NewNeomatActions(
+		&conf.Services.Neomat,
+		cache,
+		telemetryAnalyzer,
+		conf.ServerReadTimeoutSecs,
+	)
+	router.HandleFunc("/service/neomat", neomatActions.Query)
 
 	// administration/monitoring actions
 

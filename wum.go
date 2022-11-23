@@ -137,7 +137,7 @@ func runService(conf *config.Configuration) {
 		telemetryAnalyzer,
 		cache,
 	)
-	router.HandleFunc("/language-guide", langGuideActions.Query)
+	router.HandleFunc("/service/language-guide", langGuideActions.Query)
 
 	// "Akademický slovník současné češtiny"
 
@@ -147,7 +147,7 @@ func runService(conf *config.Configuration) {
 		telemetryAnalyzer,
 		conf.ServerReadTimeoutSecs,
 	)
-	router.HandleFunc("/assc", asscActions.Query)
+	router.HandleFunc("/service/assc", asscActions.Query)
 
 	// "Slovník spisovného jazyka českého"
 
@@ -157,7 +157,7 @@ func runService(conf *config.Configuration) {
 		telemetryAnalyzer,
 		conf.ServerReadTimeoutSecs,
 	)
-	router.HandleFunc("/ssjc", ssjcActions.Query)
+	router.HandleFunc("/service/ssjc", ssjcActions.Query)
 
 	// "Příruční slovník jazyka českého"
 
@@ -167,7 +167,7 @@ func runService(conf *config.Configuration) {
 		telemetryAnalyzer,
 		conf.ServerReadTimeoutSecs,
 	)
-	router.HandleFunc("/psjc", psjcActions.Query)
+	router.HandleFunc("/service/psjc", psjcActions.Query)
 
 	// "Kartotéka lexikálního archivu"
 
@@ -177,7 +177,7 @@ func runService(conf *config.Configuration) {
 		telemetryAnalyzer,
 		conf.ServerReadTimeoutSecs,
 	)
-	router.HandleFunc("/kla", klaActions.Query)
+	router.HandleFunc("/service/kla", klaActions.Query)
 
 	// administration/monitoring actions
 

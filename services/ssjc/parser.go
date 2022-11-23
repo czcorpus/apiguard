@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/rs/zerolog/log"
 )
 
 func lookForSTI(src string) ([]int, error) {
@@ -29,6 +30,7 @@ func lookForSTI(src string) ([]int, error) {
 		if ok {
 			value, err := strconv.Atoi(re.FindStringSubmatch(val)[1])
 			if err != nil {
+				log.Error().Err(err).Msg("")
 				return
 			}
 			STIs = append(STIs, value)

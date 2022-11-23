@@ -31,13 +31,8 @@ type PSJCActions struct {
 	analyzer        *botwatch.Analyzer
 }
 
-type Entry struct {
-	STI     *int   `json:"sti"`
-	Payload string `json:"payload"`
-}
-
 type Response struct {
-	Entries []Entry `json:"entries"`
+	Entries []string `json:"entries"`
 }
 
 func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
@@ -52,53 +47,19 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)))
+		fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&zobraz_cards=cards&pocet_karet=3&numcchange=no&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)))
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
 
-	// check if there are multiple results
-	STIs, err := lookForSTI(responseHTML)
+	entries, err := parseData(responseHTML)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
 
-	response := Response{Entries: make([]Entry, 0)}
-	if len(STIs) > 0 {
-		for _, STI := range STIs {
-			subResponseHTML, err := aa.createMainRequest(
-				fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI))
-			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-				return
-			}
-			payload, err := parseData(subResponseHTML)
-			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-				return
-			}
-			response.Entries = append(
-				response.Entries,
-				Entry{STI: &STI, Payload: payload},
-			)
-		}
-	} else {
-		payload, err := parseData(responseHTML)
-		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-			return
-		}
-		if len(payload) > 0 {
-			response.Entries = append(
-				response.Entries,
-				Entry{STI: nil, Payload: payload},
-			)
-		}
-	}
-
-	services.WriteJSONResponse(w, response)
+	services.WriteJSONResponse(w, Response{Entries: entries})
 }
 
 func (aa *PSJCActions) createMainRequest(url string) (string, error) {

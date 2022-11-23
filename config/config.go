@@ -14,6 +14,7 @@ import (
 	"wum/reqcache"
 	"wum/services/assc"
 	"wum/services/lguide"
+	"wum/services/psjc"
 	"wum/services/ssjc"
 	"wum/storage"
 	"wum/telemetry"
@@ -34,6 +35,7 @@ type servicesSection struct {
 	LanguageGuide lguide.Conf `json:"languageGuide"`
 	ASSC          assc.Conf   `json:"assc"`
 	SSJC          ssjc.Conf   `json:"ssjc"`
+	PSJC          psjc.Conf   `json:"psjc"`
 }
 
 type Configuration struct {

@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/rs/zerolog/log"
 )
 
 func parseData(src string) ([]string, error) {
@@ -21,6 +22,7 @@ func parseData(src string) ([]string, error) {
 	doc.Find("li").Each(func(i int, s *goquery.Selection) {
 		entry, err := s.Html()
 		if err != nil {
+			log.Error().Err(err).Msg("")
 			return
 		}
 		entries = append(entries, entry)

@@ -4,12 +4,13 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package psjc
+package kla
 
 import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"wum/botwatch"
 	"wum/reqcache"
 	"wum/services"
@@ -24,7 +25,7 @@ curl
 	https://slovnikcestiny.cz/web_ver_ajax.php
 */
 
-type PSJCActions struct {
+type KLAActions struct {
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -32,37 +33,47 @@ type PSJCActions struct {
 }
 
 type Response struct {
-	Entries []string `json:"entries"`
+	Images []string `json:"images"`
 }
 
-func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
+func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 	query := req.URL.Query().Get("q")
 	if query == "" {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
+	maxImages := req.URL.Query().Get("maxImages")
+	if maxImages == "" {
+		services.WriteJSONErrorResponse(w, services.NewActionError("empty maxImages"), 422)
+		return
+	}
+	maxImageCount, err := strconv.Atoi(maxImages)
+	if err != nil {
+		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		return
+	}
 
-	err := services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
+	err = services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
 	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)))
+		fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_cards=cards&pocet_karet=100&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)))
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
 
-	entries, err := parseData(responseHTML)
+	images, err := parseData(responseHTML, maxImageCount, aa.conf.BaseURL)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
 
-	services.WriteJSONResponse(w, Response{Entries: entries})
+	services.WriteJSONResponse(w, Response{Images: images})
 }
 
-func (aa *PSJCActions) createMainRequest(url string) (string, error) {
+func (aa *KLAActions) createMainRequest(url string) (string, error) {
 	cachedResult, err := aa.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
 		sbody, err := services.GetRequest(url, aa.conf.ClientUserAgent)
@@ -81,13 +92,13 @@ func (aa *PSJCActions) createMainRequest(url string) (string, error) {
 	return cachedResult, nil
 }
 
-func NewPSJCActions(
+func NewKLAActions(
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
-) *PSJCActions {
-	return &PSJCActions{
+) *KLAActions {
+	return &KLAActions{
 		conf:            conf,
 		cache:           cache,
 		analyzer:        analyzer,

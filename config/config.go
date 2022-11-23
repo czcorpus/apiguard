@@ -13,6 +13,7 @@ import (
 	"wum/monitoring"
 	"wum/reqcache"
 	"wum/services/assc"
+	"wum/services/kla"
 	"wum/services/lguide"
 	"wum/services/psjc"
 	"wum/services/ssjc"
@@ -36,6 +37,7 @@ type servicesSection struct {
 	ASSC          assc.Conf   `json:"assc"`
 	SSJC          ssjc.Conf   `json:"ssjc"`
 	PSJC          psjc.Conf   `json:"psjc"`
+	KLA           kla.Conf    `json:"kla"`
 }
 
 type Configuration struct {

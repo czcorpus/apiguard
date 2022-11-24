@@ -10,10 +10,12 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"wum/botwatch"
+	"wum/cncdb"
 	"wum/monitoring"
 	"wum/reqcache"
 	"wum/services/assc"
 	"wum/services/kla"
+	"wum/services/kontext"
 	"wum/services/lguide"
 	"wum/services/psjc"
 	"wum/services/ssjc"
@@ -33,11 +35,12 @@ const (
 )
 
 type servicesSection struct {
-	LanguageGuide lguide.Conf `json:"languageGuide"`
-	ASSC          assc.Conf   `json:"assc"`
-	SSJC          ssjc.Conf   `json:"ssjc"`
-	PSJC          psjc.Conf   `json:"psjc"`
-	KLA           kla.Conf    `json:"kla"`
+	LanguageGuide lguide.Conf  `json:"languageGuide"`
+	ASSC          assc.Conf    `json:"assc"`
+	SSJC          ssjc.Conf    `json:"ssjc"`
+	PSJC          psjc.Conf    `json:"psjc"`
+	KLA           kla.Conf     `json:"kla"`
+	Kontext       kontext.Conf `json:"kontext"`
 }
 
 type Configuration struct {
@@ -54,28 +57,30 @@ type Configuration struct {
 	LogPath                string                    `json:"logPath"`
 	CleanupMaxAgeDays      int                       `json:"cleanupMaxAgeDays"`
 	BanTTLSecs             int                       `json:"banTTLSecs"`
+	CNCDB                  cncdb.Conf                `json:"cncDb"`
 }
 
 func (c *Configuration) Validate() error {
 	var err error
-	err = c.Botwatch.Validate("botwatch")
-	if err != nil {
+	if err = c.Botwatch.Validate("botwatch"); err != nil {
 		return err
 	}
-	err = c.Telemetry.Validate("telemetry")
-	if err != nil {
+	if err = c.Telemetry.Validate("telemetry"); err != nil {
 		return err
 	}
-	err = c.Storage.Validate("storage")
-	if err != nil {
+	if err = c.Storage.Validate("storage"); err != nil {
 		return err
 	}
-	err = c.Services.LanguageGuide.Validate("services/languageGuide")
-	if err != nil {
+	if err = c.Services.LanguageGuide.Validate("services/languageGuide"); err != nil {
 		return err
 	}
-	err = c.Services.LanguageGuide.Validate("services/assc")
-	if err != nil {
+	if err = c.Services.LanguageGuide.Validate("services/assc"); err != nil {
+		return err
+	}
+	if err = c.Services.Kontext.Validate("services/kontext"); err != nil {
+		return err
+	}
+	if err = c.CNCDB.Validate("cncDb"); err != nil {
 		return err
 	}
 	return nil

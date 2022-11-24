@@ -76,6 +76,10 @@ func (a *Analyzer) Learn() error {
 	return a.backend.Learn()
 }
 
+func (a *Analyzer) UserInducedResponseStatus(req *http.Request) (int, error) {
+	return http.StatusOK, nil
+}
+
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	isBanned, err := a.storage.TestIPBan(net.ParseIP(ip))

@@ -27,6 +27,7 @@ import (
 	"wum/reqcache"
 	"wum/services"
 	"wum/services/assc"
+	"wum/services/cja"
 	"wum/services/kla"
 	"wum/services/lguide"
 	"wum/services/neomat"
@@ -189,6 +190,16 @@ func runService(conf *config.Configuration) {
 		conf.ServerReadTimeoutSecs,
 	)
 	router.HandleFunc("/service/neomat", neomatActions.Query)
+
+	// "Český jazykový atlas"
+
+	cjaActions := cja.NewCJAActions(
+		&conf.Services.CJA,
+		cache,
+		telemetryAnalyzer,
+		conf.ServerReadTimeoutSecs,
+	)
+	router.HandleFunc("/service/cja", cjaActions.Query)
 
 	// administration/monitoring actions
 

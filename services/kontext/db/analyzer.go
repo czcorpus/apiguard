@@ -48,8 +48,8 @@ func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (i
 		"SELECT kb.active, us.user_id "+
 			"FROM user_session AS us "+
 			"LEFT JOIN kontext_user_ban AS kb ON us.user_id = kb.user_id "+
-			"WHERE kb.start_dt <= NOW() AND kb.end_dt > NOW() "+
-			"AND kb.active = 1 AND us.selector = ?",
+			"  AND kb.start_dt <= NOW() AND kb.end_dt > NOW() AND kb.active = 1 "+
+			"WHERE us.selector = ?",
 		tmp[0],
 	)
 	banned := sql.NullInt16{}

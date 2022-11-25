@@ -64,7 +64,7 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 func (lga *LanguageGuideActions) createMainRequest(url string) (string, error) {
 	cachedResult, err := lga.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
-		sbody, err := services.GetRequest(url, lga.conf.ClientUserAgent)
+		sbody, _, err := services.GetRequest(url, lga.conf.ClientUserAgent)
 		err = lga.cache.Set(url, sbody)
 		if err != nil {
 			return "", err

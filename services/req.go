@@ -12,25 +12,25 @@ import (
 	"net/http"
 )
 
-func GetRequest(url, userAgent string) (string, error) {
+func GetRequest(url, userAgent string) (string, int, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: transport}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", 0, err
 	}
 	sbody := string(body)
-	return sbody, nil
+	return sbody, resp.StatusCode, nil
 }

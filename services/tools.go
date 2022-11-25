@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-	"wum/botwatch"
 
 	"github.com/rs/zerolog/log"
 )
@@ -65,7 +64,13 @@ func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int,
 	w.Write(jsonAns)
 }
 
-func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer *botwatch.Analyzer) error {
+type ReqAnalyzer interface {
+	CalcDelay(req *http.Request) (time.Duration, error)
+	RegisterDelayLog(respDelay time.Duration) error
+	UserInducedResponseStatus(req *http.Request) (int, error)
+}
+
+func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer ReqAnalyzer) error {
 	respDelay, err := analyzer.CalcDelay(req)
 	if err != nil {
 		WriteJSONErrorResponse(

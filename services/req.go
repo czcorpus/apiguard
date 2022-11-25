@@ -34,3 +34,49 @@ func GetRequest(url, userAgent string) (string, error) {
 	sbody := string(body)
 	return sbody, nil
 }
+
+type ProxiedResponse struct {
+	Body       []byte
+	Headers    http.Header
+	StatusCode int
+	Err        error
+}
+
+func ProxiedRequest(url, method string, headers http.Header) *ProxiedResponse {
+	client := &http.Client{}
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return &ProxiedResponse{
+			Body:       []byte{},
+			Headers:    http.Header{},
+			StatusCode: http.StatusInternalServerError,
+			Err:        err,
+		}
+	}
+	req.Header = headers
+	resp, err := client.Do(req)
+	if err != nil {
+		return &ProxiedResponse{
+			Body:       []byte{},
+			Headers:    http.Header{},
+			StatusCode: http.StatusInternalServerError,
+			Err:        err,
+		}
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return &ProxiedResponse{
+			Body:       []byte{},
+			Headers:    http.Header{},
+			StatusCode: http.StatusInternalServerError,
+			Err:        err,
+		}
+	}
+	return &ProxiedResponse{
+		Body:       body,
+		Headers:    resp.Header,
+		StatusCode: resp.StatusCode,
+		Err:        nil,
+	}
+}

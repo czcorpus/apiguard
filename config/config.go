@@ -75,15 +75,6 @@ func (c *Configuration) Validate() error {
 	if err = c.Storage.Validate("storage"); err != nil {
 		return err
 	}
-	if err = c.Services.LanguageGuide.Validate("services/languageGuide"); err != nil {
-		return err
-	}
-	if err = c.Services.LanguageGuide.Validate("services/assc"); err != nil {
-		return err
-	}
-	if err = c.Services.Kontext.Validate("services/kontext"); err != nil {
-		return err
-	}
 	if err = c.CNCDB.Validate("cncDb"); err != nil {
 		return err
 	}

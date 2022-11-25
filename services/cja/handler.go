@@ -49,7 +49,9 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/e-cja/h/?hw=%s", aa.conf.BaseURL, url.QueryEscape(query)))
+		fmt.Sprintf("%s/e-cja/h/?hw=%s", aa.conf.BaseURL, url.QueryEscape(query)),
+		fmt.Sprintf("%s/e-cja/h/?doklad=%s", aa.conf.BaseURL, url.QueryEscape(query)),
+	)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
@@ -64,14 +66,20 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *NeomatActions) createMainRequest(url string) (string, error) {
-	cachedResult, err := aa.cache.Get(url)
+func (aa *NeomatActions) createMainRequest(url1 string, url2 string) (string, error) {
+	cachedResult, err := aa.cache.Get(url1)
 	if err == reqcache.ErrCacheMiss {
-		sbody, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		sbody, status, err := services.GetRequest(url1, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody)
+		if status == 500 {
+			sbody, _, err = services.GetRequest(url2, aa.conf.ClientUserAgent)
+			if err != nil {
+				return "", err
+			}
+		}
+		err = aa.cache.Set(url1, sbody)
 		if err != nil {
 			return "", err
 		}

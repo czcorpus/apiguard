@@ -76,7 +76,7 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 func (aa *KLAActions) createMainRequest(url string) (string, error) {
 	cachedResult, err := aa.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
-		sbody, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}

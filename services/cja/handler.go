@@ -32,9 +32,10 @@ type NeomatActions struct {
 }
 
 type Response struct {
-	Content string `json:"content"`
-	Image   string `json:"image"`
-	CSS     string `json:"css"`
+	Content  string `json:"content"`
+	Image    string `json:"image"`
+	CSS      string `json:"css"`
+	Backlink string `json:"backlink"`
 }
 
 func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
@@ -48,7 +49,7 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	responseHTML, err := aa.createMainRequest(
+	responseHTML, backlink, err := aa.createRequests(
 		fmt.Sprintf("%s/e-cja/h/?hw=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		fmt.Sprintf("%s/e-cja/h/?doklad=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 	)
@@ -62,33 +63,40 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
+	response.Backlink = backlink
 
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *NeomatActions) createMainRequest(url1 string, url2 string) (string, error) {
-	cachedResult, err := aa.cache.Get(url1)
+func (aa *NeomatActions) createSubRequest(url string) (string, int, error) {
+	cachedResult, err := aa.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
-		sbody, status, err := services.GetRequest(url1, aa.conf.ClientUserAgent)
+		sbody, status, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
-		if status == 500 {
-			sbody, _, err = services.GetRequest(url2, aa.conf.ClientUserAgent)
-			if err != nil {
-				return "", err
-			}
-		}
-		err = aa.cache.Set(url1, sbody)
+		err = aa.cache.Set(url, sbody)
 		if err != nil {
-			return "", err
+			return "", 0, err
 		}
-		return sbody, nil
-
-	} else if err != nil {
-		return "", err
+		return sbody, status, nil
 	}
-	return cachedResult, nil
+	return cachedResult, 200, nil
+}
+
+func (aa *NeomatActions) createRequests(url1 string, url2 string) (string, string, error) {
+	result, status, err := aa.createSubRequest(url1)
+	if err != nil {
+		return "", "", err
+	}
+	if status == 500 {
+		result, _, err = aa.createSubRequest(url2)
+		if err != nil {
+			return "", "", err
+		}
+		return result, url2, nil
+	}
+	return result, url1, nil
 }
 
 func NewCJAActions(

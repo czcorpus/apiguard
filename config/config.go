@@ -47,6 +47,31 @@ type servicesSection struct {
 	Kontext       kontext.Conf `json:"kontext"`
 }
 
+func (services *servicesSection) validate() error {
+	if services.ASSC.BaseURL != "" {
+		log.Info().Msgf("Service ASSC enabled")
+	}
+	if services.SSJC.BaseURL != "" {
+		log.Info().Msgf("Service SSJC enabled")
+	}
+	if services.PSJC.BaseURL != "" {
+		log.Info().Msgf("Service PSJC enabled")
+	}
+	if services.KLA.BaseURL != "" {
+		log.Info().Msgf("Service KLA enabled")
+	}
+	if services.Neomat.BaseURL != "" {
+		log.Info().Msgf("Service Neomat enabled")
+	}
+	if services.CJA.BaseURL != "" {
+		log.Info().Msgf("Service CJA enabled")
+	}
+	if services.Kontext.BaseURL != "" {
+		log.Info().Msgf("Service Kontext enabled")
+	}
+	return nil
+}
+
 type Configuration struct {
 	ServerHost             string                    `json:"serverHost"`
 	ServerPort             int                       `json:"serverPort"`
@@ -76,6 +101,9 @@ func (c *Configuration) Validate() error {
 		return err
 	}
 	if err = c.CNCDB.Validate("cncDb"); err != nil {
+		return err
+	}
+	if err = c.Services.validate(); err != nil {
 		return err
 	}
 	return nil

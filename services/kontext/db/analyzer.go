@@ -45,21 +45,21 @@ func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (i
 	}
 	tmp := strings.SplitN(cookieValue, "-", 2)
 	row := kua.db.QueryRow(
-		"SELECT COUNT(*), kb.user_id "+
-			"FROM kontext_user_ban AS kb "+
-			"JOIN user_session AS us ON us.user_id = kb.user_id "+
+		"SELECT kb.active, us.user_id "+
+			"FROM user_session AS us "+
+			"LEFT JOIN kontext_user_ban AS kb ON us.user_id = kb.user_id "+
 			"WHERE kb.start_dt <= NOW() AND kb.end_dt > NOW() "+
 			"AND kb.active = 1 AND us.selector = ?",
 		tmp[0],
 	)
-	banned := false
+	banned := sql.NullInt16{}
 	var userID int
 	err := row.Scan(&banned, &userID)
-	if userID == kua.AnonymousUserID {
+	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
 		return http.StatusUnauthorized, nil
 	}
 	status := http.StatusOK
-	if banned {
+	if banned.Valid && banned.Int16 == 1 {
 		status = http.StatusForbidden
 	}
 

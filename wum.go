@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"wum/botwatch"
+	"wum/cncdb"
 	"wum/config"
 	"wum/logging"
 	"wum/reqcache"
@@ -29,6 +30,8 @@ import (
 	"wum/services/assc"
 	"wum/services/cja"
 	"wum/services/kla"
+	"wum/services/kontext"
+	kontextDb "wum/services/kontext/db"
 	"wum/services/lguide"
 	"wum/services/neomat"
 	"wum/services/psjc"
@@ -200,6 +203,32 @@ func runService(conf *config.Configuration) {
 		conf.ServerReadTimeoutSecs,
 	)
 	router.HandleFunc("/service/cja", cjaActions.Query)
+
+	// KonText (API) proxy
+
+	log.Info().Msgf("CNC SQL database: %s", conf.CNCDB.Host)
+
+	cncDB, err := cncdb.OpenDB(&conf.CNCDB)
+	if err != nil {
+		log.Fatal().Err(err)
+	}
+	userTableName := cncdb.DfltUsersTableName
+	if conf.CNCDB.OverrideUsersTableName != "" {
+		userTableName = conf.CNCDB.OverrideUsersTableName
+	}
+	kua := kontextDb.NewKonTextUsersAnalyzer(
+		cncDB,
+		userTableName,
+		conf.Services.Kontext.SessionCookieName,
+		conf.CNCDB.AnonymousUserID,
+	)
+	kontextActions := kontext.NewKontextProxy(
+		&conf.Services.Kontext,
+		kua,
+		conf.ServerReadTimeoutSecs,
+		cncDB,
+	)
+	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 
 	// administration/monitoring actions
 

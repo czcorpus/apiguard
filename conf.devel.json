@@ -4,13 +4,26 @@
     "serverReadTimeoutSecs": 5,
     "services": {
         "languageGuide": {
-            "baseURL": "http://localhost:8081",
-            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+            "baseURL": "https://prirucka.ujc.cas.cz",
+            "clientUserAgent": "WaG-UJC middleware - devel (Czech National Corpus)"
         },
         "assc": {
             "baseURL": "https://slovnikcestiny.cz",
+            "clientUserAgent": "WaG-UJC middleware - devel (Czech National Corpus)"
+        },
+        "ssjc": {
+            "baseURL": "https://ssjc.ujc.cas.cz",
             "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+        },
+        "psjc": {
+            "baseURL": "https://psjc.ujc.cas.cz",
+            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+        },
+        "kontext": {
+            "baseURL": "http://localhost:8080",
+            "sessionCookieName": "cnc_toolbar_sid"
         }
+
     },
     "botwatch": {
         "botDefsPath": "",
@@ -23,7 +36,7 @@
         "customConfPath": "./entropies.json",
         "dataDelaySecs": 10,
         "maxAgeSecsRelevant": 3600,
-        "internalDataPath": "/var/opt/wum/data"
+        "internalDataPath": "/home/tomas/work/data/wum/telemetry"
     },
     "storage": {
         "host": "10.0.3.130",
@@ -34,5 +47,12 @@
     "cache": {
         "rootPath": "",
         "ttlSecs": 3600
+    },
+    "cncdb": {
+        "host": "databases",
+        "user": "kontext",
+        "password": "kontexto",
+        "name": "kontext",
+        "__overrideUserTableName": "kontext_user"
     }
 }

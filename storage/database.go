@@ -7,13 +7,13 @@
 package storage
 
 import (
+	"apiguard/botwatch"
+	"apiguard/telemetry"
 	"database/sql"
 	"fmt"
 	"net"
 	"strings"
 	"time"
-	"wum/botwatch"
-	"wum/telemetry"
 
 	"github.com/rs/zerolog/log"
 

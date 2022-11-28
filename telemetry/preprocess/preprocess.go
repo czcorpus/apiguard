@@ -7,9 +7,9 @@
 package preprocess
 
 import (
+	"apiguard/telemetry"
 	"fmt"
 	"time"
-	"wum/telemetry"
 )
 
 type Interaction struct {

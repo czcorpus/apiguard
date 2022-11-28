@@ -1,4 +1,4 @@
-module wum
+module apiguard
 
 go 1.18
 

@@ -7,13 +7,13 @@
 package kla
 
 import (
+	"apiguard/botwatch"
+	"apiguard/reqcache"
+	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strconv"
-	"wum/botwatch"
-	"wum/reqcache"
-	"wum/services"
 )
 
 /*

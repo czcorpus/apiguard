@@ -7,19 +7,19 @@
 package botwatch
 
 import (
+	"apiguard/logging"
+	"apiguard/monitoring"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
+	"apiguard/telemetry/backend/counting"
+	"apiguard/telemetry/backend/dumb"
+	"apiguard/telemetry/backend/entropy"
+	"apiguard/telemetry/backend/neural"
 	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"time"
-	"wum/logging"
-	"wum/monitoring"
-	"wum/telemetry"
-	"wum/telemetry/backend"
-	"wum/telemetry/backend/counting"
-	"wum/telemetry/backend/dumb"
-	"wum/telemetry/backend/entropy"
-	"wum/telemetry/backend/neural"
 
 	"github.com/rs/zerolog/log"
 )

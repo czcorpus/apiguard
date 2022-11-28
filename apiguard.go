@@ -21,24 +21,24 @@ import (
 	"syscall"
 	"time"
 
-	"wum/botwatch"
-	"wum/cncdb"
-	"wum/config"
-	"wum/logging"
-	"wum/reqcache"
-	"wum/services"
-	"wum/services/assc"
-	"wum/services/cja"
-	"wum/services/kla"
-	"wum/services/kontext"
-	kontextDb "wum/services/kontext/db"
-	"wum/services/lguide"
-	"wum/services/neomat"
-	"wum/services/psjc"
-	"wum/services/requests"
-	"wum/services/ssjc"
-	"wum/services/tstorage"
-	"wum/storage"
+	"apiguard/botwatch"
+	"apiguard/cncdb"
+	"apiguard/config"
+	"apiguard/logging"
+	"apiguard/reqcache"
+	"apiguard/services"
+	"apiguard/services/assc"
+	"apiguard/services/cja"
+	"apiguard/services/kla"
+	"apiguard/services/kontext"
+	kontextDb "apiguard/services/kontext/db"
+	"apiguard/services/lguide"
+	"apiguard/services/neomat"
+	"apiguard/services/psjc"
+	"apiguard/services/requests"
+	"apiguard/services/ssjc"
+	"apiguard/services/tstorage"
+	"apiguard/storage"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
@@ -46,9 +46,14 @@ import (
 )
 
 var (
-	version   string
-	buildDate string
-	gitCommit string
+	version     string
+	buildDate   string
+	gitCommit   string
+	versionInfo = services.VersionInfo{
+		Version:   version,
+		BuildDate: buildDate,
+		GitCommit: gitCommit,
+	}
 )
 
 type CmdOptions struct {
@@ -419,7 +424,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
-			"WUM - WaG UJC middleware"+
+			"apiguard - CNC API protection and response data polisher"+
 				"\n\nUsage:"+
 				"\n\t%s [options] start [conf.json]"+
 				"\n\t%s [options] cleanup [conf.json]"+
@@ -438,19 +443,18 @@ func main() {
 
 	action := flag.Arg(0)
 
-	version := services.VersionInfo{
-		Version:   version,
-		BuildDate: buildDate,
-		GitCommit: gitCommit,
-	}
-
 	switch action {
 	case "version":
-		fmt.Printf("wag-ujc-middleware %s\nbuild date: %s\nlast commit: %s\n",
-			version.Version, version.BuildDate, version.GitCommit)
+		fmt.Printf("CNC APIGuard %s\nbuild date: %s\nlast commit: %s\n",
+			versionInfo.Version, versionInfo.BuildDate, versionInfo.GitCommit)
 		return
 	case "start":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
+		log.Info().
+			Str("version", versionInfo.Version).
+			Str("buildDate", versionInfo.BuildDate).
+			Str("last commit", versionInfo.GitCommit).
+			Msg("Starting CNC APIGuard")
 		runService(conf)
 	case "cleanup":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)

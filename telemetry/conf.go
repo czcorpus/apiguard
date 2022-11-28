@@ -7,8 +7,8 @@
 package telemetry
 
 import (
+	"apiguard/fsops"
 	"fmt"
-	"wum/fsops"
 )
 
 type Conf struct {

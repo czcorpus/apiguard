@@ -1,6 +1,8 @@
-# WaG-UJC-Middleware
+# APIGuard
 
-WaG-UJC-Middleware (aka the *wum*) handles communication between WaG portal and UJC data resources. It provides a protection against data harvesting and also transforms non-machine-friendly data to a more suitable form.
+APIGuard handles communication between CNC's API clients and miscellaneous data resources.
+It provides a protection against data harvesting and in some cases, it also transforms
+non-machine-friendly data to a more suitable form (e.g. ÚJČ --> WaG)
 
 
 ## Copyright notice

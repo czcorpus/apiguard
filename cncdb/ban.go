@@ -30,7 +30,7 @@ func MostRecentActiveBan(db *sql.DB, loc *time.Location, userID int) (UserBan, e
 	now := time.Now().In(loc)
 	row := db.QueryRow(
 		"SELECT user_id, start_dt, end_dt, active "+
-			"FROM kontext_user_ban "+
+			"FROM api_user_ban "+
 			"WHERE start_dt <= ? AND end_dt > ? AND active = 1 AND user_id = ? "+
 			"ORDER BY end_dt DESC",
 		now, now, userID,
@@ -52,7 +52,7 @@ func BanUser(db *sql.DB, loc *time.Location, userID int, startDate, endDate time
 		return newID, fmt.Errorf("failed to ban user: %w", err)
 	}
 	row := tx.QueryRow("SELECT COUNT(*) "+
-		"FROM kontext_user_ban "+
+		"FROM api_user_ban "+
 		"WHERE "+
 		"(? BETWEEN start_dt AND end_dt OR "+
 		"? BETWEEN start_dt AND end_dt OR "+
@@ -75,7 +75,7 @@ func BanUser(db *sql.DB, loc *time.Location, userID int, startDate, endDate time
 	}
 	var res sql.Result
 	res, err = tx.Exec(
-		"INSERT INTO kontext_user_ban (user_id, start_dt, end_dt, active) "+
+		"INSERT INTO api_user_ban (user_id, start_dt, end_dt, active) "+
 			"VALUES (?, ?, ?, 1)", userID, startDate, endDate)
 	if err != nil {
 		return newID, fmt.Errorf("failed to insert new ban: %w", err)
@@ -100,7 +100,7 @@ func BanUser(db *sql.DB, loc *time.Location, userID int, startDate, endDate time
 func UnbanUser(db *sql.DB, loc *time.Location, userID int) (int64, error) {
 	var numBans int64 = -1
 	res, err := db.Exec(
-		"UPDATE kontext_user_ban SET active = 0 "+
+		"UPDATE api_user_ban SET active = 0 "+
 			"WHERE end_dt > ? AND active = 1 AND user_id = ? ",
 		time.Now().In(loc), userID,
 	)
@@ -116,7 +116,7 @@ func FindBanForSession(db *sql.DB, loc *time.Location, sessionID string) (bool, 
 	row := db.QueryRow(
 		"SELECT kb.active, us.user_id "+
 			"FROM user_session AS us "+
-			"LEFT JOIN kontext_user_ban AS kb ON us.user_id = kb.user_id "+
+			"LEFT JOIN api_user_ban AS kb ON us.user_id = kb.user_id "+
 			"  AND kb.start_dt <= ? AND kb.end_dt > ? AND kb.active = 1 "+
 			"WHERE us.selector = ?",
 		now, now, sessionID)

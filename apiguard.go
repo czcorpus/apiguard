@@ -39,6 +39,7 @@ import (
 	"apiguard/services/ssjc"
 	"apiguard/services/tstorage"
 	"apiguard/storage"
+	"apiguard/users"
 
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog"
@@ -223,6 +224,7 @@ func runService(conf *config.Configuration) {
 	}
 	kua := kontextDb.NewKonTextUsersAnalyzer(
 		cncDB,
+		conf.TimezoneLocation(),
 		userTableName,
 		conf.Services.Kontext.SessionCookieName,
 		conf.CNCDB.AnonymousUserID,
@@ -234,6 +236,16 @@ func runService(conf *config.Configuration) {
 		cncDB,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
+
+	// user handling
+
+	usersActions := users.NewActions(&users.Conf{}, cncDB, conf.TimezoneLocation())
+
+	router.HandleFunc("/user/{userID}/ban", usersActions.BanInfo).Methods(http.MethodGet)
+
+	router.HandleFunc("/user/{userID}/ban", usersActions.SetBan).Methods(http.MethodPut)
+
+	router.HandleFunc("/user/{userID}/ban", usersActions.DisableBan).Methods(http.MethodDelete)
 
 	// administration/monitoring actions
 

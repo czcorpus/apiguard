@@ -19,10 +19,10 @@ import (
 	"apiguard/services/neomat"
 	"apiguard/services/psjc"
 	"apiguard/services/ssjc"
-	"apiguard/storage"
 	"apiguard/telemetry"
 	"encoding/json"
 	"io/ioutil"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -34,6 +34,7 @@ const (
 	DfltServerHost             = "localhost"
 	DfltCleanupMaxAgeDays      = 7
 	DfltBanSecs                = 3600
+	DfltTimeZone               = "Europe/Prague"
 )
 
 type servicesSection struct {
@@ -77,9 +78,9 @@ type Configuration struct {
 	ServerPort             int                       `json:"serverPort"`
 	ServerReadTimeoutSecs  int                       `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                       `json:"serverWriteTimeoutSecs"`
+	TimeZone               string                    `json:"timeZone"`
 	Botwatch               botwatch.Conf             `json:"botwatch"`
 	Telemetry              telemetry.Conf            `json:"telemetry"`
-	Storage                storage.Conf              `json:"storage"`
 	Services               servicesSection           `json:"services"`
 	Cache                  reqcache.Conf             `json:"cache"`
 	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
@@ -97,16 +98,24 @@ func (c *Configuration) Validate() error {
 	if err = c.Telemetry.Validate("telemetry"); err != nil {
 		return err
 	}
-	if err = c.Storage.Validate("storage"); err != nil {
-		return err
-	}
 	if err = c.CNCDB.Validate("cncDb"); err != nil {
 		return err
 	}
 	if err = c.Services.validate(); err != nil {
 		return err
 	}
+	if _, err := time.LoadLocation(c.TimeZone); err != nil {
+		return err
+	}
 	return nil
+}
+
+func (c *Configuration) TimezoneLocation() *time.Location {
+	// we can ignore the error here as we always call c.Validate()
+	// first (which also tries to load the location and report possible
+	// error)
+	loc, _ := time.LoadLocation(c.TimeZone)
+	return loc
 }
 
 func LoadConfig(path string) *Configuration {

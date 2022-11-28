@@ -7,9 +7,9 @@
 package tstorage
 
 import (
+	"apiguard/cncdb"
 	"apiguard/logging"
 	"apiguard/services"
-	"apiguard/storage"
 	"apiguard/telemetry"
 	"encoding/json"
 	"io/ioutil"
@@ -32,7 +32,7 @@ type payload struct {
 }
 
 type Actions struct {
-	db *storage.MySQLAdapter
+	db *cncdb.DelayStats
 }
 
 func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
@@ -85,6 +85,6 @@ func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 
 }
 
-func NewActions(db *storage.MySQLAdapter) *Actions {
+func NewActions(db *cncdb.DelayStats) *Actions {
 	return &Actions{db: db}
 }

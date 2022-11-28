@@ -4,38 +4,17 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package storage
+package rdelay
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
-type Conf struct {
-	Host     string `json:"host"`
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Database string `json:"database"`
-}
-
-func (c *Conf) Validate(context string) error {
-	if c.Host == "" {
-		return fmt.Errorf("%s.host is empty/missing", context)
-	}
-	if c.User == "" {
-		return fmt.Errorf("%s.user is empty/missing", context)
-	}
-	if c.Database == "" {
-		return fmt.Errorf("%s.database is empty/missing", context)
-	}
-	return nil
-}
-
 type DataCleanupResult struct {
-	NumDeletedStats     int
-	NumDeletedActions   int
-	NumDeletedBans      int
-	NumDeletedDelayLogs int
+	NumDeletedStats     int64
+	NumDeletedActions   int64
+	NumDeletedBans      int64
+	NumDeletedDelayLogs int64
 	Error               error
 }
 
@@ -47,10 +26,10 @@ func (dcr DataCleanupResult) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		struct {
-			NumDeletedStats     int `json:"deletedStats"`
-			NumDeletedActions   int `json:"deletedActions"`
-			NumDeletedBans      int `json:"numDeletedBans"`
-			NumDeletedDelayLogs int `json:"numDeletedDelayLogs"`
+			NumDeletedStats     int64 `json:"deletedStats"`
+			NumDeletedActions   int64 `json:"deletedActions"`
+			NumDeletedBans      int64 `json:"numDeletedBans"`
+			NumDeletedDelayLogs int64 `json:"numDeletedDelayLogs"`
 
 			Error *string `json:"error"`
 		}{

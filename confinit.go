@@ -41,12 +41,23 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions, setupLog func(s
 	}
 	setupLog(conf.LogPath)
 	log.Info().Msgf("loaded configuration from %s", explicitPath)
+	applyDefaults(conf)
 	overrideConfWithCmd(conf, cmdOpts)
 	validErr := conf.Validate()
 	if validErr != nil {
 		log.Fatal().Err(validErr).Msg("")
 	}
 	return conf
+}
+
+// applyDefaults applies default values for optional config items
+// not handled by overrideConfWithCmd (i.e. items not configurable
+// via command line arguments).
+func applyDefaults(conf *config.Configuration) {
+	if conf.TimeZone == "" {
+		conf.TimeZone = config.DfltTimeZone
+		log.Warn().Msgf("timeZone not specified, using default: %s", conf.TimeZone)
+	}
 }
 
 func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {

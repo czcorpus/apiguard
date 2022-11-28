@@ -30,7 +30,7 @@ CREATE TABLE user_session (
   CONSTRAINT fk_user_session_user_id FOREIGN KEY (user_id) REFERENCES user(id)
 ) ENGINE=InnoDB
 
-CREATE TABLE kontext_user_ban (
+CREATE TABLE api_user_ban (
 	id INTEGER NOT NULL auto_increment,
 	user_id INTEGER NOT NULL,
 	start_dt DATETIME NOT NULL,

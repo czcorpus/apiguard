@@ -8,10 +8,10 @@ package lguide
 
 import (
 	"apiguard/botwatch"
+	"apiguard/cncdb"
 	"apiguard/logging"
 	"apiguard/reqcache"
 	"apiguard/services"
-	"apiguard/storage"
 	"apiguard/telemetry"
 	"crypto/tls"
 	"fmt"
@@ -162,7 +162,7 @@ func NewLanguageGuideActions(
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 	readTimeoutSecs int,
-	db *storage.MySQLAdapter,
+	db *cncdb.DelayStats,
 	analyzer *botwatch.Analyzer,
 	cache services.Cache,
 ) *LanguageGuideActions {

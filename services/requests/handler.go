@@ -7,14 +7,14 @@
 package requests
 
 import (
+	"apiguard/cncdb"
 	"apiguard/services"
-	"apiguard/storage"
 	"net/http"
 	"strconv"
 )
 
 type Actions struct {
-	db *storage.MySQLAdapter
+	db *cncdb.DelayStats
 }
 
 func (a *Actions) List(w http.ResponseWriter, req *http.Request) {
@@ -47,6 +47,6 @@ func (a *Actions) List(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, items)
 }
 
-func NewActions(db *storage.MySQLAdapter) *Actions {
+func NewActions(db *cncdb.DelayStats) *Actions {
 	return &Actions{db: db}
 }

@@ -7,6 +7,12 @@
 package lguide
 
 import (
+	"apiguard/botwatch"
+	"apiguard/logging"
+	"apiguard/reqcache"
+	"apiguard/services"
+	"apiguard/storage"
+	"apiguard/telemetry"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
@@ -15,12 +21,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-	"wum/botwatch"
-	"wum/logging"
-	"wum/reqcache"
-	"wum/services"
-	"wum/storage"
-	"wum/telemetry"
 
 	"github.com/rs/zerolog/log"
 )

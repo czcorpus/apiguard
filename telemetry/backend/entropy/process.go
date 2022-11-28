@@ -7,9 +7,9 @@
 package entropy
 
 import (
+	"apiguard/telemetry/preprocess"
 	"fmt"
 	"math"
-	"wum/telemetry/preprocess"
 )
 
 type ActionBin struct {

@@ -7,10 +7,10 @@
 package requests
 
 import (
+	"apiguard/services"
+	"apiguard/storage"
 	"net/http"
 	"strconv"
-	"wum/services"
-	"wum/storage"
 )
 
 type Actions struct {

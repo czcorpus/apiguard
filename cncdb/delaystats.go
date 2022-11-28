@@ -4,20 +4,18 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package storage
+package cncdb
 
 import (
 	"apiguard/botwatch"
+	"apiguard/cncdb/rdelay"
 	"apiguard/telemetry"
 	"database/sql"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
-
-	"github.com/go-sql-driver/mysql"
 )
 
 /*
@@ -57,14 +55,14 @@ CREATE TABLE client_counting_rules (
 	PRIMARY KEY (tile_name, action_name)
 );
 
-CREATE TABLE client_bans (
+CREATE TABLE client_ip_bans (
 	ip_address VARCHAR(15) NOT NULL,
 	ttl int NOT NULL DEFAULT 86400,
 	created datetime NOT NULL DEFAULT NOW(),
 	PRIMARY KEY (ip_address)
 );
 
-CREATE TABLE client_delay_log (
+CREATE TABLE apiguard_delay_log (
 	id INT NOT NULL auto_increment,
 	created datetime NOT NULL DEFAULT NOW(),
 	delay FLOAT NOT NULL,
@@ -83,11 +81,11 @@ func string2NullString(s string) sql.NullString {
 	}
 }
 
-type MySQLAdapter struct {
+type DelayStats struct {
 	conn *sql.DB
 }
 
-func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProcData, error) {
+func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProcData, error) {
 	if maxAgeSecs <= 0 {
 		maxAgeSecs = 3600 * 24
 	}
@@ -125,7 +123,7 @@ func (c *MySQLAdapter) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPPr
 
 // LoadStats loads statistics for a specified IP and sessionID. In case nothing is found,
 // a new record is inserted.
-func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*botwatch.IPProcData, error) {
+func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*botwatch.IPProcData, error) {
 	tx, err := c.StartTx()
 	if err != nil {
 		return nil, err
@@ -179,7 +177,7 @@ func (c *MySQLAdapter) LoadStats(clientIP, sessionID string, maxAgeSecs int, ins
 	return &data, nil
 }
 
-func (c *MySQLAdapter) ResetStats(data *botwatch.IPProcData) error {
+func (c *DelayStats) ResetStats(data *botwatch.IPProcData) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
@@ -193,7 +191,7 @@ func (c *MySQLAdapter) ResetStats(data *botwatch.IPProcData) error {
 	return err
 }
 
-func (c *MySQLAdapter) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
+func (c *DelayStats) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
 	ns := string2NullString(data.SessionID)
 	_, err := tx.Exec(
 		`INSERT INTO client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
@@ -206,7 +204,7 @@ func (c *MySQLAdapter) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
 	return nil
 }
 
-func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPAggData, error) {
+func (c *DelayStats) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPAggData, error) {
 	ans := c.conn.QueryRow(
 		`SELECT cs.client_ip, SUM(cs.mean), SUM(cs.m2), SUM(cs.cnt),
 		 MIN(cs.first_request), MAX(cs.last_request)
@@ -236,7 +234,7 @@ func (c *MySQLAdapter) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.I
 	return &data, nil
 }
 
-func (c *MySQLAdapter) GetSessionIP(sessionID string) (net.IP, error) {
+func (c *DelayStats) GetSessionIP(sessionID string) (net.IP, error) {
 	ns := string2NullString(sessionID)
 	ans := c.conn.QueryRow(
 		`SELECT client_ip
@@ -255,7 +253,7 @@ func (c *MySQLAdapter) GetSessionIP(sessionID string) (net.IP, error) {
 	return net.ParseIP(ipStr), nil
 }
 
-func (c *MySQLAdapter) UpdateStats(
+func (c *DelayStats) UpdateStats(
 	data *botwatch.IPProcData,
 ) error {
 	ns := string2NullString(data.SessionID)
@@ -311,7 +309,7 @@ func (c *MySQLAdapter) UpdateStats(
 	}
 }
 
-func (c *MySQLAdapter) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error) {
+func (c *DelayStats) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error) {
 	res := c.conn.QueryRow(
 		`SELECT cnt
 		FROM client_stats
@@ -355,7 +353,7 @@ func (c *MySQLAdapter) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string,
 	return cnt1 - cnt2, nil
 }
 
-func (c *MySQLAdapter) InsertBotLikeTelemetry(clientIP, sessionID string) error {
+func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
@@ -409,7 +407,7 @@ func (c *MySQLAdapter) InsertBotLikeTelemetry(clientIP, sessionID string) error 
 	return err
 }
 
-func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) error {
+func (c *DelayStats) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) error {
 	for _, rec := range data.Telemetry {
 		_, err := transact.Exec(`
 			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
@@ -424,7 +422,7 @@ func (c *MySQLAdapter) InsertTelemetry(transact *sql.Tx, data telemetry.Payload)
 	return nil
 }
 
-func (c *MySQLAdapter) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRecord, error) {
+func (c *DelayStats) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRecord, error) {
 	ans := make([]*telemetry.ActionRecord, 0, 100)
 	for rows.Next() {
 		var item telemetry.ActionRecord
@@ -457,7 +455,7 @@ func (c *MySQLAdapter) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionR
 
 // FindLearningClients finds all the clients involved in telemetry data during a specified
 // time interval (maxAgeSecs is including, minAgeSecs is excluding)
-func (c *MySQLAdapter) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*telemetry.Client, error) {
+func (c *DelayStats) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*telemetry.Client, error) {
 	rows, err := c.conn.Query(
 		`SELECT DISTINCT client_ip, session_id
 		FROM client_actions
@@ -489,7 +487,7 @@ func (c *MySQLAdapter) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*t
 }
 
 // LoadClient loads telemetry for a defined client and time limit
-func (c *MySQLAdapter) LoadClientTelemetry(
+func (c *DelayStats) LoadClientTelemetry(
 	sessionID, clientIP string,
 	maxAgeSecs, minAgeSecs int,
 ) ([]*telemetry.ActionRecord, error) {
@@ -511,7 +509,7 @@ func (c *MySQLAdapter) LoadClientTelemetry(
 	return x, err
 }
 
-func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {
+func (c *DelayStats) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 	qAns, err := c.conn.Query(
 		`SELECT tile_name, action_name, count, tolerance
 		FROM client_counting_rules`,
@@ -528,28 +526,15 @@ func (c *MySQLAdapter) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 	return ans, nil
 }
 
-func (c *MySQLAdapter) getNumAffected(tx *sql.Tx) (int, error) {
-	qAns := tx.QueryRow("SELECT ROW_COUNT()")
-	var numDel int
-	scanErr := qAns.Scan(&numDel)
-	if qAns.Err() != nil {
-		return -1, qAns.Err()
-	}
-	if scanErr != nil {
-		return -1, scanErr
-	}
-	return numDel, nil
-}
-
-func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
-	ans := DataCleanupResult{}
+func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
+	ans := rdelay.DataCleanupResult{}
 	tx, err := c.StartTx()
 	if err != nil {
 		ans.Error = err
 		return ans
 	}
-
-	_, err = tx.Exec(
+	var res sql.Result
+	res, err = tx.Exec(
 		`DELETE FROM client_actions
 		WHERE
 			NOW() - INTERVAL ? DAY > created AND
@@ -561,14 +546,14 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 		ans.Error = err
 		return ans
 	}
-	numDel1, err := c.getNumAffected(tx)
+	numDel1, err := res.RowsAffected()
 	if err != nil {
 		ans.Error = err
 		return ans
 	}
 	ans.NumDeletedActions = numDel1
 
-	_, err = tx.Exec(
+	res, err = tx.Exec(
 		"DELETE FROM client_stats WHERE NOW() - INTERVAL ? DAY > last_request",
 		maxAgeDays,
 	)
@@ -577,30 +562,30 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 		ans.Error = err
 		return ans
 	}
-	numDel2, err := c.getNumAffected(tx)
+	numDel2, err := res.RowsAffected()
 	if err != nil {
 		ans.Error = err
 		return ans
 	}
 	ans.NumDeletedStats = numDel2
 
-	_, err = tx.Exec(
-		"DELETE FROM client_bans WHERE NOW() - INTERVAL ttl SECOND > created",
+	res, err = tx.Exec(
+		"DELETE FROM client_ip_bans WHERE NOW() - INTERVAL ttl SECOND > created",
 	)
 	if err != nil {
 		tx.Rollback()
 		ans.Error = err
 		return ans
 	}
-	numDel3, err := c.getNumAffected(tx)
+	numDel3, err := res.RowsAffected()
 	if err != nil {
 		ans.Error = err
 		return ans
 	}
 	ans.NumDeletedBans = numDel3
 
-	_, err = tx.Exec(
-		"DELETE FROM client_delay_log WHERE NOW() - INTERVAL ? DAY > created",
+	res, err = tx.Exec(
+		"DELETE FROM apiguard_delay_log WHERE NOW() - INTERVAL ? DAY > created",
 		maxAgeDays,
 	)
 	if err != nil {
@@ -608,7 +593,7 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 		ans.Error = err
 		return ans
 	}
-	numDel4, err := c.getNumAffected(tx)
+	numDel4, err := res.RowsAffected()
 	if err != nil {
 		ans.Error = err
 		return ans
@@ -620,79 +605,14 @@ func (c *MySQLAdapter) CleanOldData(maxAgeDays int) DataCleanupResult {
 	return ans
 }
 
-func (c *MySQLAdapter) InsertBan(IP net.IP, ttl int) error {
-	tx, err := c.StartTx()
-	if err != nil {
-		return err
-	}
-	if ttl > 0 {
-		_, err = tx.Exec(`INSERT INTO client_bans (ip_address, ttl) VALUES (?, ?)`, IP.String(), ttl)
-
-	} else {
-		_, err = tx.Exec(`INSERT INTO client_bans (ip_address) VALUES (?)`, IP.String())
-	}
-	if err != nil {
-		if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
-			return fmt.Errorf("failed to insert ban - address %s already banned", IP.String())
-		}
-		return err
-	}
-	err = tx.Commit()
-	return err
-}
-
-func (c *MySQLAdapter) RemoveBan(IP net.IP) error {
-	tx, err := c.StartTx()
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	_, err = tx.Exec(`DELETE FROM client_bans WHERE ip_address = ?`, IP.String())
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	numDel, err := c.getNumAffected(tx)
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-	if numDel == 0 {
-		tx.Rollback()
-		return fmt.Errorf("cannot unban ip %s - address not banned", IP.String())
-	}
-	err = tx.Commit()
-	return err
-}
-
-func (c *MySQLAdapter) TestIPBan(IP net.IP) (bool, error) {
-	qAns := c.conn.QueryRow(
-		"SELECT NOW() - INTERVAL ttl SECOND < created FROM client_bans WHERE ip_address = ?",
-		IP.String(),
-	)
-	var isBanned bool
-	scanErr := qAns.Scan(&isBanned)
-	if scanErr == sql.ErrNoRows {
-		return false, nil
-
-	} else if scanErr != nil {
-		return false, scanErr
-	}
-	if qAns.Err() != nil {
-		return false, qAns.Err()
-	}
-	return isBanned, nil
-}
-
-func (c *MySQLAdapter) RegisterDelayLog(delay time.Duration) error {
+func (c *DelayStats) RegisterDelayLog(delay time.Duration) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO client_delay_log (delay) VALUES (?)",
+		"INSERT INTO apiguard_delay_log (delay) VALUES (?)",
 		delay.Seconds(),
 	)
 	if err != nil {
@@ -710,7 +630,7 @@ type delayLogsHistogram struct {
 	Data         map[string]int `json:"data"`
 }
 
-func (c *MySQLAdapter) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*delayLogsHistogram, error) {
+func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*delayLogsHistogram, error) {
 	histogram := delayLogsHistogram{
 		OldestRecord: nil,
 		BinWidth:     binWidth,
@@ -721,7 +641,7 @@ func (c *MySQLAdapter) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*d
 		SELECT
 			CONVERT(LEAST(FLOOR(delay/%f)*%f, %f), CHAR) AS delay_bin,
 			COUNT(*) as count
-		FROM client_delay_log
+		FROM apiguard_delay_log
 		GROUP BY delay_bin
 		ORDER BY delay_bin
 	`, binWidth, binWidth, otherLimit))
@@ -741,7 +661,7 @@ func (c *MySQLAdapter) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*d
 		var oldestRecord time.Time
 		row := c.conn.QueryRow(`
 			SELECT created
-			FROM client_delay_log
+			FROM apiguard_delay_log
 			ORDER BY created
 			LIMIT 1
 		`)
@@ -751,30 +671,18 @@ func (c *MySQLAdapter) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*d
 	return &histogram, nil
 }
 
-func (c *MySQLAdapter) StartTx() (*sql.Tx, error) {
+func (c *DelayStats) StartTx() (*sql.Tx, error) {
 	return c.conn.Begin()
 }
 
-func (c *MySQLAdapter) CommitTx(transact *sql.Tx) error {
+func (c *DelayStats) CommitTx(transact *sql.Tx) error {
 	return transact.Commit()
 }
 
-func (c *MySQLAdapter) RollbackTx(transact *sql.Tx) error {
+func (c *DelayStats) RollbackTx(transact *sql.Tx) error {
 	return transact.Rollback()
 }
 
-func NewMySQLAdapter(host, user, pass, dbName string) (*MySQLAdapter, error) {
-	conf := mysql.NewConfig()
-	conf.Net = "tcp"
-	conf.Addr = host
-	conf.User = user
-	conf.Passwd = pass
-	conf.DBName = dbName
-	conf.ParseTime = true
-	conf.Loc = time.Local
-	db, err := sql.Open("mysql", conf.FormatDSN())
-	if err != nil {
-		return nil, err
-	}
-	return &MySQLAdapter{conn: db}, nil
+func NewDelayStats(db *sql.DB) *DelayStats {
+	return &DelayStats{conn: db}
 }

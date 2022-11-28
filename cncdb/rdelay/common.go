@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package storage
+package rdelay
 
 import (
 	"encoding/json"
@@ -32,10 +32,10 @@ func (c *Conf) Validate(context string) error {
 }
 
 type DataCleanupResult struct {
-	NumDeletedStats     int
-	NumDeletedActions   int
-	NumDeletedBans      int
-	NumDeletedDelayLogs int
+	NumDeletedStats     int64
+	NumDeletedActions   int64
+	NumDeletedBans      int64
+	NumDeletedDelayLogs int64
 	Error               error
 }
 
@@ -47,10 +47,10 @@ func (dcr DataCleanupResult) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		struct {
-			NumDeletedStats     int `json:"deletedStats"`
-			NumDeletedActions   int `json:"deletedActions"`
-			NumDeletedBans      int `json:"numDeletedBans"`
-			NumDeletedDelayLogs int `json:"numDeletedDelayLogs"`
+			NumDeletedStats     int64 `json:"deletedStats"`
+			NumDeletedActions   int64 `json:"deletedActions"`
+			NumDeletedBans      int64 `json:"numDeletedBans"`
+			NumDeletedDelayLogs int64 `json:"numDeletedDelayLogs"`
 
 			Error *string `json:"error"`
 		}{

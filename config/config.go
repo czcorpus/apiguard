@@ -9,6 +9,7 @@ package config
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb"
+	"apiguard/cncdb/rdelay"
 	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services/assc"
@@ -19,7 +20,6 @@ import (
 	"apiguard/services/neomat"
 	"apiguard/services/psjc"
 	"apiguard/services/ssjc"
-	"apiguard/storage"
 	"apiguard/telemetry"
 	"encoding/json"
 	"io/ioutil"
@@ -82,7 +82,7 @@ type Configuration struct {
 	TimeZone               string                    `json:"timeZone"`
 	Botwatch               botwatch.Conf             `json:"botwatch"`
 	Telemetry              telemetry.Conf            `json:"telemetry"`
-	Storage                storage.Conf              `json:"storage"`
+	Storage                rdelay.Conf               `json:"storage"`
 	Services               servicesSection           `json:"services"`
 	Cache                  reqcache.Conf             `json:"cache"`
 	Monitoring             monitoring.ConnectionConf `json:"monitoring"`

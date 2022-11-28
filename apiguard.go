@@ -8,6 +8,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,7 +39,6 @@ import (
 	"apiguard/services/requests"
 	"apiguard/services/ssjc"
 	"apiguard/services/tstorage"
-	"apiguard/storage"
 	"apiguard/users"
 
 	"github.com/gorilla/mux"
@@ -92,36 +92,41 @@ func setupLog(path string) {
 	}
 }
 
-func initStorage(conf *config.Configuration) *storage.MySQLAdapter {
-	db, err := storage.NewMySQLAdapter(
-		conf.Storage.Host,
-		conf.Storage.User,
-		conf.Storage.Password,
-		conf.Storage.Database,
-	)
+func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
+	cncDB, err := cncdb.OpenDB(conf)
 	if err != nil {
-		log.Fatal().Msgf("FATAL: failed to connect to a storage database - %s", err)
+		log.Fatal().Err(err).Send()
 	}
-	return db
+	log.Info().
+		Str("host", conf.Host).
+		Str("name", conf.Name).
+		Str("user", conf.User).
+		Msgf("Connected to CNC's SQL database")
+	return cncDB
 }
 
-func runService(conf *config.Configuration) {
+func runService(db *sql.DB, conf *config.Configuration) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
 
-	db := initStorage(conf)
+	userTableName := cncdb.DfltUsersTableName
+	if conf.CNCDB.OverrideUsersTableName != "" {
+		userTableName = conf.CNCDB.OverrideUsersTableName
+	}
 
+	// telemetry analyzer
+	delayStats := cncdb.NewDelayStats(db)
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		&conf.Monitoring,
-		db,
-		db,
+		delayStats,
+		delayStats,
 	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("")
+		log.Fatal().Err(err).Send()
 	}
 
 	router := mux.NewRouter()
@@ -144,7 +149,7 @@ func runService(conf *config.Configuration) {
 		&conf.Botwatch,
 		&conf.Telemetry,
 		conf.ServerReadTimeoutSecs,
-		db,
+		delayStats,
 		telemetryAnalyzer,
 		cache,
 	)
@@ -212,18 +217,8 @@ func runService(conf *config.Configuration) {
 
 	// KonText (API) proxy
 
-	log.Info().Msgf("CNC SQL database: %s", conf.CNCDB.Host)
-
-	cncDB, err := cncdb.OpenDB(&conf.CNCDB)
-	if err != nil {
-		log.Fatal().Err(err)
-	}
-	userTableName := cncdb.DfltUsersTableName
-	if conf.CNCDB.OverrideUsersTableName != "" {
-		userTableName = conf.CNCDB.OverrideUsersTableName
-	}
 	kua := kontextDb.NewKonTextUsersAnalyzer(
-		cncDB,
+		db,
 		conf.TimezoneLocation(),
 		userTableName,
 		conf.Services.Kontext.SessionCookieName,
@@ -233,13 +228,13 @@ func runService(conf *config.Configuration) {
 		&conf.Services.Kontext,
 		kua,
 		conf.ServerReadTimeoutSecs,
-		cncDB,
+		db,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 
 	// user handling
 
-	usersActions := users.NewActions(&users.Conf{}, cncDB, conf.TimezoneLocation())
+	usersActions := users.NewActions(&users.Conf{}, db, conf.TimezoneLocation())
 
 	router.HandleFunc("/user/{userID}/ban", usersActions.BanInfo).Methods(http.MethodGet)
 
@@ -249,10 +244,10 @@ func runService(conf *config.Configuration) {
 
 	// administration/monitoring actions
 
-	telemetryActions := tstorage.NewActions(db)
+	telemetryActions := tstorage.NewActions(delayStats)
 	router.HandleFunc("/telemetry", telemetryActions.Store).Methods(http.MethodPost)
 
-	requestsActions := requests.NewActions(db)
+	requestsActions := requests.NewActions(delayStats)
 	router.HandleFunc("/requests", requestsActions.List)
 
 	router.HandleFunc("/delayLogsAnalysis", func(w http.ResponseWriter, req *http.Request) {
@@ -277,7 +272,7 @@ func runService(conf *config.Configuration) {
 			}
 		}
 
-		ans, err := db.AnalyzeDelayLog(binWidth, otherLimit)
+		ans, err := delayStats.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
 			services.WriteJSONErrorResponse(
 				w, services.NewActionError(err.Error()), http.StatusInternalServerError)
@@ -317,10 +312,10 @@ func runService(conf *config.Configuration) {
 	}
 }
 
-func runCleanup(conf *config.Configuration) {
+func runCleanup(db *sql.DB, conf *config.Configuration) {
 	log.Info().Msg("running cleanup procedure")
-	db := initStorage(conf)
-	ans := db.CleanOldData(conf.CleanupMaxAgeDays)
+	delayLog := cncdb.NewDelayStats(db)
+	ans := delayLog.CleanOldData(conf.CleanupMaxAgeDays)
 	if ans.Error != nil {
 		log.Fatal().Err(ans.Error).Msg("failed to cleanup old records")
 	}
@@ -331,15 +326,15 @@ func runCleanup(conf *config.Configuration) {
 	log.Info().Msgf("finished old data cleanup: %s", string(status))
 }
 
-func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident string) {
-
+func runStatus(db *sql.DB, conf *config.Configuration, ident string) {
+	delayLog := cncdb.NewDelayStats(db)
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {
 		var err error
 		log.Info().Msgf("assuming %s is a session ID", ident)
 		sessionID = logging.NormalizeSessionID(ident)
-		ip, err = storage.GetSessionIP(sessionID)
+		ip, err = delayLog.GetSessionIP(sessionID)
 		if err != nil {
 			log.Fatal().Err(err).Msg("")
 		}
@@ -352,8 +347,8 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 		&conf.Botwatch,
 		&conf.Telemetry,
 		&conf.Monitoring,
-		storage,
-		storage,
+		delayLog,
+		delayLog,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
@@ -388,7 +383,7 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 		)
 
 	} else {
-		ipStats, err := storage.LoadIPStats(ip.String(), conf.Telemetry.MaxAgeSecsRelevant)
+		ipStats, err := delayLog.LoadIPStats(ip.String(), conf.Telemetry.MaxAgeSecsRelevant)
 		if err != nil {
 			log.Fatal().Err(err).Msg("")
 		}
@@ -405,14 +400,14 @@ func runStatus(conf *config.Configuration, storage *storage.MySQLAdapter, ident 
 	}
 }
 
-func runLearn(conf *config.Configuration, storage *storage.MySQLAdapter) {
-
+func runLearn(db *sql.DB, conf *config.Configuration) {
+	delayLog := cncdb.NewDelayStats(db)
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		&conf.Monitoring,
-		storage,
-		storage,
+		delayLog,
+		delayLog,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
@@ -436,18 +431,20 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,
-			"apiguard - CNC API protection and response data polisher"+
+			"apiguard - CNC API protection and response data polishing"+
 				"\n\nUsage:"+
 				"\n\t%s [options] start [conf.json]"+
 				"\n\t%s [options] cleanup [conf.json]"+
-				"\n\t%s [options] ban [ip address] [conf.json]"+
-				"\n\t%s [options] unban [ip address] [conf.json]"+
+				"\n\t%s [options] ipban [ip address] [conf.json]"+
+				"\n\t%s [options] ipunban [ip address] [conf.json]"+
+				"\n\t%s [options] userban [user ID] [conf.json]"+
+				"\n\t%s [options] userunban [user ID] [conf.json]"+
 				"\n\t%s [options] status [session id / IP address] [conf.json]"+
 				"\n\t%s [options] learn [conf.json]"+
 				"\n\t%s [options] version\n",
 			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
-			filepath.Base(os.Args[0]),
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -467,30 +464,65 @@ func main() {
 			Str("buildDate", versionInfo.BuildDate).
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
-		runService(conf)
+		db := openCNCDatabase(&conf.CNCDB)
+		runService(db, conf)
 	case "cleanup":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
-		runCleanup(conf)
-	case "ban":
+		db := openCNCDatabase(&conf.CNCDB)
+		runCleanup(db, conf)
+	case "ipban":
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
-		db := initStorage(conf)
-		if err := db.InsertBan(net.ParseIP(flag.Arg(1)), conf.BanTTLSecs); err != nil {
-			log.Fatal().Err(err).Msg("")
+		db := openCNCDatabase(&conf.CNCDB)
+		delayLog := cncdb.NewDelayStats(db)
+		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.BanTTLSecs); err != nil {
+			log.Fatal().Err(err).Send()
 		}
-	case "unban":
+	case "ipunban":
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
-		db := initStorage(conf)
-		if err := db.RemoveBan(net.ParseIP(flag.Arg(1))); err != nil {
-			log.Fatal().Err(err).Msg("")
+		db := openCNCDatabase(&conf.CNCDB)
+		delayLog := cncdb.NewDelayStats(db)
+		if err := delayLog.RemoveIPBan(net.ParseIP(flag.Arg(1))); err != nil {
+			log.Fatal().Err(err).Send()
+		}
+	case "userban":
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		db := openCNCDatabase(&conf.CNCDB)
+		now := time.Now().In(conf.TimezoneLocation())
+		userID, err := strconv.Atoi(flag.Arg(1))
+		if err != nil {
+			log.Fatal().Err(err).Send()
+		}
+		banHours := 24
+		_, err = cncdb.BanUser(
+			db, conf.TimezoneLocation(), userID, now, now.Add(time.Duration(banHours)*time.Hour))
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to ban user")
+
+		} else {
+			log.Info().Msgf("Banned user %d for %d hours", userID, banHours)
+		}
+	case "userunban":
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		db := openCNCDatabase(&conf.CNCDB)
+		userID, err := strconv.Atoi(flag.Arg(1))
+		if err != nil {
+			log.Fatal().Err(err).Send()
+		}
+		_, err = cncdb.UnbanUser(db, conf.TimezoneLocation(), userID)
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to unban user")
+
+		} else {
+			log.Info().Msgf("Unbanned user %d", userID)
 		}
 	case "status":
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
-		db := initStorage(conf)
-		runStatus(conf, db, flag.Arg(1))
+		db := openCNCDatabase(&conf.CNCDB)
+		runStatus(db, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
-		db := initStorage(conf)
-		runLearn(conf, db)
+		db := openCNCDatabase(&conf.CNCDB)
+		runLearn(db, conf)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

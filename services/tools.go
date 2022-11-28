@@ -81,11 +81,11 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		log.Error().Err(err).Msg("failed to analyze client")
 		return err
 	}
-	log.Info().Msgf("Client is going to wait for %v", respDelay)
+	log.Debug().Msgf("Client is going to wait for %v", respDelay)
 	if respDelay.Seconds() >= float64(readTimeoutSecs) {
 		WriteJSONErrorResponse(
 			w,
-			NewActionError("Service overloaded"),
+			NewActionError("service overloaded"),
 			http.StatusServiceUnavailable,
 		)
 		return err

@@ -7,6 +7,7 @@
 package db
 
 import (
+	"apiguard/cncdb"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 
 type KonTextUsersAnalyzer struct {
 	db                   *sql.DB
+	location             *time.Location
 	UsersTableName       string
 	CNCSessionCookieName string
 	AnonymousUserID      int
@@ -44,30 +46,20 @@ func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (i
 		return http.StatusUnauthorized, fmt.Errorf("session cookie not found")
 	}
 	tmp := strings.SplitN(cookieValue, "-", 2)
-	row := kua.db.QueryRow(
-		"SELECT kb.active, us.user_id "+
-			"FROM user_session AS us "+
-			"LEFT JOIN kontext_user_ban AS kb ON us.user_id = kb.user_id "+
-			"  AND kb.start_dt <= NOW() AND kb.end_dt > NOW() AND kb.active = 1 "+
-			"WHERE us.selector = ?",
-		tmp[0],
-	)
-	banned := sql.NullInt16{}
-	var userID int
-	err := row.Scan(&banned, &userID)
+	banned, userID, err := cncdb.FindBanForSession(kua.db, kua.location, tmp[0])
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
 		return http.StatusUnauthorized, nil
 	}
 	status := http.StatusOK
-	if banned.Valid && banned.Int16 == 1 {
+	if banned {
 		status = http.StatusForbidden
 	}
-
 	return status, err
 }
 
 func NewKonTextUsersAnalyzer(
 	db *sql.DB,
+	locaction *time.Location,
 	usersTableName string,
 	cncSessionCookieName string,
 	anonymousUserID int,
@@ -75,6 +67,7 @@ func NewKonTextUsersAnalyzer(
 ) *KonTextUsersAnalyzer {
 	return &KonTextUsersAnalyzer{
 		db:                   db,
+		location:             locaction,
 		UsersTableName:       usersTableName,
 		CNCSessionCookieName: cncSessionCookieName,
 		AnonymousUserID:      anonymousUserID,

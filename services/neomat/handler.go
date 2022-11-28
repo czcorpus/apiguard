@@ -16,15 +16,6 @@ import (
 	"strconv"
 )
 
-/*
-note:
-curl
-	--header "Origin: https://slovnikcestiny.cz"
-	--header "Referer: https://slovnikcestiny.cz/heslo/batalion/0/548"
-	--header "X-Requested-With: XMLHttpRequest" --header "Host: slovnikcestiny.cz"
-	https://slovnikcestiny.cz/web_ver_ajax.php
-*/
-
 type NeomatActions struct {
 	conf            *Conf
 	readTimeoutSecs int

@@ -14,8 +14,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"wum/logging"
-	"wum/telemetry"
+	"apiguard/logging"
+	"apiguard/telemetry"
 )
 
 type StoreHandler interface {

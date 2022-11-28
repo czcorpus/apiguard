@@ -7,8 +7,8 @@
 package backend
 
 import (
+	"apiguard/telemetry"
 	"errors"
-	"wum/telemetry"
 )
 
 type TelemetryStorage interface {

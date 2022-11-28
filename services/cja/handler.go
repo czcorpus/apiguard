@@ -7,12 +7,12 @@
 package cja
 
 import (
+	"apiguard/botwatch"
+	"apiguard/reqcache"
+	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
-	"wum/botwatch"
-	"wum/reqcache"
-	"wum/services"
 )
 
 /*

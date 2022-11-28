@@ -7,17 +7,17 @@
 package entropy
 
 import (
+	"apiguard/logging"
+	"apiguard/monitoring"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
+	"apiguard/telemetry/preprocess"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math"
 	"net/http"
 	"time"
-	"wum/logging"
-	"wum/monitoring"
-	"wum/telemetry"
-	"wum/telemetry/backend"
-	"wum/telemetry/preprocess"
 
 	"github.com/rs/zerolog/log"
 )

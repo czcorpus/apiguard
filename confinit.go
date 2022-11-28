@@ -7,11 +7,11 @@
 package main
 
 import (
+	"apiguard/config"
+	"apiguard/fsops"
 	"path"
 	"runtime"
 	"strings"
-	"wum/config"
-	"wum/fsops"
 
 	"github.com/rs/zerolog/log"
 )
@@ -26,8 +26,8 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions, setupLog func(s
 		srcPath := path.Join(filepath, "conf.json")
 		srchPaths := []string{
 			srcPath,
-			"/usr/local/etc/wum/conf.json",
-			"/usr/local/etc/wum.json",
+			"/usr/local/etc/apiguard/conf.json",
+			"/usr/local/etc/apiguard.json",
 		}
 		for _, path := range srchPaths {
 			if fsops.IsFile(path) {

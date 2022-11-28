@@ -7,11 +7,11 @@
 package counting
 
 import (
+	"apiguard/logging"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
 	"math"
 	"net/http"
-	"wum/logging"
-	"wum/telemetry"
-	"wum/telemetry/backend"
 
 	"github.com/rs/zerolog/log"
 )

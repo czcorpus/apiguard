@@ -8,10 +8,10 @@ LDFLAGS=-ldflags "-w -s -X main.version=${VERSION} -X main.buildDate=${BUILD} -X
 all: test build
 
 build:
-	go build -o wum ${LDFLAGS}
+	go build -o apiguard ${LDFLAGS}
 
 install:
-	go install -o wum ${LDFLAGS}
+	go install -o apiguard ${LDFLAGS}
 
 clean:
 	rm klogproc

@@ -7,14 +7,14 @@
 package tstorage
 
 import (
+	"apiguard/logging"
+	"apiguard/services"
+	"apiguard/storage"
+	"apiguard/telemetry"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
 	"time"
-	"wum/logging"
-	"wum/services"
-	"wum/storage"
-	"wum/telemetry"
 
 	"github.com/rs/zerolog/log"
 )

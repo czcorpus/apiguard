@@ -36,7 +36,7 @@
         "customConfPath": "./entropies.json",
         "dataDelaySecs": 10,
         "maxAgeSecsRelevant": 3600,
-        "internalDataPath": "/home/tomas/work/data/wum/telemetry"
+        "internalDataPath": "/home/tomas/work/data/apiguard/telemetry"
     },
     "storage": {
         "host": "10.0.3.130",

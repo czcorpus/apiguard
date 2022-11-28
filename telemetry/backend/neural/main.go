@@ -7,17 +7,17 @@
 package neural
 
 import (
+	"apiguard/fsops"
+	"apiguard/logging"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
+	"apiguard/telemetry/backend/entropy"
+	"apiguard/telemetry/preprocess"
 	"encoding/gob"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
-	"wum/fsops"
-	"wum/logging"
-	"wum/telemetry"
-	"wum/telemetry/backend"
-	"wum/telemetry/backend/entropy"
-	"wum/telemetry/preprocess"
 
 	"github.com/rs/zerolog/log"
 

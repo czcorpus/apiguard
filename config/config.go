@@ -9,7 +9,6 @@ package config
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb"
-	"apiguard/cncdb/rdelay"
 	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services/assc"
@@ -82,7 +81,6 @@ type Configuration struct {
 	TimeZone               string                    `json:"timeZone"`
 	Botwatch               botwatch.Conf             `json:"botwatch"`
 	Telemetry              telemetry.Conf            `json:"telemetry"`
-	Storage                rdelay.Conf               `json:"storage"`
 	Services               servicesSection           `json:"services"`
 	Cache                  reqcache.Conf             `json:"cache"`
 	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
@@ -98,9 +96,6 @@ func (c *Configuration) Validate() error {
 		return err
 	}
 	if err = c.Telemetry.Validate("telemetry"); err != nil {
-		return err
-	}
-	if err = c.Storage.Validate("storage"); err != nil {
 		return err
 	}
 	if err = c.CNCDB.Validate("cncDb"); err != nil {

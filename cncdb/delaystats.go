@@ -20,7 +20,7 @@ import (
 
 /*
 
-CREATE TABLE client_stats (
+CREATE TABLE apiguard_client_stats (
 	id INT NOT NULL auto_increment,
 	session_id VARCHAR(64),
 	client_ip VARCHAR(45) NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE client_stats (
 	PRIMARY KEY (id)
 );
 
-CREATE TABLE client_actions (
+CREATE TABLE apiguard_client_actions (
 	id INT NOT NULL auto_increment,
 	session_id VARCHAR(64),
 	client_ip VARCHAR(45),
@@ -47,7 +47,7 @@ CREATE TABLE client_actions (
 	PRIMARY KEY (id)
 );
 
-CREATE TABLE client_counting_rules (
+CREATE TABLE apiguard_client_counting_rules (
 	tile_name VARCHAR(63),
 	action_name VARCHAR(127) NOT NULL,
 	count FLOAT NOT NULL DEFAULT 1,
@@ -91,7 +91,7 @@ func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProc
 	}
 	result, err := c.conn.Query(
 		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
-		FROM client_stats
+		FROM apiguard_client_stats
 		WHERE last_request >= current_timestamp - INTERVAL ? SECOND
 		ORDER BY cnt DESC LIMIT ?`, maxAgeSecs, maxItems)
 	if err != nil {
@@ -130,7 +130,7 @@ func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, inser
 	}
 	ans := c.conn.QueryRow(
 		`SELECT session_id, client_ip, mean, m2, cnt, first_request, last_request
-		FROM client_stats
+		FROM apiguard_client_stats
 		WHERE (session_id = ? OR session_id IS NULL AND ? IS NULL) AND client_ip = ? AND
 		current_timestamp - INTERVAL ? SECOND < last_request`,
 		string2NullString(sessionID), string2NullString(sessionID), clientIP, maxAgeSecs,
@@ -194,7 +194,7 @@ func (c *DelayStats) ResetStats(data *botwatch.IPProcData) error {
 func (c *DelayStats) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
 	ns := string2NullString(data.SessionID)
 	_, err := tx.Exec(
-		`INSERT INTO client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
+		`INSERT INTO apiguard_client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		ns, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
 		data.FirstAccess, data.LastAccess)
@@ -208,8 +208,8 @@ func (c *DelayStats) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPA
 	ans := c.conn.QueryRow(
 		`SELECT cs.client_ip, SUM(cs.mean), SUM(cs.m2), SUM(cs.cnt),
 		 MIN(cs.first_request), MAX(cs.last_request)
-		FROM client_stats AS cs
-		LEFT JOIN client_actions AS ca ON cs.client_ip = ca.client_ip AND cs.session_id = ca.session_id
+		FROM apiguard_client_stats AS cs
+		LEFT JOIN apiguard_client_actions AS ca ON cs.client_ip = ca.client_ip AND cs.session_id = ca.session_id
 		WHERE cs.client_ip = ? AND ca.id IS NULL
 		AND current_timestamp - INTERVAL ? SECOND < cs.last_request
 		GROUP BY cs.client_ip `,
@@ -238,7 +238,7 @@ func (c *DelayStats) GetSessionIP(sessionID string) (net.IP, error) {
 	ns := string2NullString(sessionID)
 	ans := c.conn.QueryRow(
 		`SELECT client_ip
-		FROM client_stats
+		FROM apiguard_client_stats
 		WHERE (session_id = ? OR session_id IS NULL AND ? IS NULL)`,
 		ns, ns,
 	)
@@ -259,7 +259,7 @@ func (c *DelayStats) UpdateStats(
 	ns := string2NullString(data.SessionID)
 	curr := c.conn.QueryRow(
 		`SELECT COUNT(*)
-		FROM client_stats
+		FROM apiguard_client_stats
 		WHERE client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)`,
 		data.ClientIP, ns, ns)
 	var cnt int
@@ -276,7 +276,7 @@ func (c *DelayStats) UpdateStats(
 			return err
 		}
 		_, err = tx.Exec(
-			`INSERT INTO client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
+			`INSERT INTO apiguard_client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			ns, data.ClientIP, data.Mean, data.M2, data.Count, data.Stdev(),
 			data.FirstAccess, data.LastAccess)
@@ -292,10 +292,10 @@ func (c *DelayStats) UpdateStats(
 			return err
 		}
 		_, err = c.conn.Exec(
-			`UPDATE client_stats SET mean = ?, m2 = ?, cnt = ?, stdev = ?, first_request = ?,
+			`UPDATE apiguard_client_stats SET mean = ?, m2 = ?, cnt = ?, stdev = ?, first_request = ?,
 			last_request = ?
 			WHERE id = (
-				SELECT q2.maxid FROM (SELECT MAX(id) AS maxid FROM client_stats
+				SELECT q2.maxid FROM (SELECT MAX(id) AS maxid FROM apiguard_client_stats
 					WHERE (session_id = ? OR session_id IS NULL AND ? IS NULL) AND client_ip = ?) AS q2
 			)`,
 			data.Mean, data.M2, data.Count, data.Stdev(), data.FirstAccess, data.LastAccess,
@@ -312,7 +312,7 @@ func (c *DelayStats) UpdateStats(
 func (c *DelayStats) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error) {
 	res := c.conn.QueryRow(
 		`SELECT cnt
-		FROM client_stats
+		FROM apiguard_client_stats
 		WHERE
 			client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)
 		   	AND current_timestamp - interval ? SECOND < last_request`,
@@ -332,7 +332,7 @@ func (c *DelayStats) CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, h
 
 	res = c.conn.QueryRow(
 		`SELECT COUNT(*)
-		FROM client_actions
+		FROM apiguard_client_actions
 		WHERE
 			client_ip = ? AND (session_id = ? OR session_id IS NULL AND ? IS NULL)
 			AND action_name = 'MAIN_REQUEST_QUERY_RESPONSE'
@@ -363,7 +363,7 @@ func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 
 	for i := 0; i < 3; i++ {
 		_, err = tx.Exec(`
-			INSERT INTO client_actions (client_ip, session_id, action_name, created)
+			INSERT INTO apiguard_client_actions (client_ip, session_id, action_name, created)
 			VALUES (?, ?, 'MAIN_SET_TILE_RENDER_SIZE', ?)`,
 			clientIP, string2NullString(sessionID), t0,
 		)
@@ -373,7 +373,7 @@ func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 		}
 	}
 	_, err = tx.Exec(`
-		INSERT INTO client_actions (client_ip, session_id, action_name, created)
+		INSERT INTO apiguard_client_actions (client_ip, session_id, action_name, created)
 		VALUES (?, ?, 'MAIN_REQUEST_QUERY_RESPONSE', ?)`,
 		clientIP, string2NullString(sessionID), t0,
 	)
@@ -383,7 +383,7 @@ func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 	}
 	for i := 0; i < 3; i++ {
 		_, err = tx.Exec(`
-			INSERT INTO client_actions (client_ip, session_id, action_name, created)
+			INSERT INTO apiguard_client_actions (client_ip, session_id, action_name, created)
 			VALUES (?, ?, 'MAIN_TILE_DATA_LOADED', ?)`,
 			clientIP, string2NullString(sessionID), t1,
 		)
@@ -394,7 +394,7 @@ func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 	}
 	for i := 0; i < 3; i++ {
 		_, err = tx.Exec(`
-			INSERT INTO client_actions (client_ip, session_id, action_name, created)
+			INSERT INTO apiguard_client_actions (client_ip, session_id, action_name, created)
 			VALUES (?, ?, 'MAIN_TILE_PARTIAL_DATA_LOADED', ?)`,
 			clientIP, string2NullString(sessionID), t1,
 		)
@@ -410,7 +410,7 @@ func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 func (c *DelayStats) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) error {
 	for _, rec := range data.Telemetry {
 		_, err := transact.Exec(`
-			INSERT INTO client_actions (client_ip, session_id, action_name, tile_name,
+			INSERT INTO apiguard_client_actions (client_ip, session_id, action_name, tile_name,
 				is_mobile, is_subquery, created) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			rec.Client.IP, string2NullString(rec.Client.SessionID), rec.ActionName, rec.TileName,
 			rec.IsMobile, rec.IsSubquery, rec.Created,
@@ -458,7 +458,7 @@ func (c *DelayStats) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRec
 func (c *DelayStats) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*telemetry.Client, error) {
 	rows, err := c.conn.Query(
 		`SELECT DISTINCT client_ip, session_id
-		FROM client_actions
+		FROM apiguard_client_actions
 		WHERE
 			created >= current_timestamp - INTERVAL ? SECOND AND
 			created < current_timestamp - INTERVAL ? SECOND AND
@@ -493,7 +493,7 @@ func (c *DelayStats) LoadClientTelemetry(
 ) ([]*telemetry.ActionRecord, error) {
 	rows, err := c.conn.Query(
 		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created, training_flag
-		FROM client_actions
+		FROM apiguard_client_actions
 		WHERE
 			client_ip = ? AND
 			(session_id = ? OR session_id IS NULL AND ? IS NULL) AND
@@ -512,7 +512,7 @@ func (c *DelayStats) LoadClientTelemetry(
 func (c *DelayStats) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 	qAns, err := c.conn.Query(
 		`SELECT tile_name, action_name, count, tolerance
-		FROM client_counting_rules`,
+		FROM apiguard_client_counting_rules`,
 	)
 	if err != nil {
 		return []*telemetry.CountingRule{}, err
@@ -535,7 +535,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	}
 	var res sql.Result
 	res, err = tx.Exec(
-		`DELETE FROM client_actions
+		`DELETE FROM apiguard_client_actions
 		WHERE
 			NOW() - INTERVAL ? DAY > created AND
 			training_flag IS NULL`,
@@ -554,7 +554,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	ans.NumDeletedActions = numDel1
 
 	res, err = tx.Exec(
-		"DELETE FROM client_stats WHERE NOW() - INTERVAL ? DAY > last_request",
+		"DELETE FROM apiguard_client_stats WHERE NOW() - INTERVAL ? DAY > last_request",
 		maxAgeDays,
 	)
 	if err != nil {

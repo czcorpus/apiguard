@@ -67,7 +67,7 @@ func (services *servicesSection) validate() error {
 	if services.CJA.BaseURL != "" {
 		log.Info().Msgf("Service CJA enabled")
 	}
-	if services.Kontext.BaseURL != "" {
+	if services.Kontext.InternalURL != "" {
 		log.Info().Msgf("Service Kontext enabled")
 	}
 	return nil

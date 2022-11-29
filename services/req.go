@@ -8,8 +8,10 @@ package services
 
 import (
 	"crypto/tls"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 func GetRequest(url, userAgent string) (string, int, error) {
@@ -42,9 +44,49 @@ type ProxiedResponse struct {
 	Err        error
 }
 
-func ProxiedRequest(url, method string, headers http.Header) *ProxiedResponse {
-	client := &http.Client{}
-	req, err := http.NewRequest(method, url, nil)
+type APIProxy struct {
+	InternalURL string
+	ExternalURL string
+}
+
+func (proxy *APIProxy) transformRedirect(headers http.Header) error {
+	for name, vals := range headers {
+		if name == "Location" {
+			var err error
+			internalURL, err := url.Parse(proxy.InternalURL)
+			if err != nil {
+				return err
+			}
+			externalURL, err := url.Parse(proxy.ExternalURL)
+			if err != nil {
+				return err
+			}
+			redirectURL, err := url.Parse(vals[0])
+			if err != nil {
+				return err
+			}
+			// situations like this:
+			// APIGuard provides access to KonText via http://localhost:3010/services/kontext
+			// External KonText API URL is https://www.korpus.cz/kontext-api/v0.17
+			// Now KonText wants to redirect to https://localhost:8195/kontext-api/v0.17/query
+			// => we have to replace Host
+			if redirectURL.Host == internalURL.Host {
+				redirectURL.Host = externalURL.Host
+			}
+			headers[name] = []string{redirectURL.String()}
+			break
+		}
+	}
+	return nil
+}
+
+func (proxy *APIProxy) Request(urlPath, method string, headers http.Header) *ProxiedResponse {
+	client := &http.Client{
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", proxy.InternalURL, urlPath), nil)
 	if err != nil {
 		return &ProxiedResponse{
 			Body:       []byte{},
@@ -73,9 +115,11 @@ func ProxiedRequest(url, method string, headers http.Header) *ProxiedResponse {
 			Err:        err,
 		}
 	}
+	ansHeaders := resp.Header
+	proxy.transformRedirect(ansHeaders)
 	return &ProxiedResponse{
 		Body:       body,
-		Headers:    resp.Header,
+		Headers:    ansHeaders,
 		StatusCode: resp.StatusCode,
 		Err:        nil,
 	}

@@ -24,6 +24,8 @@ type Conf struct {
 	// for more info. Typically, this is something like 'cnc_toolbar_sid',
 	// 'cnc_toolbar_sid_test'.
 	SessionCookieName string `json:"sessionCookieName"`
+
+	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
 }
 
 func (c *Conf) Validate(context string) error {

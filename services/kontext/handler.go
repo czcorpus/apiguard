@@ -26,6 +26,7 @@ type KontextProxy struct {
 	cache           services.Cache
 	analyzer        services.ReqAnalyzer
 	cncDB           *sql.DB
+	apiProxy        services.APIProxy
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
@@ -34,26 +35,27 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
+	/*
+		uiStatus, err := kp.analyzer.UserInducedResponseStatus(req)
+		if err != nil {
+			// TODO
+			http.Error(
+				w,
+				fmt.Sprintf("Failed to proxy request: %s", err),
+				uiStatus,
+			)
+			return
 
-	uiStatus, err := kp.analyzer.UserInducedResponseStatus(req)
-	if err != nil {
-		// TODO
-		http.Error(
-			w,
-			fmt.Sprintf("Failed to proxy request: %s", err),
-			uiStatus,
-		)
-		return
-
-	} else if uiStatus > 400 && uiStatus < 500 {
-		http.Error(w, http.StatusText(uiStatus), uiStatus)
-		return
-	}
-	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
-
+		} else if uiStatus > 400 && uiStatus < 500 {
+			http.Error(w, http.StatusText(uiStatus), uiStatus)
+			return
+		}
+		services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
+	*/
 	path = path[len(ServicePath):]
-	serviceResp := services.ProxiedRequest(
-		fmt.Sprintf("%s/%s?%s", kp.conf.BaseURL, path, req.URL.Query().Encode()),
+	serviceResp := kp.apiProxy.Request(
+		// TODO use some path builder here
+		fmt.Sprintf("/%s?%s", path, req.URL.Query().Encode()),
 		req.Method,
 		req.Header,
 	)
@@ -68,6 +70,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	for k, v := range serviceResp.Headers {
 		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
+	w.WriteHeader(serviceResp.StatusCode)
 	w.Write(serviceResp.Body)
 }
 
@@ -82,5 +85,9 @@ func NewKontextProxy(
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
+		apiProxy: services.APIProxy{
+			InternalURL: conf.InternalURL,
+			ExternalURL: conf.ExternalURL,
+		},
 	}
 }

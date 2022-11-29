@@ -39,6 +39,19 @@ CREATE TABLE api_user_ban (
 	PRIMARY KEY (id),
 	FOREIGN KEY (user_id) REFERENCES kontext_user(id)
 )
+
+-- privileges:
+
+create user 'apiguard'@'192.168.1.%' identified by '******';
+grant select, update, delete, insert on apiguard_client_actions to 'apiguard'@'192.168.1.%';
+grant select, update, delete, insert on apiguard_client_counting_rules to 'apiguard'@'192.168.1.%';
+grant select, update, delete, insert on apiguard_client_stats to 'apiguard'@'192.168.1.%';
+grant select, update, delete, insert on apiguard_delay_log to 'apiguard'@'192.168.1.%';
+grant select on user_session to 'apiguard'@'192.168.1.%';
+grant select on user to 'apiguard'@'192.168.1.%';
+grant select, update, delete, insert on api_user_ban to 'apiguard'@'192.168.1.%';
+grant select, update, delete, insert on api_ip_ban to 'apiguard'@'192.168.1.%';
+
 */
 
 const (

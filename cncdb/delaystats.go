@@ -55,7 +55,7 @@ CREATE TABLE apiguard_client_counting_rules (
 	PRIMARY KEY (tile_name, action_name)
 );
 
-CREATE TABLE client_ip_bans (
+CREATE TABLE api_ip_ban (
 	ip_address VARCHAR(15) NOT NULL,
 	ttl int NOT NULL DEFAULT 86400,
 	created datetime NOT NULL DEFAULT NOW(),
@@ -570,7 +570,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	ans.NumDeletedStats = numDel2
 
 	res, err = tx.Exec(
-		"DELETE FROM client_ip_bans WHERE NOW() - INTERVAL ttl SECOND > created",
+		"DELETE FROM api_ip_ban WHERE NOW() - INTERVAL ttl SECOND > created",
 	)
 	if err != nil {
 		tx.Rollback()

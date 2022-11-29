@@ -8,6 +8,7 @@ package db
 
 import (
 	"apiguard/cncdb"
+	"apiguard/services/kontext"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -35,13 +36,7 @@ func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (i
 	if kua.db == nil {
 		return http.StatusOK, nil
 	}
-	var cookieValue string
-	for _, cookie := range req.Cookies() {
-		if cookie.Name == kua.CNCSessionCookieName {
-			cookieValue = cookie.Value
-			break
-		}
-	}
+	cookieValue := kontext.GetSessionKey(req, kua.CNCSessionCookieName)
 	if cookieValue == "" {
 		return http.StatusUnauthorized, fmt.Errorf("session cookie not found")
 	}

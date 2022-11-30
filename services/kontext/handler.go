@@ -7,6 +7,7 @@
 package kontext
 
 import (
+	"apiguard/alarms"
 	"apiguard/services"
 	"database/sql"
 	"fmt"
@@ -38,15 +39,30 @@ type KontextProxy struct {
 	analyzer        services.ReqAnalyzer
 	cncDB           *sql.DB
 	apiProxy        services.APIProxy
+
+	// reqCounter can be used to send info about number of request
+	// to an alarm service. Please note that this value can be nil
+	// (in such case, nothing is sent)
+	reqCounter chan<- alarms.RequestInfo
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+	var userID int
+	defer func() {
+		if kp.reqCounter != nil {
+			kp.reqCounter <- alarms.RequestInfo{
+				Service:     "kontext",
+				NumRequests: 1,
+				UserID:      userID,
+			}
+		}
+	}()
 	path := req.URL.Path
 	if !strings.HasPrefix(path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	uiStatus, err := kp.analyzer.UserInducedResponseStatus(req)
+	uiStatus, userID, err := kp.analyzer.UserInducedResponseStatus(req)
 	if err != nil {
 		// TODO
 		http.Error(
@@ -92,6 +108,7 @@ func NewKontextProxy(
 	analyzer services.ReqAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
+	reqCounter chan<- alarms.RequestInfo,
 ) *KontextProxy {
 	return &KontextProxy{
 		conf:            conf,
@@ -102,5 +119,6 @@ func NewKontextProxy(
 			InternalURL: conf.InternalURL,
 			ExternalURL: conf.ExternalURL,
 		},
+		reqCounter: reqCounter,
 	}
 }

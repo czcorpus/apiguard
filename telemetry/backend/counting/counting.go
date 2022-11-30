@@ -66,13 +66,13 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 		return -1, backend.ErrUnknownClient
 	}
 
-	log.Debug().Msgf("DEBUG: about to evaluate IP %s and sessionID %s", ip, sessionID)
+	log.Debug().Msgf("about to evaluate IP %s and sessionID %s", ip, sessionID)
 	counts := a.processTelemetry(telemetry)
 
 	for key, rule := range a.countingRules {
 		if math.Abs(float64(rule.count-counts[key])) > float64(rule.tolerance) {
 			log.Debug().Msgf(
-				"DEBUG: invalid counts for %v. Expecting %f to be %f±%f",
+				"invalid counts for %v. Expecting %f to be %f±%f",
 				key, counts[key], rule.count, rule.tolerance)
 			return 1, nil
 		}

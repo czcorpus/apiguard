@@ -67,7 +67,7 @@ func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int,
 type ReqAnalyzer interface {
 	CalcDelay(req *http.Request) (time.Duration, error)
 	RegisterDelayLog(respDelay time.Duration) error
-	UserInducedResponseStatus(req *http.Request) (int, error)
+	UserInducedResponseStatus(req *http.Request) (int, int, error)
 }
 
 func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer ReqAnalyzer) error {

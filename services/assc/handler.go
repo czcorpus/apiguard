@@ -37,6 +37,10 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
+	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
+		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
+		return
+	}
 
 	err := services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {

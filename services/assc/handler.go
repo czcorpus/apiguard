@@ -48,6 +48,7 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var data *dataStruct
+	exists := false
 	for _, query := range queries {
 		responseHTML, err := aa.createMainRequest(
 			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))
@@ -60,13 +61,24 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
-		// check if result is not empty
+		// check if result is not empty and contains query key
 		if data.lastItem != nil {
-			data.Query = query
-			break
+			for _, item := range data.Items {
+				if item.Key == query {
+					exists = true
+					break
+				}
+			}
+			if exists {
+				break
+			}
 		}
 	}
-	services.WriteJSONResponse(w, data)
+	if exists {
+		services.WriteJSONResponse(w, data)
+	} else {
+		services.WriteJSONResponse(w, NewDataStruct())
+	}
 }
 
 func (aa *ASSCActions) createMainRequest(url string) (string, error) {

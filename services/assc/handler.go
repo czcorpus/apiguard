@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 /*
@@ -49,7 +48,6 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var data *dataStruct
-	exists := false
 	for _, query := range queries {
 		responseHTML, err := aa.createMainRequest(
 			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))
@@ -64,22 +62,11 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 		// check if result is not empty and contains query key
 		if data.lastItem != nil {
-			for _, item := range data.Items {
-				if strings.HasPrefix(item.Key, query) {
-					exists = true
-					break
-				}
-			}
-			if exists {
-				break
-			}
+			data.Query = query
+			break
 		}
 	}
-	if exists {
-		services.WriteJSONResponse(w, data)
-	} else {
-		services.WriteJSONResponse(w, NewDataStruct())
-	}
+	services.WriteJSONResponse(w, data)
 }
 
 func (aa *ASSCActions) createMainRequest(url string) (string, error) {

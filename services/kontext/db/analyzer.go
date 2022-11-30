@@ -32,24 +32,24 @@ func (kua *KonTextUsersAnalyzer) RegisterDelayLog(respDelay time.Duration) error
 	return nil // TODO
 }
 
-func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (int, error) {
+func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (int, int, error) {
 	if kua.db == nil {
-		return http.StatusOK, nil
+		return http.StatusOK, -1, nil
 	}
 	cookieValue := kontext.GetSessionKey(req, kua.CNCSessionCookieName)
 	if cookieValue == "" {
-		return http.StatusUnauthorized, fmt.Errorf("session cookie not found")
+		return http.StatusUnauthorized, -1, fmt.Errorf("session cookie not found")
 	}
 	tmp := strings.SplitN(cookieValue, "-", 2)
 	banned, userID, err := cncdb.FindBanForSession(kua.db, kua.location, tmp[0])
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
-		return http.StatusUnauthorized, nil
+		return http.StatusUnauthorized, -1, nil
 	}
 	status := http.StatusOK
 	if banned {
 		status = http.StatusForbidden
 	}
-	return status, err
+	return status, userID, err
 }
 
 func NewKonTextUsersAnalyzer(

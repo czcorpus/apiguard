@@ -76,8 +76,8 @@ func (a *Analyzer) Learn() error {
 	return a.backend.Learn()
 }
 
-func (a *Analyzer) UserInducedResponseStatus(req *http.Request) (int, error) {
-	return http.StatusOK, nil
+func (a *Analyzer) UserInducedResponseStatus(req *http.Request) (int, int, error) {
+	return http.StatusOK, 0, nil
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {

@@ -29,12 +29,17 @@ type Entry struct {
 
 type Response struct {
 	Entries []Entry `json:"entries"`
+	Query   string  `json:"query"`
 }
 
 func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
-	query := req.URL.Query().Get("q")
-	if query == "" {
+	queries, ok := req.URL.Query()["q"]
+	if !ok {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		return
+	}
+	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
+		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
 		return
 	}
 
@@ -42,50 +47,58 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)))
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
-	}
-
-	// check if there are multiple results
-	STIs, err := lookForSTI(responseHTML)
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
-	}
 
 	response := Response{Entries: make([]Entry, 0)}
-	if len(STIs) > 0 {
-		for _, STI := range STIs {
-			subResponseHTML, err := aa.createMainRequest(
-				fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI))
-			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-				return
-			}
-			payload, err := parseData(subResponseHTML)
-			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-				return
-			}
-			response.Entries = append(
-				response.Entries,
-				Entry{STI: &STI, Payload: payload},
-			)
-		}
-	} else {
-		payload, err := parseData(responseHTML)
+	var query string
+	for _, query = range queries {
+		responseHTML, err := aa.createMainRequest(
+			fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)))
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
-		if len(payload) > 0 {
-			response.Entries = append(
-				response.Entries,
-				Entry{STI: nil, Payload: payload},
-			)
+
+		// check if there are multiple results
+		STIs, err := lookForSTI(responseHTML)
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+
+		if len(STIs) > 0 {
+			for _, STI := range STIs {
+				subResponseHTML, err := aa.createMainRequest(
+					fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI))
+				if err != nil {
+					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+					return
+				}
+				payload, err := parseData(subResponseHTML)
+				if err != nil {
+					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+					return
+				}
+				response.Entries = append(
+					response.Entries,
+					Entry{STI: &STI, Payload: payload},
+				)
+			}
+			response.Query = query
+			break
+		} else {
+			payload, err := parseData(responseHTML)
+			if err != nil {
+				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+				return
+			}
+			if len(payload) > 0 {
+				response.Query = query
+				response.Entries = append(
+					response.Entries,
+					Entry{STI: nil, Payload: payload},
+				)
+				break
+			}
 		}
 	}
 

@@ -63,7 +63,7 @@ type Conf struct {
 	Host                   string `json:"host"`
 	User                   string `json:"user"`
 	Password               string `json:"password"`
-	OverrideUsersTableName string `json:"overrideCorporaTableName"`
+	OverrideUsersTableName string `json:"overrideUsersTableName"`
 	AnonymousUserID        int    `json:"anonymousUserId"`
 }
 

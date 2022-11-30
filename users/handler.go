@@ -29,7 +29,7 @@ func (a *Actions) BanInfo(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("failed to ban user", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -38,7 +38,7 @@ func (a *Actions) BanInfo(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("ban info failed", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -57,7 +57,7 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				w,
-				uniresp.NewActionErrorFrom("ban info failed", err),
+				uniresp.NewActionErrorFrom(err),
 				http.StatusInternalServerError,
 			)
 			return
@@ -69,7 +69,7 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				w,
-				uniresp.NewActionErrorFrom("ban info failed", err),
+				uniresp.NewActionErrorFrom(err),
 				http.StatusInternalServerError,
 			)
 			return
@@ -79,7 +79,7 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("failed to ban user", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -89,14 +89,14 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 	if err == cncdb.ErrorUserAlreadyBannned {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("failed to ban user", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusUnprocessableEntity,
 		)
 
 	} else if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("failed to ban user", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -110,7 +110,7 @@ func (a *Actions) DisableBan(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("failed to unban user", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -119,7 +119,7 @@ func (a *Actions) DisableBan(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionErrorFrom("failed to unban user", err),
+			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return

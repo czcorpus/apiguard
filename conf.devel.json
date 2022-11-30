@@ -22,9 +22,21 @@
         "kontext": {
             "internalUrl": "http://localhost:8080",
             "externalUrl": "http://localhost:3010/service/kontext",
-            "sessionCookieName": "cnc_toolbar_sid"
+            "sessionCookieName": "cnc_toolbar_sid",
+            "alarm": {
+                "reqPerTimeThreshold": 2,
+                "reqCheckingIntervalSecs": 10,
+                "recipients": ["tomas.machalek@gmail.com"]
+            }
         }
 
+    },
+    "mail": {
+        "sender": "apiguard@korpus.cz",
+        "smtpServer": "smtp.korpus.cz:587",
+        "smtpUsername": "machalek",
+        "smtpPassword": "atomius507",
+        "confirmationBaseURL": "http://localhost:3010"
     },
     "botwatch": {
         "botDefsPath": "",
@@ -54,6 +66,6 @@
         "user": "kontext",
         "password": "kontexto",
         "name": "kontext",
-        "__overrideUserTableName": "kontext_user"
+        "overrideUserTableName": "kontext_user"
     }
 }

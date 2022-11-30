@@ -4,8 +4,9 @@ go 1.18
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
-	github.com/czcorpus/uniresp v0.0.1
+	github.com/czcorpus/uniresp v0.0.2
 	github.com/go-sql-driver/mysql v1.6.0
+	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/influxdata/influxdb-client-go/v2 v2.8.2
 	github.com/patrikeh/go-deep v0.0.0-20220129152125-82b8db494fe5

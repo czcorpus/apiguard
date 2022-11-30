@@ -6,7 +6,10 @@
 
 package kontext
 
-import "fmt"
+import (
+	"apiguard/alarms"
+	"fmt"
+)
 
 type Conf struct {
 	// InternalURL is a URL where the backend is installed
@@ -26,6 +29,8 @@ type Conf struct {
 	SessionCookieName string `json:"sessionCookieName"`
 
 	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
+
+	Alarm alarms.Conf `json:"alarm"`
 }
 
 func (c *Conf) Validate(context string) error {

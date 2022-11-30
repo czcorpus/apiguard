@@ -7,6 +7,7 @@
 package config
 
 import (
+	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
 	"apiguard/monitoring"
@@ -88,6 +89,7 @@ type Configuration struct {
 	CleanupMaxAgeDays      int                       `json:"cleanupMaxAgeDays"`
 	BanTTLSecs             int                       `json:"banTTLSecs"`
 	CNCDB                  cncdb.Conf                `json:"cncDb"`
+	Mail                   alarms.MailConf           `json:"mail"`
 }
 
 func (c *Configuration) Validate() error {

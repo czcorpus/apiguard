@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
 	"apiguard/config"
@@ -111,10 +112,23 @@ func runService(db *sql.DB, conf *config.Configuration) {
 	signal.Notify(syscallChan, syscall.SIGTERM)
 	exitEvent := make(chan os.Signal)
 
+	router := mux.NewRouter()
+	router.Use(coreMiddleware)
+
+	// alarm
+	alarm := alarms.NewAlarmTicker(
+		conf.TimezoneLocation(),
+		conf.Mail,
+		conf.CNCDB.OverrideUsersTableName,
+	)
 	userTableName := cncdb.DfltUsersTableName
 	if conf.CNCDB.OverrideUsersTableName != "" {
 		userTableName = conf.CNCDB.OverrideUsersTableName
 	}
+
+	router.HandleFunc("/alarm/{alarmID}/confirmation", alarm.HandleReviewAction)
+
+	router.HandleFunc("/alarm", alarm.HandleReportListAction)
 
 	// telemetry analyzer
 	delayStats := cncdb.NewDelayStats(db)
@@ -128,9 +142,6 @@ func runService(db *sql.DB, conf *config.Configuration) {
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
-
-	router := mux.NewRouter()
-	router.Use(coreMiddleware)
 
 	var cache services.Cache
 	if conf.Cache.RootPath != "" {
@@ -224,11 +235,17 @@ func runService(db *sql.DB, conf *config.Configuration) {
 		conf.Services.Kontext.SessionCookieName,
 		conf.CNCDB.AnonymousUserID,
 	)
+
+	var kontextReqCounter chan<- alarms.RequestInfo
+	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
+		kontextReqCounter = alarm.Register("kontext", conf.Services.Kontext.Alarm)
+	}
 	kontextActions := kontext.NewKontextProxy(
 		&conf.Services.Kontext,
 		kua,
 		conf.ServerReadTimeoutSecs,
 		db,
+		kontextReqCounter,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 
@@ -286,6 +303,8 @@ func runService(db *sql.DB, conf *config.Configuration) {
 		exitEvent <- evt
 		close(exitEvent)
 	}()
+
+	go alarm.Run(syscallChan)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 	srv := &http.Server{

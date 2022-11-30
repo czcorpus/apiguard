@@ -32,8 +32,8 @@ type ASSCActions struct {
 }
 
 func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
-	query := req.URL.Query().Get("q")
-	if query == "" {
+	queries, ok := req.URL.Query()["q"]
+	if !ok {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
 		return
 	}
@@ -43,16 +43,24 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
-	}
-	data, err := parseData(responseHTML)
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
+	var data *dataStruct
+	for _, query := range queries {
+		responseHTML, err := aa.createMainRequest(
+			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+		data, err = parseData(responseHTML)
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+		// check if result is not empty
+		if data.lastItem != nil {
+			data.Query = query
+			break
+		}
 	}
 	services.WriteJSONResponse(w, data)
 }

@@ -81,6 +81,7 @@ func NewDataItem(heslo string) dataItem {
 type dataStruct struct {
 	Items []dataItem `json:"items"`
 	Notes []string   `json:"notes"`
+	Query string     `json:"query"`
 
 	lastItem *dataItem
 }

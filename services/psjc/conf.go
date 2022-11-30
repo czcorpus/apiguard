@@ -11,6 +11,7 @@ import "fmt"
 type Conf struct {
 	BaseURL         string `json:"baseURL"`
 	ClientUserAgent string `json:"clientUserAgent"`
+	MaxQueries      int    `json:"maxQueries"`
 }
 
 func (c *Conf) Validate(context string) error {

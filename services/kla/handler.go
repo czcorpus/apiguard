@@ -25,12 +25,17 @@ type KLAActions struct {
 
 type Response struct {
 	Images []string `json:"images"`
+	Query  string   `json:"query"`
 }
 
 func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
-	query := req.URL.Query().Get("q")
-	if query == "" {
+	queries, ok := req.URL.Query()["q"]
+	if !ok {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		return
+	}
+	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
+		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
 		return
 	}
 	maxImages := req.URL.Query().Get("maxImages")
@@ -48,20 +53,31 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_cards=cards&pocet_karet=100&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)))
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
+
+	var images []string
+	var query string
+	for _, query = range queries {
+		responseHTML, err := aa.createMainRequest(
+			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_cards=cards&pocet_karet=100&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)))
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+
+		images, err = parseData(responseHTML, maxImageCount, aa.conf.BaseURL)
+		if err != nil {
+			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			return
+		}
+		if len(images) > 0 {
+			break
+		}
 	}
 
-	images, err := parseData(responseHTML, maxImageCount, aa.conf.BaseURL)
-	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
-		return
-	}
-
-	services.WriteJSONResponse(w, Response{Images: images})
+	services.WriteJSONResponse(w, Response{
+		Images: images,
+		Query:  query,
+	})
 }
 
 func (aa *KLAActions) createMainRequest(url string) (string, error) {

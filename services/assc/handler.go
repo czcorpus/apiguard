@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 /*
@@ -64,7 +65,7 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		// check if result is not empty and contains query key
 		if data.lastItem != nil {
 			for _, item := range data.Items {
-				if item.Key == query {
+				if strings.HasPrefix(item.Key, query) {
 					exists = true
 					break
 				}

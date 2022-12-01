@@ -119,7 +119,7 @@ func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
 	return cncDB
 }
 
-func runService(db *sql.DB, conf *config.Configuration) {
+func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -133,12 +133,8 @@ func runService(db *sql.DB, conf *config.Configuration) {
 		db,
 		conf.TimezoneLocation(),
 		conf.Mail,
-		conf.CNCDB.OverrideUsersTableName,
+		userTableName,
 	)
-	userTableName := cncdb.DfltUsersTableName
-	if conf.CNCDB.OverrideUsersTableName != "" {
-		userTableName = conf.CNCDB.OverrideUsersTableName
-	}
 
 	router.HandleFunc("/alarm/{alarmID}/confirmation", alarm.HandleReviewAction)
 
@@ -499,7 +495,12 @@ func main() {
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
 		db := openCNCDatabase(&conf.CNCDB)
-		runService(db, conf)
+		userTableName := cncdb.DfltUsersTableName
+		if conf.CNCDB.OverrideUsersTableName != "" {
+			userTableName = conf.CNCDB.OverrideUsersTableName
+			log.Warn().Msgf("overriding users table name to '%s'", userTableName)
+		}
+		runService(db, conf, userTableName)
 	case "cleanup":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)

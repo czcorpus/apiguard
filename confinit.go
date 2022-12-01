@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions, setupLog func(string)) *config.Configuration {
+func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configuration {
 	var conf *config.Configuration
 	if explicitPath != "" {
 		conf = config.LoadConfig(explicitPath)
@@ -39,8 +39,15 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions, setupLog func(s
 			log.Fatal().Msgf("cannot find any suitable configuration file (searched in: %s)", strings.Join(srchPaths, ", "))
 		}
 	}
-	setupLog(conf.LogPath)
+	if cmdOpts.LogLevel != "" {
+		conf.LogLevel = cmdOpts.LogLevel
+
+	} else if conf.LogLevel == "" {
+		conf.LogLevel = "info"
+	}
+	setupLog(conf.LogPath, conf.LogLevel)
 	log.Info().Msgf("loaded configuration from %s", explicitPath)
+	log.Info().Msgf("using logging level '%s'", conf.LogLevel)
 	applyDefaults(conf)
 	overrideConfWithCmd(conf, cmdOpts)
 	validErr := conf.Validate()
@@ -118,13 +125,13 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
 	}
 	if cmdConf.BanSecs > 0 {
-		origConf.BanTTLSecs = cmdConf.BanSecs
+		origConf.IPBanTTLSecs = cmdConf.BanSecs
 
-	} else if origConf.BanTTLSecs == 0 {
+	} else if origConf.IPBanTTLSecs == 0 {
 		log.Warn().Msgf(
-			"banTTLSecs not specified, using default value %d",
+			"IPBanTTLSecs not specified, using default value %d",
 			config.DfltBanSecs,
 		)
-		origConf.BanTTLSecs = config.DfltBanSecs
+		origConf.IPBanTTLSecs = config.DfltBanSecs
 	}
 }

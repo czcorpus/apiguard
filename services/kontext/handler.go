@@ -82,9 +82,13 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		passedHeaders["X-Api-Key"] = []string{GetSessionKey(req, kp.conf.SessionCookieName)}
 	}
 	path = path[len(ServicePath):]
+	urlArgs := req.URL.Query()
+	if _, ok := urlArgs["format"]; !ok {
+		urlArgs["format"] = []string{"json"}
+	}
 	serviceResp := kp.apiProxy.Request(
 		// TODO use some path builder here
-		fmt.Sprintf("/%s?%s", path, req.URL.Query().Encode()),
+		fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 		req.Method,
 		req.Header,
 	)

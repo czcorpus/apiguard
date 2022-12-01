@@ -72,6 +72,7 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 						log.Error().Err(err).Msg("failed to send alarm e-mail")
 						return
 					}
+					exceedPercent := (float64(numReq)/float64(newReport.Rules.ReqPerTimeThreshold) - 1) * 100
 					for _, recipient := range entry.conf.Recipients {
 						link := fmt.Sprintf(
 							"%s/alarm/%s/confirmation?reviewer=%s",
@@ -82,15 +83,18 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							aticker.alarmConf.Sender,
 							[]string{recipient},
 							fmt.Sprintf(
-								"CNC APIGuard - hlášení o velkém počtu dotazů na službu %s",
-								entry.service,
+								"CNC APIGuard - překročení přístupů k API o %01.2f%% u služby '%s'",
+								exceedPercent, entry.service,
 							),
 							fmt.Sprintf(
-								"Byl detekován velký počet dotazů na službu %s od uživatele ID %d",
-								entry.service, userID,
+								"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund"+
+									"Max. povolený limit pro tuto službu je %d dotazů za %d sekund.",
+								entry.service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
+								newReport.Rules.ReqPerTimeThreshold,
+								newReport.Rules.ReqCheckingIntervalSecs,
 							),
 							fmt.Sprintf(
-								"Hlášení potvrdíte kliknutím na odkaz: <a href=\"%s\">%s</a>",
+								"Detaily získáte a hlášení potvrdíte kliknutím na odkaz: <a href=\"%s\">%s</a>",
 								link, link,
 							),
 						)

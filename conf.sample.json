@@ -1,0 +1,52 @@
+{
+    "serverHost": "localhost",
+    "serverPort": 8080,
+    "services": {
+        "languageGuide": {
+            "baseURL": "https://prirucka.ujc.cas.cz",
+            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+        },
+        "assc": {
+            "baseURL": "https://slovnikcestiny.cz",
+            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+        },
+        "kontext": {
+            "internalUrl": "http://localhost:8080",
+            "externalUrl": "http://localhost:3010/service/kontext",
+            "sessionCookieName": "cnc_toolbar_sid",
+            "alarm": {
+                "reqPerTimeThreshold": 2,
+                "reqCheckingIntervalSecs": 10,
+                "recipients": ["tomas.machalek@gmail.com"]
+            }
+        }
+    },
+    "mail": {
+        "sender": "apiguard@korpus.cz",
+        "smtpServer": "smtp.korpus.cz:587",
+        "smtpUsername": "some_user",
+        "smtpPassword": "********",
+        "confirmationBaseURL": "http://localhost:3010"
+    },
+    "botwatch": {
+        "botDefsPath": "",
+        "watchedTimeWindowSecs": 30,
+        "numRequestsThreshold": 10,
+        "rsdThreshold": 0.2
+    },
+    "telemetry": {
+        "analyzer": "dumb",
+        "dataDelaySecs": 10,
+        "maxAgeSecsRelevant": 3600
+    },
+    "storage": {
+        "host": "10.0.3.130",
+        "user": "db_user_with_limited_rights (see cncdb/conf.go)",
+        "password": "******",
+        "database": "cnc_database_name"
+    },
+    "cache": {
+        "rootPath": "",
+        "ttlSecs": 3600
+    }
+}

@@ -257,6 +257,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 		kua,
 		conf.ServerReadTimeoutSecs,
 		db,
+		conf.TimezoneLocation(),
 		kontextReqCounter,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)

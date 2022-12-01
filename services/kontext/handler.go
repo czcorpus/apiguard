@@ -116,6 +116,7 @@ func NewKontextProxy(
 	analyzer services.ReqAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
+	loc *time.Location,
 	reqCounter chan<- alarms.RequestInfo,
 ) *KontextProxy {
 	return &KontextProxy{
@@ -123,6 +124,7 @@ func NewKontextProxy(
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
+		location:        loc,
 		apiProxy: services.APIProxy{
 			InternalURL: conf.InternalURL,
 			ExternalURL: conf.ExternalURL,

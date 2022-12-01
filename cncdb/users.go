@@ -33,7 +33,14 @@ func (users *UsersTable) UserInfo(id int) (*User, error) {
 		id,
 	)
 	var ans User
-	err := row.Scan(&ans.ID, &ans.Username, &ans.FirstName, &ans.LastName, &ans.Affiliation)
+	err := row.Scan(
+		&ans.ID,
+		&ans.Username,
+		&ans.FirstName,
+		&ans.LastName,
+		&ans.Email,
+		&ans.Affiliation,
+	)
 	if err == sql.ErrNoRows {
 		return nil, err
 	}

@@ -493,7 +493,7 @@ func main() {
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
 		db := openCNCDatabase(&conf.CNCDB)
 		delayLog := cncdb.NewDelayStats(db)
-		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.BanTTLSecs); err != nil {
+		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.IPBanTTLSecs); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "ipunban":

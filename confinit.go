@@ -118,13 +118,13 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
 	}
 	if cmdConf.BanSecs > 0 {
-		origConf.BanTTLSecs = cmdConf.BanSecs
+		origConf.IPBanTTLSecs = cmdConf.BanSecs
 
-	} else if origConf.BanTTLSecs == 0 {
+	} else if origConf.IPBanTTLSecs == 0 {
 		log.Warn().Msgf(
-			"banTTLSecs not specified, using default value %d",
+			"IPBanTTLSecs not specified, using default value %d",
 			config.DfltBanSecs,
 		)
-		origConf.BanTTLSecs = config.DfltBanSecs
+		origConf.IPBanTTLSecs = config.DfltBanSecs
 	}
 }

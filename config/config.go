@@ -87,7 +87,7 @@ type Configuration struct {
 	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
 	LogPath                string                    `json:"logPath"`
 	CleanupMaxAgeDays      int                       `json:"cleanupMaxAgeDays"`
-	BanTTLSecs             int                       `json:"banTTLSecs"`
+	IPBanTTLSecs           int                       `json:"IpBanTtlSecs"`
 	CNCDB                  cncdb.Conf                `json:"cncDb"`
 	Mail                   alarms.MailConf           `json:"mail"`
 }

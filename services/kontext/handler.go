@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -38,6 +39,7 @@ type KontextProxy struct {
 	cache           services.Cache
 	analyzer        services.ReqAnalyzer
 	cncDB           *sql.DB
+	location        *time.Location
 	apiProxy        services.APIProxy
 
 	// reqCounter can be used to send info about number of request
@@ -48,6 +50,7 @@ type KontextProxy struct {
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID int
+	t0 := time.Now().In(kp.location)
 	defer func() {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
@@ -56,6 +59,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      userID,
 			}
 		}
+		log.Debug().Msgf("request for 'kontext' dispatched in %s", time.Since(t0))
 	}()
 	path := req.URL.Path
 	if !strings.HasPrefix(path, ServicePath) {

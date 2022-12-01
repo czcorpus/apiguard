@@ -86,6 +86,7 @@ type Configuration struct {
 	Cache                  reqcache.Conf             `json:"cache"`
 	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
 	LogPath                string                    `json:"logPath"`
+	LogLevel               string                    `json:"logLevel"`
 	CleanupMaxAgeDays      int                       `json:"cleanupMaxAgeDays"`
 	IPBanTTLSecs           int                       `json:"IpBanTtlSecs"`
 	CNCDB                  cncdb.Conf                `json:"cncDb"`

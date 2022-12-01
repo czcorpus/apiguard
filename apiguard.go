@@ -56,6 +56,13 @@ var (
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
 	}
+	levelMapping = map[string]zerolog.Level{
+		"debug":   zerolog.DebugLevel,
+		"info":    zerolog.InfoLevel,
+		"warning": zerolog.WarnLevel,
+		"warn":    zerolog.WarnLevel,
+		"error":   zerolog.ErrorLevel,
+	}
 )
 
 type CmdOptions struct {
@@ -64,6 +71,7 @@ type CmdOptions struct {
 	ReadTimeoutSecs  int
 	WriteTimeoutSecs int
 	LogPath          string
+	LogLevel         string
 	MaxAgeDays       int
 	BanSecs          int
 }
@@ -75,7 +83,12 @@ func coreMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func setupLog(path string) {
+func setupLog(path, level string) {
+	lev, ok := levelMapping[level]
+	if !ok {
+		log.Fatal().Msgf("invalid logging level: %s", level)
+	}
+	zerolog.SetGlobalLevel(lev)
 	if path != "" {
 		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -445,6 +458,7 @@ func main() {
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Server read timeout in seconds")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "write-timeout", 0, "Server write timeout in seconds")
 	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")
+	flag.StringVar(&cmdOpts.LogLevel, "log-level", "", "A log level (debug, info, warn/warning, error)")
 	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 0, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
 	flag.IntVar(&cmdOpts.BanSecs, "ban-secs", 0, "Number of seconds to ban an IP address")
 	flag.Usage = func() {
@@ -477,7 +491,7 @@ func main() {
 			versionInfo.Version, versionInfo.BuildDate, versionInfo.GitCommit)
 		return
 	case "start":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		log.Info().
 			Str("version", versionInfo.Version).
 			Str("buildDate", versionInfo.BuildDate).
@@ -486,25 +500,25 @@ func main() {
 		db := openCNCDatabase(&conf.CNCDB)
 		runService(db, conf)
 	case "cleanup":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		runCleanup(db, conf)
 	case "ipban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		delayLog := cncdb.NewDelayStats(db)
 		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.IPBanTTLSecs); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "ipunban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		delayLog := cncdb.NewDelayStats(db)
 		if err := delayLog.RemoveIPBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "userban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		now := time.Now().In(conf.TimezoneLocation())
 		userID, err := strconv.Atoi(flag.Arg(1))
@@ -521,7 +535,7 @@ func main() {
 			log.Info().Msgf("Banned user %d for %d hours", userID, banHours)
 		}
 	case "userunban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		userID, err := strconv.Atoi(flag.Arg(1))
 		if err != nil {
@@ -535,11 +549,11 @@ func main() {
 			log.Info().Msgf("Unbanned user %d", userID)
 		}
 	case "status":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		runStatus(db, conf, flag.Arg(1))
 	case "learn":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts, setupLog)
+		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		runLearn(db, conf)
 	default:

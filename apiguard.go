@@ -130,6 +130,7 @@ func runService(db *sql.DB, conf *config.Configuration) {
 
 	// alarm
 	alarm := alarms.NewAlarmTicker(
+		db,
 		conf.TimezoneLocation(),
 		conf.Mail,
 		conf.CNCDB.OverrideUsersTableName,

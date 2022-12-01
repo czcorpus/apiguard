@@ -45,6 +45,13 @@ type AlarmTicker struct {
 	usersTableName string
 }
 
+func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
+	return fmt.Sprintf(
+		"%s/alarm/%s/confirmation?reviewer=%s",
+		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
+	)
+}
+
 func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixTime int64) {
 	if unixTime%int64(entry.conf.ReqCheckingIntervalSecs) == 0 {
 		for userID, numReq := range entry.clientRequests {
@@ -90,10 +97,7 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 					}
 					exceedPercent := (float64(numReq)/float64(newReport.Rules.ReqPerTimeThreshold) - 1) * 100
 					for _, recipient := range entry.conf.Recipients {
-						link := fmt.Sprintf(
-							"%s/alarm/%s/confirmation?reviewer=%s",
-							aticker.alarmConf.ConfirmationBaseURL, newReport.ReviewCode, recipient,
-						)
+						link := aticker.createConfirmationURL(newReport, recipient)
 						mail.SendNotification(
 							client,
 							aticker.alarmConf.Sender,
@@ -115,7 +119,6 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							),
 						)
 					}
-
 				}()
 				entry.clientRequests[userID] = 0
 				log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)

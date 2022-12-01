@@ -140,6 +140,8 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 	router.HandleFunc("/alarm/{alarmID}/confirmation", alarm.HandleReviewAction)
 
+	router.HandleFunc("/alarm-confirmation", alarm.HandleConfirmationPage)
+
 	router.HandleFunc("/alarm", alarm.HandleReportListAction)
 
 	// telemetry analyzer

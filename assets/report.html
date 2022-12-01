@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <title>CNC APIGuard report</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="stylesheet" type="text/css" href="https://utils.korpus.cz/cdn/czcorpus/styles/1.3.0-alpha.2/main.css" media="all">
+        <style type="text/css">
+            html {
+                font-family: "Roboto", Verdana, Arial, sans-serif;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                background: url("//www.korpus.cz/img/groovepaper2.png") fixed;
+                /*background: #eef9fd;*/
+                margin: 0;
+                padding: 1em;
+            }
+            h1 {
+                font-size: 1.4em;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Hlášení o překročení limitu požadavků na API</h1>
+        <div id="msg"></div>
+        <p>
+            {{ if .Error }}
+            Nepodařilo se načíst data: <strong>{{ .Error }}</strong>
+            {{ else }}
+            <button class="cnc-button" onclick="handleConfirm()">potvrdit</button>
+            {{ end }}
+        </p>
+    </body>
+    <script>
+        const confirmationUrl = "{{ .ConfirmationUrl }}";
+        function handleConfirm() {
+            fetch(confirmationUrl).then(response => response.json()).then(
+                data => {
+                    document.getElementById('msg').innerHTML = `<div><strong>OK</strong><div><pre>${data}</pre>`;
+                },
+                err => {
+                    document.getElementById('msg').innerHTML = `<strong>Došlo k chybě: ${err} </strong>`;
+                }
+            )
+        }
+    </script>
+</html>
+

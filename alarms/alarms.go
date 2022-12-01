@@ -8,6 +8,8 @@ package alarms
 
 import (
 	"apiguard/alarms/mail"
+	"apiguard/cncdb"
+	"database/sql"
 	"fmt"
 	"net/http"
 	"os"
@@ -32,6 +34,7 @@ type RequestInfo struct {
 }
 
 type AlarmTicker struct {
+	db             *sql.DB
 	alarmConf      MailConf
 	clients        map[string]*serviceEntry
 	servicesLock   sync.Mutex
@@ -55,6 +58,19 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 					entry.conf,
 					aticker.location,
 				)
+				err := newReport.AttachUserInfo(cncdb.NewUsersTable(aticker.db, aticker.usersTableName))
+				if err != nil {
+					newReport.UserInfo = &cncdb.User{
+						ID:        -1,
+						Username:  "invalid",
+						FirstName: "??",
+						LastName:  "??",
+					}
+					log.Error().
+						Err(err).
+						Str("reportId", newReport.ReviewCode).
+						Msg("failed to attach user info to a report")
+				}
 				aticker.reports = append(aticker.reports, newReport)
 
 				go func() {
@@ -83,18 +99,18 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							aticker.alarmConf.Sender,
 							[]string{recipient},
 							fmt.Sprintf(
-								"CNC APIGuard - překročení přístupů k API o %01.2f%% u služby '%s'",
+								"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
 								exceedPercent, entry.service,
 							),
 							fmt.Sprintf(
-								"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund"+
+								"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
 									"Max. povolený limit pro tuto službu je %d dotazů za %d sekund.",
 								entry.service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
 								newReport.Rules.ReqPerTimeThreshold,
 								newReport.Rules.ReqCheckingIntervalSecs,
 							),
 							fmt.Sprintf(
-								"Detaily získáte a hlášení potvrdíte kliknutím na odkaz: <a href=\"%s\">%s</a>",
+								"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
 								link, link,
 							),
 						)
@@ -193,8 +209,14 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 	)
 }
 
-func NewAlarmTicker(loc *time.Location, alarmConf MailConf, usersTableName string) *AlarmTicker {
+func NewAlarmTicker(
+	db *sql.DB,
+	loc *time.Location,
+	alarmConf MailConf,
+	usersTableName string,
+) *AlarmTicker {
 	return &AlarmTicker{
+		db:             db,
 		clients:        make(map[string]*serviceEntry),
 		counter:        make(chan RequestInfo, 1000),
 		location:       loc,

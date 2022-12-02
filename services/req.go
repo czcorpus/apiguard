@@ -9,6 +9,7 @@ package services
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -80,13 +81,13 @@ func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 	return nil
 }
 
-func (proxy *APIProxy) Request(urlPath, method string, headers http.Header) *ProxiedResponse {
+func (proxy *APIProxy) Request(urlPath, method string, headers http.Header, rbody io.Reader) *ProxiedResponse {
 	client := &http.Client{
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
-	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", proxy.InternalURL, urlPath), nil)
+	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", proxy.InternalURL, urlPath), rbody)
 	if err != nil {
 		return &ProxiedResponse{
 			Body:       []byte{},

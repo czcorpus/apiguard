@@ -98,6 +98,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 		req.Method,
 		req.Header,
+		req.Body,
 	)
 	if serviceResp.Err != nil {
 		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)

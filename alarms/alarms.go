@@ -10,6 +10,7 @@ import (
 	"apiguard/alarms/mail"
 	"apiguard/cncdb"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -33,6 +34,17 @@ type RequestInfo struct {
 	UserID      int    `json:"userId"`
 }
 
+type handleReviewPayload struct {
+	Reviewer string `json:"reviewer"`
+	BanHours int    `json:"banHours"`
+}
+
+type handleReviewResponse struct {
+	Confirmed bool         `json:"confirmed"`
+	Report    *AlarmReport `json:"report"`
+	BanID     int64        `json:"banId,omitempty"`
+}
+
 type AlarmTicker struct {
 	db             *sql.DB
 	alarmConf      MailConf
@@ -43,6 +55,20 @@ type AlarmTicker struct {
 	reports        []*AlarmReport
 	location       *time.Location
 	usersTableName string
+}
+
+func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
+	return fmt.Sprintf(
+		"%s/alarm/%s/confirmation?reviewer=%s",
+		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
+	)
+}
+
+func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, reviewer string) string {
+	return fmt.Sprintf(
+		"%s/alarm-confirmation?id=%s&reviewer=%s",
+		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
+	)
 }
 
 func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixTime int64) {
@@ -61,10 +87,11 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 				err := newReport.AttachUserInfo(cncdb.NewUsersTable(aticker.db, aticker.usersTableName))
 				if err != nil {
 					newReport.UserInfo = &cncdb.User{
-						ID:        -1,
-						Username:  "invalid",
-						FirstName: "??",
-						LastName:  "??",
+						ID:          -1,
+						Username:    "invalid",
+						FirstName:   "-",
+						LastName:    "-",
+						Affiliation: "-",
 					}
 					log.Error().
 						Err(err).
@@ -88,19 +115,16 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 						log.Error().Err(err).Msg("failed to send alarm e-mail")
 						return
 					}
-					exceedPercent := (float64(numReq)/float64(newReport.Rules.ReqPerTimeThreshold) - 1) * 100
+
 					for _, recipient := range entry.conf.Recipients {
-						link := fmt.Sprintf(
-							"%s/alarm/%s/confirmation?reviewer=%s",
-							aticker.alarmConf.ConfirmationBaseURL, newReport.ReviewCode, recipient,
-						)
+						page := aticker.createConfirmationPageURL(newReport, recipient)
 						mail.SendNotification(
 							client,
 							aticker.alarmConf.Sender,
 							[]string{recipient},
 							fmt.Sprintf(
 								"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
-								exceedPercent, entry.service,
+								newReport.ExceedPercent(), entry.service,
 							),
 							fmt.Sprintf(
 								"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
@@ -111,11 +135,10 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							),
 							fmt.Sprintf(
 								"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
-								link, link,
+								page, page,
 							),
 						)
 					}
-
 				}()
 				entry.clientRequests[userID] = 0
 				log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)
@@ -168,10 +191,18 @@ func (aticker *AlarmTicker) HandleReportListAction(w http.ResponseWriter, req *h
 func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
 	alarmID := vars["alarmID"]
-	reviewerMail := req.URL.Query().Get("reviewer")
+
+	var qry handleReviewPayload
+	err := json.NewDecoder(req.Body).Decode(&qry)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+
 	for _, report := range aticker.reports {
 		if report.ReviewCode == alarmID {
-			err := report.ConfirmReviewViaEmail(alarmID, reviewerMail)
+			err := report.ConfirmReviewViaEmail(alarmID, qry.Reviewer)
 			if err == ErrConfirmationKeyNotFound {
 				uniresp.WriteJSONErrorResponse(
 					w,
@@ -194,11 +225,34 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 					uniresp.NewActionErrorFrom(err),
 					http.StatusInternalServerError,
 				)
+				return
 			}
-			uniresp.WriteJSONResponse(w, map[string]any{
-				"confirmed": true,
-				"report":    report,
-			})
+
+			var banID int64
+			if qry.BanHours > 0 {
+				now := time.Now().In(aticker.location)
+				banID, err = cncdb.BanUser(
+					aticker.db,
+					aticker.location,
+					report.RequestInfo.UserID,
+					now,
+					now.Add(time.Duration(qry.BanHours)*time.Hour),
+				)
+				if err != nil {
+					uniresp.WriteJSONErrorResponse(
+						w,
+						uniresp.NewActionErrorFrom(err),
+						http.StatusInternalServerError,
+					)
+					return
+				}
+			}
+			ans := handleReviewResponse{
+				Confirmed: true,
+				Report:    report,
+				BanID:     banID,
+			}
+			uniresp.WriteJSONResponse(w, ans)
 			return
 		}
 	}

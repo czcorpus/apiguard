@@ -138,9 +138,14 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 		userTableName,
 	)
 
-	router.HandleFunc("/alarm/{alarmID}/confirmation", alarm.HandleReviewAction)
+	router.HandleFunc(
+		"/alarm/{alarmID}/confirmation", alarm.HandleReviewAction).Methods(http.MethodPost)
 
-	router.HandleFunc("/alarm", alarm.HandleReportListAction)
+	router.HandleFunc(
+		"/alarm-confirmation", alarm.HandleConfirmationPage).Methods(http.MethodGet)
+
+	router.HandleFunc(
+		"/alarm", alarm.HandleReportListAction).Methods(http.MethodGet)
 
 	// telemetry analyzer
 	delayStats := cncdb.NewDelayStats(db)

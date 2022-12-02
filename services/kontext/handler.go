@@ -59,7 +59,10 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      userID,
 			}
 		}
-		log.Debug().Msgf("request for 'kontext' dispatched in %s", time.Since(t0))
+		t1 := time.Since(t0)
+		log.Debug().
+			Float64("procTime", t1.Seconds()).
+			Msgf("dispatched request to 'kontext'")
 	}()
 	path := req.URL.Path
 	if !strings.HasPrefix(path, ServicePath) {

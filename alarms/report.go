@@ -119,6 +119,10 @@ func (report *AlarmReport) ConfirmReviewViaID(alarmID string, reviewerID int) er
 	return nil
 }
 
+func (report *AlarmReport) ExceedPercent() float64 {
+	return (float64(report.RequestInfo.NumRequests)/float64(report.Rules.ReqPerTimeThreshold) - 1) * 100
+}
+
 func generateReviewCode() string {
 	id := uuid.New()
 	sum := sha1.Sum([]byte(id.String()))

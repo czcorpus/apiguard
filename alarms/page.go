@@ -31,6 +31,7 @@ type reportPageData struct {
 	ConfirmationUrl string
 	Error           error
 	ReviewerMail    string
+	Report          *AlarmReport
 }
 
 func (aticker *AlarmTicker) HandleConfirmationPage(w http.ResponseWriter, req *http.Request) {
@@ -52,7 +53,11 @@ func (aticker *AlarmTicker) HandleConfirmationPage(w http.ResponseWriter, req *h
 	}
 	if srchReport == nil {
 		data.Error = fmt.Errorf("report ID %s not found", alarmID)
-		log.Error().Err(err).Send() // TODO
+		log.Error().Err(data.Error).Send()
+
+	} else {
+		data.Report = srchReport
 	}
 	err = tpl.ExecuteTemplate(w, "report.html", data)
+	log.Error().Err(err).Send() // TODO
 }

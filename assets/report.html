@@ -10,6 +10,7 @@
                 font-family: "Roboto", Verdana, Arial, sans-serif;
                 margin: 0;
                 padding: 0;
+                max-width: 800px;
             }
             body {
                 background: url("//www.korpus.cz/img/groovepaper2.png") fixed;
@@ -17,26 +18,124 @@
                 margin: 0;
                 padding: 1em;
             }
+            header {
+                display: flex;
+                align-items: center;
+                background-color: rgb(35, 31, 32);
+            }
+            header img {
+                margin: 1em;
+            }
             h1 {
                 font-size: 1.4em;
+                padding-left: 2em;
+                color: #eeeeee;
+            }
+            .report table {
+                border-spacing: 0;
+                border-collapse: collapse;
+                margin-top: 2em;
+            }
+            .report table td, .report table th {
+                text-align: left;
+                border: 1px solid #dddddd;
+                padding: 0.3em 0.6em;
+            }
+            input.ban-hours {
+                width: 4em;
             }
         </style>
     </head>
     <body>
-        <h1>Hlášení o překročení limitu požadavků na API</h1>
+        <header>
+            <img src="https://www.korpus.cz/img/logo_cnk.png?v=1387416657" alt="Logo ČNK" />
+            <h1>Hlášení o překročení limitu požadavků na API</h1>
+        </header>
+        <div class="report">
+            {{ if .Report }}
+            <table>
+                <tbody>
+                    <tr>
+                        <th>Datum vzniku:</th>
+                        <td>{{ .Report.Created }}</td>
+                    </tr>
+                    <tr>
+                        <th>Služba:</th>
+                        <td>{{ .Report.RequestInfo.Service }}</td>
+                    </tr>
+                    <tr>
+                        <th>Překročení:</th>
+                        <td>{{ .Report.ExceedPercent }}%</td>
+                    </tr>
+                    <tr>
+                        <th>ID uživatele:</th>
+                        <td>{{ .Report.RequestInfo.UserID }}</td>
+                    </tr>
+                    {{ if .Report.UserInfo }}
+                    <tr>
+                        <th>uživ. jméno uživatele:</th>
+                        <td>{{ .Report.UserInfo.Username }}</td>
+                    </tr>
+                    <tr>
+                        <th>Jméno a příjmení:</th>
+                        <td>
+                            {{ .Report.UserInfo.FirstName }}
+                            {{ .Report.UserInfo.LastName }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Afiliace:</th>
+                        <td>{{ .Report.UserInfo.Affiliation }}</td>
+                    </tr>
+                    <tr>
+                        <th>E-mail:</th>
+                        <td>{{ .Report.UserInfo.Email }}</td>
+                    </tr>
+                    {{ end }}
+                </tbody>
+            </table>
+            {{ end }}
+        </div>
         <div id="msg"></div>
         <p>
             {{ if .Error }}
             Nepodařilo se načíst data: <strong>{{ .Error }}</strong>
             {{ else }}
+            <label>
+                Uložit ban na
+                <input class="ban-hours" type="number" name="ban-hours" value="24" />
+                hod. (0 pro žádný ban)
+            </label>
+                <br />
             <button class="cnc-button" onclick="handleConfirm()">potvrdit</button>
             {{ end }}
         </p>
     </body>
     <script>
         const confirmationUrl = "{{ .ConfirmationUrl }}";
-        function handleConfirm() {
-            fetch(confirmationUrl).then(response => response.json()).then(
+        async function handleConfirm() {
+            fetch(
+                confirmationUrl,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        reviewer: '{{ .ReviewerMail }}',
+                        banHours: parseInt(document.querySelector('.ban-hours').value)
+                    })
+                }
+            ).then(
+                response => response.json()
+            ).then(
+                data => {
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    return data;
+                }
+            ).then(
                 data => {
                     document.getElementById('msg').innerHTML = `<div><strong>OK</strong><div><pre>${data}</pre>`;
                 },

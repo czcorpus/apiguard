@@ -117,8 +117,9 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 					}
 
 					for _, recipient := range entry.conf.Recipients {
+						log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
 						page := aticker.createConfirmationPageURL(newReport, recipient)
-						mail.SendNotification(
+						err := mail.SendNotification(
 							client,
 							aticker.alarmConf.Sender,
 							[]string{recipient},
@@ -138,6 +139,11 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 								page, page,
 							),
 						)
+						if err != nil {
+							log.Error().
+								Err(err).
+								Msgf("failed to send a notification e-mail to %s", recipient)
+						}
 					}
 				}()
 				entry.clientRequests[userID] = 0

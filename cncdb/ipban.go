@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
 )
 
 func (c *DelayStats) InsertIPBan(IP net.IP, ttl int) error {
@@ -18,11 +19,17 @@ func (c *DelayStats) InsertIPBan(IP net.IP, ttl int) error {
 	if err != nil {
 		return err
 	}
+	now := time.Now()
+	if c.location != nil {
+		now = now.In(c.location)
+	}
 	if ttl > 0 {
-		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address, ttl) VALUES (?, ?)`, IP.String(), ttl)
+		end_dt := now.Add(time.Duration(ttl) * time.Second)
+		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address, start_dt, end_dt) VALUES (?, ?, ?)`, IP.String(), now, end_dt)
 
 	} else {
-		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address) VALUES (?)`, IP.String())
+		end_dt := now.Add(time.Duration(86400) * time.Second)
+		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address, start_dt, end_dt) VALUES (?, ?, ?)`, IP.String(), now, end_dt)
 	}
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {
@@ -61,8 +68,13 @@ func (c *DelayStats) RemoveIPBan(IP net.IP) error {
 }
 
 func (c *DelayStats) TestIPBan(IP net.IP) (bool, error) {
+	now := time.Now()
+	if c.location != nil {
+		now = now.In(c.location)
+	}
 	qAns := c.conn.QueryRow(
-		"SELECT NOW() - INTERVAL ttl SECOND < created FROM api_ip_ban WHERE ip_address = ?",
+		"SELECT ? < end_dt FROM api_ip_ban WHERE ip_address = ? AND active = 1",
+		now,
 		IP.String(),
 	)
 	var isBanned bool

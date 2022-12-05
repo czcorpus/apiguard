@@ -38,12 +38,12 @@ func SendNotification(
 	defer wc.Close()
 
 	headers := make(map[string]string)
+	headers["Date"] = time.Now().In(location).Format("Mon, 02 Jan 2006 15:04:05 -0700")
 	headers["From"] = sender
 	headers["To"] = strings.Join(receivers, ",")
 	headers["Subject"] = subject
 	headers["MIME-Version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=UTF-8"
-	headers["Date"] = time.Now().In(location).Format("Mon, 02 Jan 2006 15:04:05 -0700")
 
 	body := ""
 	for k, v := range headers {

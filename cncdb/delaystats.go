@@ -56,9 +56,9 @@ CREATE TABLE apiguard_client_counting_rules (
 );
 
 CREATE TABLE api_ip_ban (
-	ip_address VARCHAR(15) NOT NULL,
+	ip_address VARCHAR(45) NOT NULL,
 	start_dt DATETIME NOT NULL DEFAULT NOW(),
-	end_dt DATETIME NOT NULL DEFAULT NOW() + INTERVAL 86400 SECONDS,
+	end_dt DATETIME NOT NULL,
 	active TINYINT NOT NULL DEFAULT 1, -- so we can disable it any time and also to archive records
 	PRIMARY KEY (ip_address)
 );

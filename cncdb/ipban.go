@@ -22,7 +22,7 @@ func (c *DelayStats) InsertIPBan(IP net.IP, ttl int) error {
 		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address, end_dt) VALUES (?, NOW() + INTERVAL ? SECONDS)`, IP.String(), ttl)
 
 	} else {
-		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address) VALUES (?)`, IP.String())
+		_, err = tx.Exec(`INSERT INTO api_ip_ban (ip_address, end_dt) VALUES (?, NOW() + INTERVAL 86400 SECONDS)`, IP.String())
 	}
 	if err != nil {
 		if strings.HasPrefix(err.Error(), "Error 1062: Duplicate entry") {

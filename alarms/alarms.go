@@ -90,11 +90,12 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 					}
 					exceedPercent := (float64(numReq)/float64(newReport.Rules.ReqPerTimeThreshold) - 1) * 100
 					for _, recipient := range entry.conf.Recipients {
+						log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
 						link := fmt.Sprintf(
 							"%s/alarm/%s/confirmation?reviewer=%s",
 							aticker.alarmConf.ConfirmationBaseURL, newReport.ReviewCode, recipient,
 						)
-						mail.SendNotification(
+						err := mail.SendNotification(
 							client,
 							aticker.alarmConf.Sender,
 							[]string{recipient},
@@ -114,6 +115,11 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 								link, link,
 							),
 						)
+						if err != nil {
+							log.Error().
+								Err(err).
+								Msgf("failed to send a notification e-mail to %s", recipient)
+						}
 					}
 
 				}()

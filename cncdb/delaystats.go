@@ -83,7 +83,8 @@ func string2NullString(s string) sql.NullString {
 }
 
 type DelayStats struct {
-	conn *sql.DB
+	conn     *sql.DB
+	location *time.Location
 }
 
 func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProcData, error) {
@@ -684,6 +685,6 @@ func (c *DelayStats) RollbackTx(transact *sql.Tx) error {
 	return transact.Rollback()
 }
 
-func NewDelayStats(db *sql.DB) *DelayStats {
-	return &DelayStats{conn: db}
+func NewDelayStats(db *sql.DB, location *time.Location) *DelayStats {
+	return &DelayStats{conn: db, location: location}
 }

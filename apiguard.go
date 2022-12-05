@@ -148,7 +148,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 		"/alarm", alarm.HandleReportListAction).Methods(http.MethodGet)
 
 	// telemetry analyzer
-	delayStats := cncdb.NewDelayStats(db)
+	delayStats := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
@@ -351,7 +351,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 func runCleanup(db *sql.DB, conf *config.Configuration) {
 	log.Info().Msg("running cleanup procedure")
-	delayLog := cncdb.NewDelayStats(db)
+	delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 	ans := delayLog.CleanOldData(conf.CleanupMaxAgeDays)
 	if ans.Error != nil {
 		log.Fatal().Err(ans.Error).Msg("failed to cleanup old records")
@@ -364,7 +364,7 @@ func runCleanup(db *sql.DB, conf *config.Configuration) {
 }
 
 func runStatus(db *sql.DB, conf *config.Configuration, ident string) {
-	delayLog := cncdb.NewDelayStats(db)
+	delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {
@@ -438,7 +438,7 @@ func runStatus(db *sql.DB, conf *config.Configuration, ident string) {
 }
 
 func runLearn(db *sql.DB, conf *config.Configuration) {
-	delayLog := cncdb.NewDelayStats(db)
+	delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
@@ -516,14 +516,14 @@ func main() {
 	case "ipban":
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
-		delayLog := cncdb.NewDelayStats(db)
+		delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.IPBanTTLSecs); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "ipunban":
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
-		delayLog := cncdb.NewDelayStats(db)
+		delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 		if err := delayLog.RemoveIPBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal().Err(err).Send()
 		}

@@ -121,6 +121,7 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 						page := aticker.createConfirmationPageURL(newReport, recipient)
 						err := mail.SendNotification(
 							client,
+							aticker.location,
 							aticker.alarmConf.Sender,
 							[]string{recipient},
 							fmt.Sprintf(

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/smtp"
 	"strings"
+	"time"
 )
 
 // SendNotification sends a general e-mail notification based on
@@ -19,6 +20,7 @@ import (
 // part of the message.
 func SendNotification(
 	client *smtp.Client,
+	location *time.Location,
 	sender string,
 	receivers []string,
 	subject string,
@@ -41,6 +43,7 @@ func SendNotification(
 	headers["Subject"] = subject
 	headers["MIME-Version"] = "1.0"
 	headers["Content-Type"] = "text/html; charset=UTF-8"
+	headers["Date"] = time.Now().In(location).Format("Mon, Jan 02 2006 15:04:05 -0700")
 
 	body := ""
 	for k, v := range headers {

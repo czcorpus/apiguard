@@ -4,11 +4,11 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package db
+package analyzer
 
 import (
 	"apiguard/cncdb"
-	"apiguard/services/kontext"
+	"apiguard/services"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-type KonTextUsersAnalyzer struct {
+type CNCUserAnalyzer struct {
 	db                   *sql.DB
 	location             *time.Location
 	UsersTableName       string
@@ -24,19 +24,19 @@ type KonTextUsersAnalyzer struct {
 	AnonymousUserID      int
 }
 
-func (kua *KonTextUsersAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 	return 0, nil
 }
 
-func (kua *KonTextUsersAnalyzer) RegisterDelayLog(respDelay time.Duration) error {
+func (kua *CNCUserAnalyzer) RegisterDelayLog(respDelay time.Duration) error {
 	return nil // TODO
 }
 
-func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (int, int, error) {
+func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) (int, int, error) {
 	if kua.db == nil {
 		return http.StatusOK, -1, nil
 	}
-	cookieValue := kontext.GetSessionKey(req, kua.CNCSessionCookieName)
+	cookieValue := services.GetSessionKey(req, kua.CNCSessionCookieName)
 	if cookieValue == "" {
 		return http.StatusUnauthorized, -1, fmt.Errorf("session cookie not found")
 	}
@@ -52,15 +52,15 @@ func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) (i
 	return status, userID, err
 }
 
-func NewKonTextUsersAnalyzer(
+func NewCNCUserAnalyzer(
 	db *sql.DB,
 	locaction *time.Location,
 	usersTableName string,
 	cncSessionCookieName string,
 	anonymousUserID int,
 
-) *KonTextUsersAnalyzer {
-	return &KonTextUsersAnalyzer{
+) *CNCUserAnalyzer {
+	return &CNCUserAnalyzer{
 		db:                   db,
 		location:             locaction,
 		UsersTableName:       usersTableName,

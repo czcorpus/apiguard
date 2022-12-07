@@ -94,3 +94,14 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 	time.Sleep(respDelay)
 	return nil
 }
+
+func GetSessionKey(req *http.Request, cookieName string) string {
+	var cookieValue string
+	for _, cookie := range req.Cookies() {
+		if cookie.Name == cookieName {
+			cookieValue = cookie.Value
+			break
+		}
+	}
+	return cookieValue
+}

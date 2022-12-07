@@ -25,6 +25,7 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
+	"apiguard/cncdb/analyzer"
 	"apiguard/config"
 	"apiguard/logging"
 	"apiguard/reqcache"
@@ -33,12 +34,12 @@ import (
 	"apiguard/services/cja"
 	"apiguard/services/kla"
 	"apiguard/services/kontext"
-	kontextDb "apiguard/services/kontext/db"
 	"apiguard/services/lguide"
 	"apiguard/services/neomat"
 	"apiguard/services/psjc"
 	"apiguard/services/requests"
 	"apiguard/services/ssjc"
+	"apiguard/services/treq"
 	"apiguard/services/tstorage"
 	"apiguard/users"
 
@@ -245,7 +246,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 	// KonText (API) proxy
 
-	kua := kontextDb.NewKonTextUsersAnalyzer(
+	cnca := analyzer.NewCNCUserAnalyzer(
 		db,
 		conf.TimezoneLocation(),
 		userTableName,
@@ -259,13 +260,29 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	}
 	kontextActions := kontext.NewKontextProxy(
 		&conf.Services.Kontext,
-		kua,
+		cnca,
 		conf.ServerReadTimeoutSecs,
 		db,
 		conf.TimezoneLocation(),
 		kontextReqCounter,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
+
+	// Treq (API) proxy
+
+	var treqReqCounter chan<- alarms.RequestInfo
+	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
+		treqReqCounter = alarm.Register("treq", conf.Services.Kontext.Alarm)
+	}
+	treqActions := treq.NewTreqProxy(
+		&conf.Services.Treq,
+		cnca,
+		conf.ServerReadTimeoutSecs,
+		db,
+		conf.TimezoneLocation(),
+		treqReqCounter,
+	)
+	router.PathPrefix("/service/treq").HandlerFunc(treqActions.AnyPath)
 
 	// user handling
 

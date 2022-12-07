@@ -54,8 +54,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			Float64("procTime", t1.Seconds()).
 			Msgf("dispatched request to 'kontext'")
 	}()
-	path := req.URL.Path
-	if !strings.HasPrefix(path, ServicePath) {
+	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
@@ -78,14 +77,8 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	if kp.conf.UseHeaderXApiKey {
 		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
 	}
-	path = path[len(ServicePath):]
-	urlArgs := req.URL.Query()
-	if _, ok := urlArgs["format"]; !ok {
-		urlArgs["format"] = []string{"json"}
-	}
-	// TODO use some path builder here
-	url := fmt.Sprintf("/%s?%s", path, urlArgs.Encode())
-	serviceResp, err := kp.makeRequest(url, req)
+
+	serviceResp, err := kp.makeRequest(req)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
@@ -103,11 +96,17 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	w.Write(serviceResp.Body)
 }
 
-func (kp *KontextProxy) makeRequest(url string, req *http.Request) (*services.ProxiedResponse, error) {
-	body, header, err := kp.cache.Get(url)
+func (kp *KontextProxy) makeRequest(req *http.Request) (*services.ProxiedResponse, error) {
+	body, header, err := kp.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
+		path := req.URL.Path[len(ServicePath):]
+		urlArgs := req.URL.Query()
+		if _, ok := urlArgs["format"]; !ok {
+			urlArgs["format"] = []string{"json"}
+		}
 		serviceResp := kp.apiProxy.Request(
-			url,
+			// TODO use some path builder here
+			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 			req.Method,
 			req.Header,
 			req.Body,
@@ -115,7 +114,7 @@ func (kp *KontextProxy) makeRequest(url string, req *http.Request) (*services.Pr
 		if serviceResp.Err != nil {
 			return nil, serviceResp.Err
 		}
-		err = kp.cache.Set(url, string(serviceResp.Body), &serviceResp.Headers, req)
+		err = kp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
 		if err != nil {
 			return nil, err
 		}

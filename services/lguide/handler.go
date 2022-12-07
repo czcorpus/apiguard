@@ -62,13 +62,13 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 }
 
 func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) (string, error) {
-	cachedResult, _, err := lga.cache.Get(url)
+	cachedResult, _, err := lga.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, lga.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = lga.cache.Set(url, sbody, nil, req)
+		err = lga.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", err
 		}

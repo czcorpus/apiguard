@@ -54,8 +54,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			Float64("procTime", t1.Seconds()).
 			Msgf("dispatched request to 'treq'")
 	}()
-	path := req.URL.Path
-	if !strings.HasPrefix(path, ServicePath) {
+	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
@@ -78,14 +77,8 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	if kp.conf.UseHeaderXApiKey {
 		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
 	}
-	path = path[len(ServicePath):]
-	urlArgs := req.URL.Query()
-	if _, ok := urlArgs["format"]; !ok {
-		urlArgs["format"] = []string{"json"}
-	}
-	// TODO use some path builder here
-	url := fmt.Sprintf("/%s?%s", path, urlArgs.Encode())
-	serviceResp, err := kp.makeRequest(url, req)
+
+	serviceResp, err := kp.makeRequest(req)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
@@ -95,6 +88,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		)
 		return
 	}
+
 	for k, v := range serviceResp.Headers {
 		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
@@ -102,11 +96,17 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	w.Write(serviceResp.Body)
 }
 
-func (tp *TreqProxy) makeRequest(url string, req *http.Request) (*services.ProxiedResponse, error) {
-	body, header, err := tp.cache.Get(url)
+func (tp *TreqProxy) makeRequest(req *http.Request) (*services.ProxiedResponse, error) {
+	body, header, err := tp.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
+		path := req.URL.Path[len(ServicePath):]
+		urlArgs := req.URL.Query()
+		if _, ok := urlArgs["format"]; !ok {
+			urlArgs["format"] = []string{"json"}
+		}
 		serviceResp := tp.apiProxy.Request(
-			url,
+			// TODO use some path builder here
+			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 			req.Method,
 			req.Header,
 			req.Body,
@@ -114,7 +114,7 @@ func (tp *TreqProxy) makeRequest(url string, req *http.Request) (*services.Proxi
 		if serviceResp.Err != nil {
 			return nil, serviceResp.Err
 		}
-		err = tp.cache.Set(url, string(serviceResp.Body), &serviceResp.Headers, req)
+		err = tp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
 		if err != nil {
 			return nil, err
 		}

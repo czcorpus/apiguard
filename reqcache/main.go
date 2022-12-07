@@ -41,8 +41,8 @@ func (rc *ReqCache) createItemPath(url string) string {
 	return path.Join(rc.conf.RootPath, bs[0:1], bs)
 }
 
-func (rc *ReqCache) Get(url string) (string, *http.Header, error) {
-	filePath := rc.createItemPath(url)
+func (rc *ReqCache) Get(req *http.Request) (string, *http.Header, error) {
+	filePath := rc.createItemPath(req.URL.Path)
 	if !fsops.IsFile(filePath) ||
 		time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
 		return "", nil, ErrCacheMiss
@@ -64,9 +64,9 @@ func (rc *ReqCache) Get(url string) (string, *http.Header, error) {
 	return cacheData.Body, cacheData.Header, err
 }
 
-func (rc *ReqCache) Set(url, body string, header *http.Header, req *http.Request) error {
+func (rc *ReqCache) Set(req *http.Request, body string, header *http.Header) error {
 	if req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
-		targetPath := rc.createItemPath(url)
+		targetPath := rc.createItemPath(req.URL.Path)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		rawData, err := json.Marshal(CacheData{
 			Header: header,

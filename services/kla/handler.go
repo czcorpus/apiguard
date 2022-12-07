@@ -83,13 +83,13 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 }
 
 func (aa *KLAActions) createMainRequest(url string, req *http.Request) (string, error) {
-	cachedResult, _, err := aa.cache.Get(url)
+	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody, nil, req)
+		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", err
 		}

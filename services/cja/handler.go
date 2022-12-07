@@ -61,13 +61,13 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 }
 
 func (aa *NeomatActions) createSubRequest(url string, req *http.Request) (string, int, error) {
-	cachedResult, _, err := aa.cache.Get(url)
+	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, status, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", 0, err
 		}
-		err = aa.cache.Set(url, sbody, nil, req)
+		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", 0, err
 		}

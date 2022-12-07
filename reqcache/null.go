@@ -10,11 +10,11 @@ import "net/http"
 
 type NullCache struct{}
 
-func (rc *NullCache) Get(url string) (string, *http.Header, error) {
+func (rc *NullCache) Get(req *http.Request) (string, *http.Header, error) {
 	return "", nil, ErrCacheMiss
 }
 
-func (rc *NullCache) Set(url, body string, header *http.Header, req *http.Request) error {
+func (rc *NullCache) Set(req *http.Request, body string, header *http.Header) error {
 	return nil
 }
 

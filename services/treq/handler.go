@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package kontext
+package treq
 
 import (
 	"apiguard/alarms"
@@ -19,10 +19,10 @@ import (
 )
 
 const (
-	ServicePath = "/service/kontext"
+	ServicePath = "/service/treq"
 )
 
-type KontextProxy struct {
+type TreqProxy struct {
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -37,13 +37,13 @@ type KontextProxy struct {
 	reqCounter chan<- alarms.RequestInfo
 }
 
-func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID int
 	t0 := time.Now().In(kp.location)
 	defer func() {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
-				Service:     "kontext",
+				Service:     "treq",
 				NumRequests: 1,
 				UserID:      userID,
 			}
@@ -51,7 +51,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		t1 := time.Since(t0)
 		log.Debug().
 			Float64("procTime", t1.Seconds()).
-			Msgf("dispatched request to 'kontext'")
+			Msgf("dispatched request to 'treq'")
 	}()
 	path := req.URL.Path
 	if !strings.HasPrefix(path, ServicePath) {
@@ -104,15 +104,15 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	w.Write(serviceResp.Body)
 }
 
-func NewKontextProxy(
+func NewTreqProxy(
 	conf *Conf,
 	analyzer services.ReqAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
 	loc *time.Location,
 	reqCounter chan<- alarms.RequestInfo,
-) *KontextProxy {
-	return &KontextProxy{
+) *TreqProxy {
+	return &TreqProxy{
 		conf:            conf,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,

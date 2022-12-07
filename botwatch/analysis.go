@@ -9,6 +9,7 @@ package botwatch
 import (
 	"apiguard/logging"
 	"apiguard/monitoring"
+	"apiguard/services"
 	"apiguard/telemetry"
 	"apiguard/telemetry/backend"
 	"apiguard/telemetry/backend/counting"
@@ -76,8 +77,13 @@ func (a *Analyzer) Learn() error {
 	return a.backend.Learn()
 }
 
-func (a *Analyzer) UserInducedResponseStatus(req *http.Request) (int, int, error) {
-	return http.StatusOK, 0, nil
+func (a *Analyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
+	return services.ReqProperties{
+		UserID:         -1,
+		SessionID:      "",
+		ProposedStatus: http.StatusOK,
+		Error:          nil,
+	}
 }
 
 func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {

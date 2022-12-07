@@ -64,10 +64,17 @@ func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int,
 	w.Write(jsonAns)
 }
 
+type ReqProperties struct {
+	UserID         int
+	SessionID      string
+	ProposedStatus int
+	Error          error
+}
+
 type ReqAnalyzer interface {
 	CalcDelay(req *http.Request) (time.Duration, error)
 	RegisterDelayLog(respDelay time.Duration) error
-	UserInducedResponseStatus(req *http.Request) (int, int, error)
+	UserInducedResponseStatus(req *http.Request) ReqProperties
 }
 
 func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer ReqAnalyzer) error {
@@ -93,15 +100,4 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 	go analyzer.RegisterDelayLog(respDelay)
 	time.Sleep(respDelay)
 	return nil
-}
-
-func GetSessionKey(req *http.Request, cookieName string) string {
-	var cookieValue string
-	for _, cookie := range req.Cookies() {
-		if cookie.Name == cookieName {
-			cookieValue = cookie.Value
-			break
-		}
-	}
-	return cookieValue
 }

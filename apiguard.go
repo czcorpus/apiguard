@@ -32,6 +32,7 @@ import (
 	"apiguard/services"
 	"apiguard/services/assc"
 	"apiguard/services/cja"
+	"apiguard/services/defaults"
 	"apiguard/services/kla"
 	"apiguard/services/kontext"
 	"apiguard/services/lguide"
@@ -293,6 +294,18 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	router.HandleFunc("/user/{userID}/ban", usersActions.SetBan).Methods(http.MethodPut)
 
 	router.HandleFunc("/user/{userID}/ban", usersActions.DisableBan).Methods(http.MethodDelete)
+
+	// session tools
+
+	sessActions := defaults.NewActions(
+		map[string]defaults.DefaultsProvider{
+			"kontext": kontextActions,
+		},
+	)
+
+	router.HandleFunc("/defaults/{serviceID}/{key}", sessActions.Get).Methods(http.MethodGet)
+
+	router.HandleFunc("/defaults/{serviceID}/{key}", sessActions.Set).Methods(http.MethodPost)
 
 	// administration/monitoring actions
 

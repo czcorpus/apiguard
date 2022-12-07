@@ -32,24 +32,52 @@ func (kua *CNCUserAnalyzer) RegisterDelayLog(respDelay time.Duration) error {
 	return nil // TODO
 }
 
-func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) (int, int, error) {
+func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
+	cookieValue := services.GetSessionKey(req, kua.CNCSessionCookieName)
+	if cookieValue == "" {
+		return ""
+	}
+	return strings.SplitN(cookieValue, "-", 2)[0]
+}
+
+func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
 	if kua.db == nil {
-		return http.StatusOK, -1, nil
+		return services.ReqProperties{
+			ProposedStatus: http.StatusOK,
+			UserID:         -1,
+			SessionID:      "",
+			Error:          nil,
+		}
 	}
 	cookieValue := services.GetSessionKey(req, kua.CNCSessionCookieName)
 	if cookieValue == "" {
-		return http.StatusUnauthorized, -1, fmt.Errorf("session cookie not found")
+		return services.ReqProperties{
+			ProposedStatus: http.StatusUnauthorized,
+			UserID:         -1,
+			SessionID:      "",
+			Error:          fmt.Errorf("session cookie not found"),
+		}
 	}
-	tmp := strings.SplitN(cookieValue, "-", 2)
-	banned, userID, err := cncdb.FindBanForSession(kua.db, kua.location, tmp[0])
+	sessionID := kua.GetSessionID(req)
+	banned, userID, err := cncdb.FindBanForSession(kua.db, kua.location, sessionID)
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
-		return http.StatusUnauthorized, -1, nil
+		return services.ReqProperties{
+			ProposedStatus: http.StatusUnauthorized,
+			UserID:         -1,
+			SessionID:      "",
+			Error:          nil,
+		}
 	}
 	status := http.StatusOK
 	if banned {
 		status = http.StatusForbidden
 	}
-	return status, userID, err
+	return services.ReqProperties{
+		ProposedStatus: status,
+		UserID:         userID,
+		SessionID:      sessionID,
+		Error:          err,
+	}
 }
 
 func NewCNCUserAnalyzer(

@@ -15,6 +15,17 @@ import (
 	"net/url"
 )
 
+func GetSessionKey(req *http.Request, cookieName string) string {
+	var cookieValue string
+	for _, cookie := range req.Cookies() {
+		if cookie.Name == cookieName {
+			cookieValue = cookie.Value
+			break
+		}
+	}
+	return cookieValue
+}
+
 func GetRequest(url, userAgent string) (string, int, error) {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

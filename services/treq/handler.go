@@ -58,18 +58,18 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	uiStatus, userID, err := kp.analyzer.UserInducedResponseStatus(req)
-	if err != nil {
+	reqProps := kp.analyzer.UserInducedResponseStatus(req)
+	if reqProps.Error != nil {
 		// TODO
 		http.Error(
 			w,
-			fmt.Sprintf("Failed to proxy request: %s", err),
-			uiStatus,
+			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
+			reqProps.ProposedStatus,
 		)
 		return
 
-	} else if uiStatus > 400 && uiStatus < 500 {
-		http.Error(w, http.StatusText(uiStatus), uiStatus)
+	} else if reqProps.ProposedStatus > 400 && reqProps.ProposedStatus < 500 {
+		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
@@ -78,12 +78,12 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
 	}
 
-	serviceResp, err := kp.makeRequest(req)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to proxy request %s", req.URL.Path)
+	serviceResp := kp.makeRequest(req)
+	if serviceResp.Err != nil {
+		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
 			w,
-			fmt.Sprintf("failed to proxy request: %s", err),
+			fmt.Sprintf("failed to proxy request: %s", serviceResp.Err),
 			http.StatusInternalServerError,
 		)
 		return
@@ -96,7 +96,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	w.Write(serviceResp.Body)
 }
 
-func (tp *TreqProxy) makeRequest(req *http.Request) (*services.ProxiedResponse, error) {
+func (tp *TreqProxy) makeRequest(req *http.Request) *services.ProxiedResponse {
 	body, header, err := tp.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
@@ -112,18 +112,19 @@ func (tp *TreqProxy) makeRequest(req *http.Request) (*services.ProxiedResponse, 
 			req.Body,
 		)
 		if serviceResp.Err != nil {
-			return nil, serviceResp.Err
+			return serviceResp
 		}
-		err = tp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
-		if err != nil {
-			return nil, err
-		}
-		return serviceResp, nil
+		serviceResp.Err = tp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
+		return serviceResp
 
 	} else if err != nil {
-		return nil, err
+		return &services.ProxiedResponse{Err: err}
 	}
-	return &services.ProxiedResponse{Body: []byte(body), Headers: *header, StatusCode: 200, Err: nil}, nil
+	return &services.ProxiedResponse{
+		Body:       []byte(body),
+		Headers:    *header,
+		StatusCode: 200,
+	}
 }
 
 func NewTreqProxy(

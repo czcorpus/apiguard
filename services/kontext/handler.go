@@ -9,7 +9,10 @@ package kontext
 import (
 	"apiguard/alarms"
 	"apiguard/services"
+	"apiguard/services/defaults"
+	"apiguard/services/kontext/db"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -22,22 +25,12 @@ const (
 	ServicePath = "/service/kontext"
 )
 
-func GetSessionKey(req *http.Request, cookieName string) string {
-	var cookieValue string
-	for _, cookie := range req.Cookies() {
-		if cookie.Name == cookieName {
-			cookieValue = cookie.Value
-			break
-		}
-	}
-	return cookieValue
-}
-
 type KontextProxy struct {
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
-	analyzer        services.ReqAnalyzer
+	defaults        map[string]defaults.Args
+	analyzer        *db.KonTextUsersAnalyzer
 	cncDB           *sql.DB
 	location        *time.Location
 	apiProxy        services.APIProxy
@@ -46,6 +39,31 @@ type KontextProxy struct {
 	// to an alarm service. Please note that this value can be nil
 	// (in such case, nothing is sent)
 	reqCounter chan<- alarms.RequestInfo
+}
+
+func (kp *KontextProxy) SetDefault(req *http.Request, key, value string) error {
+	sessionID := kp.analyzer.GetSessionID(req)
+	if sessionID == "" {
+		return errors.New("session not found")
+	}
+	kp.defaults[sessionID].Set(key, value)
+	return nil
+}
+
+func (kp *KontextProxy) GetDefault(req *http.Request, key string) (string, error) {
+	sessionID := kp.analyzer.GetSessionID(req)
+	if sessionID == "" {
+		return "", errors.New("session not found")
+	}
+	return kp.defaults[sessionID].Get(key), nil
+}
+
+func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
+	sessionID := kp.analyzer.GetSessionID(req)
+	if sessionID == "" {
+		return map[string][]string{}, errors.New("session not found")
+	}
+	return kp.defaults[sessionID], nil
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
@@ -69,30 +87,33 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	uiStatus, userID, err := kp.analyzer.UserInducedResponseStatus(req)
-	if err != nil {
+	reqProps := kp.analyzer.UserInducedResponseStatus(req)
+	if reqProps.Error != nil {
 		// TODO
 		http.Error(
 			w,
-			fmt.Sprintf("Failed to proxy request: %s", err),
-			uiStatus,
+			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
+			reqProps.ProposedStatus,
 		)
 		return
 
-	} else if uiStatus > 400 && uiStatus < 500 {
-		http.Error(w, http.StatusText(uiStatus), uiStatus)
+	} else if reqProps.ProposedStatus > 400 && reqProps.ProposedStatus < 500 {
+		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
 	passedHeaders := req.Header
 	if kp.conf.UseHeaderXApiKey {
-		passedHeaders["X-Api-Key"] = []string{GetSessionKey(req, kp.conf.SessionCookieName)}
+		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
 	}
 	path = path[len(ServicePath):]
-	urlArgs := req.URL.Query()
-	if _, ok := urlArgs["format"]; !ok {
-		urlArgs["format"] = []string{"json"}
+
+	dfltArgs, ok := kp.defaults[reqProps.SessionID]
+	if !ok {
+		dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
 	}
+	urlArgs := req.URL.Query()
+	dfltArgs.Apply(urlArgs)
 	serviceResp := kp.apiProxy.Request(
 		// TODO use some path builder here
 		fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
@@ -117,7 +138,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 
 func NewKontextProxy(
 	conf *Conf,
-	analyzer services.ReqAnalyzer,
+	analyzer *db.KonTextUsersAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
 	loc *time.Location,
@@ -126,6 +147,7 @@ func NewKontextProxy(
 	return &KontextProxy{
 		conf:            conf,
 		analyzer:        analyzer,
+		defaults:        make(map[string]defaults.Args),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
 		location:        loc,

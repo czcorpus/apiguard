@@ -28,7 +28,7 @@ CREATE TABLE user_session (
   UNIQUE KEY uc_user_session_selector (selector),
   KEY fk_user_session_user_id (user_id),
   CONSTRAINT fk_user_session_user_id FOREIGN KEY (user_id) REFERENCES user(id)
-) ENGINE=InnoDB
+) ENGINE=InnoDB;
 
 CREATE TABLE api_user_ban (
 	id INTEGER NOT NULL auto_increment,
@@ -38,7 +38,14 @@ CREATE TABLE api_user_ban (
 	active TINYINT NOT NULL DEFAULT 1, -- so we can disable it any time and also to archive records
 	PRIMARY KEY (id),
 	FOREIGN KEY (user_id) REFERENCES kontext_user(id)
-)
+) ENGINE=InnoDB;
+
+CREATE TABLE apiguard_session_conf (
+	session_id int(11) NOT NULL,
+	data TEXT NOT NULL DEFAULT '{}',
+	PRIMARY KEY (session_id),
+	FOREIGN KEY (session_id) REFERENCES user_session(id)
+) ENGINE=InnoDB;
 
 -- privileges:
 
@@ -51,6 +58,7 @@ grant select on user_session to 'apiguard'@'192.168.1.%';
 grant select on user to 'apiguard'@'192.168.1.%';
 grant select, update, delete, insert on api_user_ban to 'apiguard'@'192.168.1.%';
 grant select, update, delete, insert on api_ip_ban to 'apiguard'@'192.168.1.%';
+grant select, update, delete, insert on apiguard_session_conf to 'apiguard'@'192.168.1.%';
 
 */
 

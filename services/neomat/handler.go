@@ -49,7 +49,9 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	responseHTML, err := aa.createMainRequest(
-		fmt.Sprintf("%s/index.php?retezec=%s&prijimam=1", aa.conf.BaseURL, url.QueryEscape(query)))
+		fmt.Sprintf("%s/index.php?retezec=%s&prijimam=1", aa.conf.BaseURL, url.QueryEscape(query)),
+		req,
+	)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
@@ -64,14 +66,14 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, Response{Entries: entries})
 }
 
-func (aa *NeomatActions) createMainRequest(url string) (string, error) {
-	cachedResult, err := aa.cache.Get(url)
+func (aa *NeomatActions) createMainRequest(url string, req *http.Request) (string, error) {
+	cachedResult, _, err := aa.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody)
+		err = aa.cache.Set(url, sbody, req)
 		if err != nil {
 			return "", err
 		}

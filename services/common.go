@@ -6,7 +6,9 @@
 
 package services
 
+import "net/http"
+
 type Cache interface {
-	Get(url string) (string, error)
-	Set(url, body string) error
+	Get(url string) (string, *http.Header, error)
+	Set(url, body string, req *http.Request) error
 }

@@ -6,13 +6,15 @@
 
 package reqcache
 
+import "net/http"
+
 type NullCache struct{}
 
-func (rc *NullCache) Get(url string) (string, error) {
-	return "", ErrCacheMiss
+func (rc *NullCache) Get(url string) (string, *http.Header, error) {
+	return "", nil, ErrCacheMiss
 }
 
-func (rc *NullCache) Set(url, body string) error {
+func (rc *NullCache) Set(url, body string, req *http.Request) error {
 	return nil
 }
 

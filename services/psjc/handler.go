@@ -47,7 +47,9 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	var query string
 	for _, query = range queries {
 		responseHTML, err := aa.createMainRequest(
-			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)))
+			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
+			req,
+		)
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -70,14 +72,14 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-func (aa *PSJCActions) createMainRequest(url string) (string, error) {
-	cachedResult, err := aa.cache.Get(url)
+func (aa *PSJCActions) createMainRequest(url string, req *http.Request) (string, error) {
+	cachedResult, _, err := aa.cache.Get(url)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody)
+		err = aa.cache.Set(url, sbody, req)
 		if err != nil {
 			return "", err
 		}

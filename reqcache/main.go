@@ -57,19 +57,19 @@ func (rc *ReqCache) Get(url string) (string, *http.Header, error) {
 		return "", nil, err
 	}
 	cacheData := CacheData{}
-	err = json.Unmarshal(rawData, cacheData)
+	err = json.Unmarshal(rawData, &cacheData)
 	if err != nil {
 		return "", nil, err
 	}
 	return cacheData.Body, cacheData.Header, err
 }
 
-func (rc *ReqCache) Set(url, body string, req *http.Request) error {
+func (rc *ReqCache) Set(url, body string, header *http.Header, req *http.Request) error {
 	if req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
 		targetPath := rc.createItemPath(url)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		rawData, err := json.Marshal(CacheData{
-			Header: &req.Header,
+			Header: header,
 			Body:   body,
 		})
 		if err != nil {

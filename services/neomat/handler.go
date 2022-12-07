@@ -73,7 +73,7 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) (strin
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody, req)
+		err = aa.cache.Set(url, sbody, nil, req)
 		if err != nil {
 			return "", err
 		}

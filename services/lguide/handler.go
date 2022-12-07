@@ -68,7 +68,7 @@ func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request
 		if err != nil {
 			return "", err
 		}
-		err = lga.cache.Set(url, sbody, req)
+		err = lga.cache.Set(url, sbody, nil, req)
 		if err != nil {
 			return "", err
 		}

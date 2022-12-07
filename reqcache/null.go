@@ -14,7 +14,7 @@ func (rc *NullCache) Get(url string) (string, *http.Header, error) {
 	return "", nil, ErrCacheMiss
 }
 
-func (rc *NullCache) Set(url, body string, req *http.Request) error {
+func (rc *NullCache) Set(url, body string, header *http.Header, req *http.Request) error {
 	return nil
 }
 

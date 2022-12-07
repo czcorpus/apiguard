@@ -8,6 +8,7 @@ package kontext
 
 import (
 	"apiguard/alarms"
+	"apiguard/reqcache"
 	"apiguard/services"
 	"database/sql"
 	"fmt"
@@ -82,26 +83,48 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	if _, ok := urlArgs["format"]; !ok {
 		urlArgs["format"] = []string{"json"}
 	}
-	serviceResp := kp.apiProxy.Request(
-		// TODO use some path builder here
-		fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
-		req.Method,
-		req.Header,
-		req.Body,
-	)
-	if serviceResp.Err != nil {
-		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
+	// TODO use some path builder here
+	url := fmt.Sprintf("/%s?%s", path, urlArgs.Encode())
+	serviceResp, err := kp.makeRequest(url, req)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
 			w,
-			fmt.Sprintf("failed to proxy request: %s", serviceResp.Err),
+			fmt.Sprintf("failed to proxy request: %s", err),
 			http.StatusInternalServerError,
 		)
+		return
 	}
+
 	for k, v := range serviceResp.Headers {
 		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
 	w.WriteHeader(serviceResp.StatusCode)
 	w.Write(serviceResp.Body)
+}
+
+func (kp *KontextProxy) makeRequest(url string, req *http.Request) (*services.ProxiedResponse, error) {
+	body, header, err := kp.cache.Get(url)
+	if err == reqcache.ErrCacheMiss {
+		serviceResp := kp.apiProxy.Request(
+			url,
+			req.Method,
+			req.Header,
+			req.Body,
+		)
+		if serviceResp.Err != nil {
+			return nil, serviceResp.Err
+		}
+		err = kp.cache.Set(url, string(serviceResp.Body), &serviceResp.Headers, req)
+		if err != nil {
+			return nil, err
+		}
+		return serviceResp, nil
+
+	} else if err != nil {
+		return nil, err
+	}
+	return &services.ProxiedResponse{Body: []byte(body), Headers: *header, StatusCode: 200, Err: nil}, nil
 }
 
 func NewKontextProxy(

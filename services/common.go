@@ -10,5 +10,5 @@ import "net/http"
 
 type Cache interface {
 	Get(url string) (string, *http.Header, error)
-	Set(url, body string, req *http.Request) error
+	Set(url, body string, header *http.Header, req *http.Request) error
 }

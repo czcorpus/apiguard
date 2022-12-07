@@ -79,7 +79,7 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) (string,
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody, req)
+		err = aa.cache.Set(url, sbody, nil, req)
 		if err != nil {
 			return "", err
 		}

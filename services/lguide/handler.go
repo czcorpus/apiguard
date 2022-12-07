@@ -61,11 +61,14 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 	return string(body), nil
 }
 
-func (lga *LanguageGuideActions) createMainRequest(url string) (string, error) {
-	cachedResult, err := lga.cache.Get(url)
+func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) (string, error) {
+	cachedResult, _, err := lga.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, lga.conf.ClientUserAgent)
-		err = lga.cache.Set(url, sbody)
+		if err != nil {
+			return "", err
+		}
+		err = lga.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", err
 		}
@@ -123,10 +126,14 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	direct := req.URL.Query().Get("direct")
 	if direct == "1" {
 		responseHTML, err = lga.createMainRequest(
-			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(query)))
+			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(query)),
+			req,
+		)
 	} else {
 		responseHTML, err = lga.createMainRequest(
-			fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)))
+			fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)),
+			req,
+		)
 	}
 
 	if err != nil {
@@ -137,7 +144,9 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	if len(parsed.Alternatives) > 0 {
 		alts := parsed.Alternatives
 		responseHTML, err = lga.createMainRequest(
-			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(alts[0].Id)))
+			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(alts[0].Id)),
+			req,
+		)
 
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)

@@ -20,6 +20,7 @@ import (
 	"apiguard/services/neomat"
 	"apiguard/services/psjc"
 	"apiguard/services/ssjc"
+	"apiguard/services/treq"
 	"apiguard/telemetry"
 	"encoding/json"
 	"io/ioutil"
@@ -47,6 +48,7 @@ type servicesSection struct {
 	Neomat        neomat.Conf  `json:"neomat"`
 	CJA           cja.Conf     `json:"cja"`
 	Kontext       kontext.Conf `json:"kontext"`
+	Treq          treq.Conf    `json:"treq"`
 }
 
 func (services *servicesSection) validate() error {
@@ -70,6 +72,9 @@ func (services *servicesSection) validate() error {
 	}
 	if services.Kontext.InternalURL != "" {
 		log.Info().Msgf("Service Kontext enabled")
+	}
+	if services.Treq.InternalURL != "" {
+		log.Info().Msgf("Service Treq enabled")
 	}
 	return nil
 }

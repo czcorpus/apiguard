@@ -43,6 +43,7 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	responseHTML, backlink, err := aa.createRequests(
 		fmt.Sprintf("%s/e-cja/h/?hw=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		fmt.Sprintf("%s/e-cja/h/?doklad=%s", aa.conf.BaseURL, url.QueryEscape(query)),
+		req,
 	)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
@@ -59,14 +60,14 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *NeomatActions) createSubRequest(url string) (string, int, error) {
-	cachedResult, err := aa.cache.Get(url)
+func (aa *NeomatActions) createSubRequest(url string, req *http.Request) (string, int, error) {
+	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, status, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", 0, err
 		}
-		err = aa.cache.Set(url, sbody)
+		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", 0, err
 		}
@@ -75,13 +76,13 @@ func (aa *NeomatActions) createSubRequest(url string) (string, int, error) {
 	return cachedResult, 200, nil
 }
 
-func (aa *NeomatActions) createRequests(url1 string, url2 string) (string, string, error) {
-	result, status, err := aa.createSubRequest(url1)
+func (aa *NeomatActions) createRequests(url1 string, url2 string, req *http.Request) (string, string, error) {
+	result, status, err := aa.createSubRequest(url1, req)
 	if err != nil {
 		return "", "", err
 	}
 	if status == 500 {
-		result, _, err = aa.createSubRequest(url2)
+		result, _, err = aa.createSubRequest(url2, req)
 		if err != nil {
 			return "", "", err
 		}

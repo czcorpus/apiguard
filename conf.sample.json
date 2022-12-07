@@ -19,6 +19,16 @@
                 "reqCheckingIntervalSecs": 10,
                 "recipients": ["tomas.machalek@gmail.com"]
             }
+        },
+        "treq": {
+            "internalUrl": "http://localhost:8081",
+            "externalUrl": "http://localhost:3010/service/treq",
+            "sessionCookieName": "cnc_toolbar_sid",
+            "alarm": {
+                "reqPerTimeThreshold": 2,
+                "reqCheckingIntervalSecs": 10,
+                "recipients": ["tomas.machalek@gmail.com"]
+            }
         }
     },
     "mail": {

@@ -52,7 +52,9 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	var query string
 	for _, query = range queries {
 		responseHTML, err := aa.createMainRequest(
-			fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)))
+			fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)),
+			req,
+		)
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -68,7 +70,9 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		if len(STIs) > 0 {
 			for _, STI := range STIs {
 				subResponseHTML, err := aa.createMainRequest(
-					fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI))
+					fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI),
+					req,
+				)
 				if err != nil {
 					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 					return
@@ -105,14 +109,14 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *SSJCActions) createMainRequest(url string) (string, error) {
-	cachedResult, err := aa.cache.Get(url)
+func (aa *SSJCActions) createMainRequest(url string, req *http.Request) (string, error) {
+	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody)
+		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", err
 		}

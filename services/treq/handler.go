@@ -4,16 +4,13 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package kontext
+package treq
 
 import (
 	"apiguard/alarms"
-	"apiguard/cncdb/analyzer"
 	"apiguard/reqcache"
 	"apiguard/services"
-	"apiguard/services/defaults"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -23,15 +20,14 @@ import (
 )
 
 const (
-	ServicePath = "/service/kontext"
+	ServicePath = "/service/treq"
 )
 
-type KontextProxy struct {
+type TreqProxy struct {
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
-	defaults        map[string]defaults.Args
-	analyzer        *analyzer.CNCUserAnalyzer
+	analyzer        services.ReqAnalyzer
 	cncDB           *sql.DB
 	location        *time.Location
 	apiProxy        services.APIProxy
@@ -42,38 +38,13 @@ type KontextProxy struct {
 	reqCounter chan<- alarms.RequestInfo
 }
 
-func (kp *KontextProxy) SetDefault(req *http.Request, key, value string) error {
-	sessionID := kp.analyzer.GetSessionID(req)
-	if sessionID == "" {
-		return errors.New("session not found")
-	}
-	kp.defaults[sessionID].Set(key, value)
-	return nil
-}
-
-func (kp *KontextProxy) GetDefault(req *http.Request, key string) (string, error) {
-	sessionID := kp.analyzer.GetSessionID(req)
-	if sessionID == "" {
-		return "", errors.New("session not found")
-	}
-	return kp.defaults[sessionID].Get(key), nil
-}
-
-func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
-	sessionID := kp.analyzer.GetSessionID(req)
-	if sessionID == "" {
-		return map[string][]string{}, errors.New("session not found")
-	}
-	return kp.defaults[sessionID], nil
-}
-
-func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID int
 	t0 := time.Now().In(kp.location)
 	defer func() {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
-				Service:     "kontext",
+				Service:     "treq",
 				NumRequests: 1,
 				UserID:      userID,
 			}
@@ -81,7 +52,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		t1 := time.Since(t0)
 		log.Debug().
 			Float64("procTime", t1.Seconds()).
-			Msgf("dispatched request to 'kontext'")
+			Msgf("dispatched request to 'treq'")
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
@@ -107,7 +78,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
 	}
 
-	serviceResp := kp.makeRequest(req, reqProps)
+	serviceResp := kp.makeRequest(req)
 	if serviceResp.Err != nil {
 		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
@@ -125,22 +96,15 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	w.Write(serviceResp.Body)
 }
 
-func (kp *KontextProxy) makeRequest(
-	req *http.Request,
-	reqProps services.ReqProperties,
-) *services.ProxiedResponse {
-
-	body, header, err := kp.cache.Get(req)
+func (tp *TreqProxy) makeRequest(req *http.Request) *services.ProxiedResponse {
+	body, header, err := tp.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
-
-		dfltArgs, ok := kp.defaults[reqProps.SessionID]
-		if !ok {
-			dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
-		}
 		urlArgs := req.URL.Query()
-		dfltArgs.Apply(urlArgs)
-		serviceResp := kp.apiProxy.Request(
+		if _, ok := urlArgs["format"]; !ok {
+			urlArgs["format"] = []string{"json"}
+		}
+		serviceResp := tp.apiProxy.Request(
 			// TODO use some path builder here
 			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 			req.Method,
@@ -150,7 +114,7 @@ func (kp *KontextProxy) makeRequest(
 		if serviceResp.Err != nil {
 			return serviceResp
 		}
-		serviceResp.Err = kp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
+		serviceResp.Err = tp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
 		return serviceResp
 
 	} else if err != nil {
@@ -163,18 +127,17 @@ func (kp *KontextProxy) makeRequest(
 	}
 }
 
-func NewKontextProxy(
+func NewTreqProxy(
 	conf *Conf,
-	analyzer *analyzer.CNCUserAnalyzer,
+	analyzer services.ReqAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
 	loc *time.Location,
 	reqCounter chan<- alarms.RequestInfo,
-) *KontextProxy {
-	return &KontextProxy{
+) *TreqProxy {
+	return &TreqProxy{
 		conf:            conf,
 		analyzer:        analyzer,
-		defaults:        make(map[string]defaults.Args),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
 		location:        loc,

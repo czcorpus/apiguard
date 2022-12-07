@@ -50,7 +50,9 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	var data *dataStruct
 	for _, query := range queries {
 		responseHTML, err := aa.createMainRequest(
-			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)))
+			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)),
+			req,
+		)
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -69,14 +71,14 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, data)
 }
 
-func (aa *ASSCActions) createMainRequest(url string) (string, error) {
-	cachedResult, err := aa.cache.Get(url)
+func (aa *ASSCActions) createMainRequest(url string, req *http.Request) (string, error) {
+	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
 			return "", err
 		}
-		err = aa.cache.Set(url, sbody)
+		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
 			return "", err
 		}

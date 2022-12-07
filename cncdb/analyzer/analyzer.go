@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package db
+package analyzer
 
 import (
 	"apiguard/cncdb"
@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-type KonTextUsersAnalyzer struct {
+type CNCUserAnalyzer struct {
 	db                   *sql.DB
 	location             *time.Location
 	UsersTableName       string
@@ -24,15 +24,15 @@ type KonTextUsersAnalyzer struct {
 	AnonymousUserID      int
 }
 
-func (kua *KonTextUsersAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 	return 0, nil
 }
 
-func (kua *KonTextUsersAnalyzer) RegisterDelayLog(respDelay time.Duration) error {
+func (kua *CNCUserAnalyzer) RegisterDelayLog(respDelay time.Duration) error {
 	return nil // TODO
 }
 
-func (kua *KonTextUsersAnalyzer) GetSessionID(req *http.Request) string {
+func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
 	cookieValue := services.GetSessionKey(req, kua.CNCSessionCookieName)
 	if cookieValue == "" {
 		return ""
@@ -40,7 +40,7 @@ func (kua *KonTextUsersAnalyzer) GetSessionID(req *http.Request) string {
 	return strings.SplitN(cookieValue, "-", 2)[0]
 }
 
-func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
+func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
 	if kua.db == nil {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusOK,
@@ -80,15 +80,15 @@ func (kua *KonTextUsersAnalyzer) UserInducedResponseStatus(req *http.Request) se
 	}
 }
 
-func NewKonTextUsersAnalyzer(
+func NewCNCUserAnalyzer(
 	db *sql.DB,
 	locaction *time.Location,
 	usersTableName string,
 	cncSessionCookieName string,
 	anonymousUserID int,
 
-) *KonTextUsersAnalyzer {
-	return &KonTextUsersAnalyzer{
+) *CNCUserAnalyzer {
+	return &CNCUserAnalyzer{
 		db:                   db,
 		location:             locaction,
 		UsersTableName:       usersTableName,

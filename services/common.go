@@ -16,6 +16,7 @@ type BackendResponse interface {
 	GetHeaders() http.Header
 	GetStatusCode() int
 	IsCached() bool
+	MarkCached()
 	GetError() error
 }
 

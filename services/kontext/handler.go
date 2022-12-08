@@ -139,7 +139,7 @@ func (kp *KontextProxy) makeRequest(
 			dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
 		}
 		urlArgs := req.URL.Query()
-		dfltArgs.Apply(urlArgs)
+		dfltArgs.ApplyTo(urlArgs)
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
 			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),

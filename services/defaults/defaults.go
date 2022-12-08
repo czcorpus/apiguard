@@ -13,9 +13,11 @@ import (
 
 type Args map[string][]string
 
-func (sd Args) Apply(args url.Values) {
+func (sd Args) ApplyTo(args url.Values) {
 	for k, v := range sd {
-		args[k] = v
+		if len(v) > 0 {
+			args[k] = v
+		}
 	}
 }
 

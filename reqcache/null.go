@@ -6,15 +6,18 @@
 
 package reqcache
 
-import "net/http"
+import (
+	"apiguard/services"
+	"net/http"
+)
 
 type NullCache struct{}
 
-func (rc *NullCache) Get(req *http.Request) (string, *http.Header, error) {
-	return "", nil, ErrCacheMiss
+func (rc *NullCache) Get(req *http.Request) (services.BackendResponse, error) {
+	return nil, ErrCacheMiss
 }
 
-func (rc *NullCache) Set(req *http.Request, body string, header *http.Header) error {
+func (rc *NullCache) Set(req *http.Request, resp services.BackendResponse) error {
 	return nil
 }
 

@@ -11,9 +11,17 @@ import (
 	"time"
 )
 
+type BackendResponse interface {
+	GetBody() []byte
+	GetHeaders() http.Header
+	GetStatusCode() int
+	IsCached() bool
+	GetError() error
+}
+
 type Cache interface {
-	Get(req *http.Request) (string, *http.Header, error)
-	Set(req *http.Request, body string, header *http.Header) error
+	Get(req *http.Request) (BackendResponse, error)
+	Set(req *http.Request, resp BackendResponse) error
 }
 
 type GlobalContext struct {

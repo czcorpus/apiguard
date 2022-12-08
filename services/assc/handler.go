@@ -61,16 +61,16 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	var data *dataStruct
 	for _, query := range queries {
-		responseHTML, cached2, err := aa.createMainRequest(
+		response := aa.createMainRequest(
 			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)),
 			req,
 		)
-		cached = cached || cached2
+		cached = cached || response.IsCached()
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
-		data, err = parseData(responseHTML)
+		data, err = parseData(string(response.GetBody()))
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -84,23 +84,19 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, data)
 }
 
-func (aa *ASSCActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
-	cachedResult, _, err := aa.cache.Get(req)
+func (aa *ASSCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+	resp, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
-		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
+		err = aa.cache.Set(req, resp)
 		if err != nil {
-			return "", false, err
+			return &services.SimpleResponse{Err: err}
 		}
-		err = aa.cache.Set(req, sbody, nil)
-		if err != nil {
-			return "", false, err
-		}
-		return sbody, false, nil
 
 	} else if err != nil {
-		return "", false, err
+		return &services.SimpleResponse{Err: err}
 	}
-	return cachedResult, true, nil
+	return resp
 }
 
 func NewASSCActions(

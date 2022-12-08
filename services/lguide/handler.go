@@ -63,23 +63,20 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 	return string(body), nil
 }
 
-func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
-	cachedResult, _, err := lga.cache.Get(req)
+func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+	resp, err := lga.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
-		sbody, _, err := services.GetRequest(url, lga.conf.ClientUserAgent)
+		resp := services.GetRequest(url, lga.conf.ClientUserAgent)
+		err = lga.cache.Set(req, resp)
 		if err != nil {
-			return "", false, err
+			return &services.SimpleResponse{Err: err}
 		}
-		err = lga.cache.Set(req, sbody, nil)
-		if err != nil {
-			return "", false, err
-		}
-		return sbody, false, nil
+		return resp
 
 	} else if err != nil {
-		return "", false, err
+		return &services.SimpleResponse{Err: err}
 	}
-	return cachedResult, true, nil
+	return resp
 }
 
 func (lga *LanguageGuideActions) createResourceRequest(url string) error {
@@ -130,15 +127,15 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	var responseHTML string
+	var resp services.BackendResponse
 	direct := req.URL.Query().Get("direct")
 	if direct == "1" {
-		responseHTML, cached, err = lga.createMainRequest(
+		resp = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(query)),
 			req,
 		)
 	} else {
-		responseHTML, cached, err = lga.createMainRequest(
+		resp = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)),
 			req,
 		)
@@ -148,10 +145,10 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	parsed := Parse(responseHTML)
+	parsed := Parse(string(resp.GetBody()))
 	if len(parsed.Alternatives) > 0 {
 		alts := parsed.Alternatives
-		responseHTML, cached, err = lga.createMainRequest(
+		resp = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(alts[0].Id)),
 			req,
 		)
@@ -160,7 +157,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
-		parsed = Parse(responseHTML)
+		parsed = Parse(string(resp.GetBody()))
 		parsed.Alternatives = alts
 	}
 

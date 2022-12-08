@@ -26,35 +26,38 @@ func GetSessionKey(req *http.Request, cookieName string) string {
 	return cookieValue
 }
 
-func GetRequest(url, userAgent string) (string, int, error) {
+func GetRequest(url, userAgent string) *SimpleResponse {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	client := &http.Client{Transport: transport}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", 0, err
+		return &SimpleResponse{
+			Body: []byte{},
+			Err:  err,
+		}
 	}
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", 0, err
+		return &SimpleResponse{
+			Body: []byte{},
+			Err:  err,
+		}
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", 0, err
+		return &SimpleResponse{
+			Body: []byte{},
+			Err:  err,
+		}
 	}
-	sbody := string(body)
-	return sbody, resp.StatusCode, nil
-}
-
-type ProxiedResponse struct {
-	Body       []byte
-	Headers    http.Header
-	StatusCode int
-	Err        error
-	Cached     bool
+	return &SimpleResponse{
+		Body:       body,
+		StatusCode: resp.StatusCode,
+	}
 }
 
 type APIProxy struct {

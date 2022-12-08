@@ -33,7 +33,7 @@ type ReqCache struct {
 func (rc *ReqCache) createItemPath(url string) string {
 	h := sha1.New()
 	h.Write([]byte(url))
-	bs := fmt.Sprintf("%x.html", h.Sum(nil))
+	bs := fmt.Sprintf("%x.gob", h.Sum(nil))
 	return path.Join(rc.conf.RootPath, bs[0:1], bs)
 }
 
@@ -68,7 +68,7 @@ func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error 
 			return err
 		}
 		enc := gob.NewEncoder(fw)
-		return enc.Encode(resp)
+		return enc.Encode(&resp)
 	}
 	return nil
 }

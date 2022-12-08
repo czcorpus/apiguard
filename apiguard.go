@@ -273,6 +273,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 		conf.ServerReadTimeoutSecs,
 		db,
 		kontextReqCounter,
+		cache,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 
@@ -289,6 +290,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 		conf.ServerReadTimeoutSecs,
 		db,
 		treqReqCounter,
+		cache,
 	)
 	router.PathPrefix("/service/treq").HandlerFunc(treqActions.AnyPath)
 

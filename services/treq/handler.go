@@ -132,6 +132,7 @@ func NewTreqProxy(
 	readTimeoutSecs int,
 	cncDB *sql.DB,
 	reqCounter chan<- alarms.RequestInfo,
+	cache services.Cache,
 ) *TreqProxy {
 	return &TreqProxy{
 		globalCtx:       globalCtx,
@@ -144,5 +145,6 @@ func NewTreqProxy(
 			ExternalURL: conf.ExternalURL,
 		},
 		reqCounter: reqCounter,
+		cache:      cache,
 	}
 }

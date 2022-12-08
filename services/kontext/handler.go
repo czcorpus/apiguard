@@ -168,6 +168,7 @@ func NewKontextProxy(
 	readTimeoutSecs int,
 	cncDB *sql.DB,
 	reqCounter chan<- alarms.RequestInfo,
+	cache services.Cache,
 ) *KontextProxy {
 	return &KontextProxy{
 		globalCtx:       globalCtx,
@@ -181,5 +182,6 @@ func NewKontextProxy(
 			ExternalURL: conf.ExternalURL,
 		},
 		reqCounter: reqCounter,
+		cache:      cache,
 	}
 }

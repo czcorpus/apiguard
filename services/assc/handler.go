@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 /*
@@ -24,7 +25,12 @@ curl
 	https://slovnikcestiny.cz/web_ver_ajax.php
 */
 
+const (
+	ServiceName = "assc"
+)
+
 type ASSCActions struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -32,6 +38,11 @@ type ASSCActions struct {
 }
 
 func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
+	defer func() {
+		services.LogEvent(ServiceName, t0, nil, "processed request to 'assc'")
+	}()
+
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
@@ -91,12 +102,14 @@ func (aa *ASSCActions) createMainRequest(url string, req *http.Request) (string,
 }
 
 func NewASSCActions(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
 ) *ASSCActions {
 	return &ASSCActions{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		cache:           cache,
 		analyzer:        analyzer,

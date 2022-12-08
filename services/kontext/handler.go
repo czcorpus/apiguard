@@ -24,16 +24,17 @@ import (
 
 const (
 	ServicePath = "/service/kontext"
+	ServiceName = "kontext"
 )
 
 type KontextProxy struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
 	defaults        map[string]defaults.Args
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
-	location        *time.Location
 	apiProxy        services.APIProxy
 
 	// reqCounter can be used to send info about number of request
@@ -69,19 +70,16 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID int
-	t0 := time.Now().In(kp.location)
+	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	defer func() {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
-				Service:     "kontext",
+				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      userID,
 			}
 		}
-		t1 := time.Since(t0)
-		log.Debug().
-			Float64("procTime", t1.Seconds()).
-			Msgf("dispatched request to 'kontext'")
+		services.LogEvent(ServiceName, t0, &userID, "dispatched request to 'kontext'")
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
@@ -164,20 +162,20 @@ func (kp *KontextProxy) makeRequest(
 }
 
 func NewKontextProxy(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	analyzer *analyzer.CNCUserAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
-	loc *time.Location,
 	reqCounter chan<- alarms.RequestInfo,
 ) *KontextProxy {
 	return &KontextProxy{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		analyzer:        analyzer,
 		defaults:        make(map[string]defaults.Args),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
-		location:        loc,
 		apiProxy: services.APIProxy{
 			InternalURL: conf.InternalURL,
 			ExternalURL: conf.ExternalURL,

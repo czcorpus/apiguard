@@ -123,7 +123,7 @@ func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
 	return cncDB
 }
 
-func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
+func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Configuration, userTableName string) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -175,6 +175,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Jazyková příručka ÚJČ"
 
 	langGuideActions := lguide.NewLanguageGuideActions(
+		globalCtx,
 		&conf.Services.LanguageGuide,
 		&conf.Botwatch,
 		&conf.Telemetry,
@@ -188,6 +189,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Akademický slovník současné češtiny"
 
 	asscActions := assc.NewASSCActions(
+		globalCtx,
 		&conf.Services.ASSC,
 		cache,
 		telemetryAnalyzer,
@@ -198,6 +200,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Slovník spisovného jazyka českého"
 
 	ssjcActions := ssjc.NewSSJCActions(
+		globalCtx,
 		&conf.Services.SSJC,
 		cache,
 		telemetryAnalyzer,
@@ -208,6 +211,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Příruční slovník jazyka českého"
 
 	psjcActions := psjc.NewPSJCActions(
+		globalCtx,
 		&conf.Services.PSJC,
 		cache,
 		telemetryAnalyzer,
@@ -218,6 +222,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Kartotéka lexikálního archivu"
 
 	klaActions := kla.NewKLAActions(
+		globalCtx,
 		&conf.Services.KLA,
 		cache,
 		telemetryAnalyzer,
@@ -228,6 +233,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Neomat"
 
 	neomatActions := neomat.NewNeomatActions(
+		globalCtx,
 		&conf.Services.Neomat,
 		cache,
 		telemetryAnalyzer,
@@ -238,6 +244,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 	// "Český jazykový atlas"
 
 	cjaActions := cja.NewCJAActions(
+		globalCtx,
 		&conf.Services.CJA,
 		cache,
 		telemetryAnalyzer,
@@ -257,14 +264,14 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 	var kontextReqCounter chan<- alarms.RequestInfo
 	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
-		kontextReqCounter = alarm.Register("kontext", conf.Services.Kontext.Alarm)
+		kontextReqCounter = alarm.Register(kontext.ServiceName, conf.Services.Kontext.Alarm)
 	}
 	kontextActions := kontext.NewKontextProxy(
+		globalCtx,
 		&conf.Services.Kontext,
 		cnca,
 		conf.ServerReadTimeoutSecs,
 		db,
-		conf.TimezoneLocation(),
 		kontextReqCounter,
 	)
 	router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
@@ -273,14 +280,14 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 	var treqReqCounter chan<- alarms.RequestInfo
 	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
-		treqReqCounter = alarm.Register("treq", conf.Services.Kontext.Alarm)
+		treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Kontext.Alarm)
 	}
 	treqActions := treq.NewTreqProxy(
+		globalCtx,
 		&conf.Services.Treq,
 		cnca,
 		conf.ServerReadTimeoutSecs,
 		db,
-		conf.TimezoneLocation(),
 		treqReqCounter,
 	)
 	router.PathPrefix("/service/treq").HandlerFunc(treqActions.AnyPath)
@@ -527,6 +534,9 @@ func main() {
 		return
 	case "start":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		globalCtx := &services.GlobalContext{
+			TimezoneLocation: conf.TimezoneLocation(),
+		}
 		log.Info().
 			Str("version", versionInfo.Version).
 			Str("buildDate", versionInfo.BuildDate).
@@ -538,7 +548,7 @@ func main() {
 			userTableName = conf.CNCDB.OverrideUsersTableName
 			log.Warn().Msgf("overriding users table name to '%s'", userTableName)
 		}
-		runService(db, conf, userTableName)
+		runService(db, globalCtx, conf, userTableName)
 	case "cleanup":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)

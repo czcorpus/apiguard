@@ -26,12 +26,14 @@ import (
 )
 
 const (
+	ServiceName                = "lguide"
 	targetServiceURLPath       = "/?slovo=%s"
 	targetDirectServiceURLPath = "/?id=%s"
 	targetServicePingURLPath   = "?id=%s&action=single"
 )
 
 type LanguageGuideActions struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
@@ -109,6 +111,11 @@ func (lga *LanguageGuideActions) triggerDummyRequests(query string, data *Parsed
 }
 
 func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
+	defer func() {
+		services.LogEvent(ServiceName, t0, nil, "processed request to 'lguide'")
+	}()
+
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))
 
 	query := req.URL.Query().Get("q")
@@ -167,6 +174,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 }
 
 func NewLanguageGuideActions(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
@@ -177,6 +185,7 @@ func NewLanguageGuideActions(
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botwatchConf, telemetryConf, db)
 	return &LanguageGuideActions{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		readTimeoutSecs: readTimeoutSecs,
 		watchdog:        wdog,

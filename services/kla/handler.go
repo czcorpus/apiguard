@@ -14,9 +14,15 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
+)
+
+const (
+	ServiceName = "kla"
 )
 
 type KLAActions struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -29,6 +35,11 @@ type Response struct {
 }
 
 func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
+	defer func() {
+		services.LogEvent(ServiceName, t0, nil, "processed request to 'kla'")
+	}()
+
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
@@ -102,12 +113,14 @@ func (aa *KLAActions) createMainRequest(url string, req *http.Request) (string, 
 }
 
 func NewKLAActions(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
 ) *KLAActions {
 	return &KLAActions{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		cache:           cache,
 		analyzer:        analyzer,

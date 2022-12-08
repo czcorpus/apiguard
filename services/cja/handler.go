@@ -13,9 +13,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
-type NeomatActions struct {
+const (
+	ServiceName = "cja"
+)
+
+type CJAActions struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -29,7 +35,12 @@ type Response struct {
 	Backlink string `json:"backlink"`
 }
 
-func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
+func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
+	defer func() {
+		services.LogEvent(ServiceName, t0, nil, "processed request to 'cja'")
+	}()
+
 	query := req.URL.Query().Get("q")
 	if query == "" {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
@@ -60,7 +71,7 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *NeomatActions) createSubRequest(url string, req *http.Request) (string, int, error) {
+func (aa *CJAActions) createSubRequest(url string, req *http.Request) (string, int, error) {
 	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, status, err := services.GetRequest(url, aa.conf.ClientUserAgent)
@@ -76,7 +87,7 @@ func (aa *NeomatActions) createSubRequest(url string, req *http.Request) (string
 	return cachedResult, 200, nil
 }
 
-func (aa *NeomatActions) createRequests(url1 string, url2 string, req *http.Request) (string, string, error) {
+func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) (string, string, error) {
 	result, status, err := aa.createSubRequest(url1, req)
 	if err != nil {
 		return "", "", err
@@ -92,12 +103,14 @@ func (aa *NeomatActions) createRequests(url1 string, url2 string, req *http.Requ
 }
 
 func NewCJAActions(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
-) *NeomatActions {
-	return &NeomatActions{
+) *CJAActions {
+	return &CJAActions{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		cache:           cache,
 		analyzer:        analyzer,

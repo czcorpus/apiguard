@@ -6,9 +6,16 @@
 
 package services
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 type Cache interface {
 	Get(req *http.Request) (string, *http.Header, error)
 	Set(req *http.Request, body string, header *http.Header) error
+}
+
+type GlobalContext struct {
+	TimezoneLocation *time.Location
 }

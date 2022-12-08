@@ -14,9 +14,15 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
+)
+
+const (
+	ServiceName = "neomat"
 )
 
 type NeomatActions struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -28,6 +34,11 @@ type Response struct {
 }
 
 func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
+	defer func() {
+		services.LogEvent(ServiceName, t0, nil, "processed request to 'neomat'")
+	}()
+
 	query := req.URL.Query().Get("q")
 	if query == "" {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
@@ -86,12 +97,14 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) (strin
 }
 
 func NewNeomatActions(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
 ) *NeomatActions {
 	return &NeomatActions{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		cache:           cache,
 		analyzer:        analyzer,

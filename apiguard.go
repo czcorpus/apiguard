@@ -174,6 +174,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 	// "Jazyková příručka ÚJČ"
 
 	langGuideActions := lguide.NewLanguageGuideActions(
+		globalCtx,
 		&conf.Services.LanguageGuide,
 		&conf.Botwatch,
 		&conf.Telemetry,
@@ -198,6 +199,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 	// "Slovník spisovného jazyka českého"
 
 	ssjcActions := ssjc.NewSSJCActions(
+		globalCtx,
 		&conf.Services.SSJC,
 		cache,
 		telemetryAnalyzer,
@@ -208,6 +210,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 	// "Příruční slovník jazyka českého"
 
 	psjcActions := psjc.NewPSJCActions(
+		globalCtx,
 		&conf.Services.PSJC,
 		cache,
 		telemetryAnalyzer,
@@ -218,6 +221,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 	// "Kartotéka lexikálního archivu"
 
 	klaActions := kla.NewKLAActions(
+		globalCtx,
 		&conf.Services.KLA,
 		cache,
 		telemetryAnalyzer,
@@ -228,6 +232,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 	// "Neomat"
 
 	neomatActions := neomat.NewNeomatActions(
+		globalCtx,
 		&conf.Services.Neomat,
 		cache,
 		telemetryAnalyzer,
@@ -238,6 +243,7 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 	// "Český jazykový atlas"
 
 	cjaActions := cja.NewCJAActions(
+		globalCtx,
 		&conf.Services.CJA,
 		cache,
 		telemetryAnalyzer,

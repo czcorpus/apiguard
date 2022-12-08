@@ -13,9 +13,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
+)
+
+const (
+	ServiceName = "psjc"
 )
 
 type PSJCActions struct {
+	globalCtx       *services.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -28,6 +34,11 @@ type Response struct {
 }
 
 func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
+	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
+	defer func() {
+		services.LogEvent(ServiceName, t0, nil, "processed request to 'psjc'")
+	}()
+
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
 		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
@@ -92,12 +103,14 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) (string,
 }
 
 func NewPSJCActions(
+	globalCtx *services.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
 ) *PSJCActions {
 	return &PSJCActions{
+		globalCtx:       globalCtx,
 		conf:            conf,
 		cache:           cache,
 		analyzer:        analyzer,

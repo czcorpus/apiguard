@@ -21,6 +21,7 @@ import (
 
 const (
 	ServicePath = "/service/kontext"
+	ServiceName = "kontext"
 )
 
 type KontextProxy struct {
@@ -44,15 +45,12 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
-				Service:     "kontext",
+				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      userID,
 			}
 		}
-		t1 := time.Since(t0)
-		log.Debug().
-			Float64("procTime", t1.Seconds()).
-			Msgf("dispatched request to 'kontext'")
+		services.LogEvent(ServiceName, t0, "dispatched request to 'kontext'")
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)

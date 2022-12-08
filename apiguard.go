@@ -256,7 +256,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 	var kontextReqCounter chan<- alarms.RequestInfo
 	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
-		kontextReqCounter = alarm.Register("kontext", conf.Services.Kontext.Alarm)
+		kontextReqCounter = alarm.Register(kontext.ServiceName, conf.Services.Kontext.Alarm)
 	}
 	kontextActions := kontext.NewKontextProxy(
 		&conf.Services.Kontext,
@@ -272,7 +272,7 @@ func runService(db *sql.DB, conf *config.Configuration, userTableName string) {
 
 	var treqReqCounter chan<- alarms.RequestInfo
 	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
-		treqReqCounter = alarm.Register("treq", conf.Services.Kontext.Alarm)
+		treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Kontext.Alarm)
 	}
 	treqActions := treq.NewTreqProxy(
 		&conf.Services.Treq,

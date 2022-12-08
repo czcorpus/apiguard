@@ -21,6 +21,7 @@ import (
 
 const (
 	ServicePath = "/service/treq"
+	ServiceName = "treq"
 )
 
 type TreqProxy struct {
@@ -44,15 +45,12 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	defer func() {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
-				Service:     "treq",
+				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      userID,
 			}
 		}
-		t1 := time.Since(t0)
-		log.Debug().
-			Float64("procTime", t1.Seconds()).
-			Msgf("dispatched request to 'treq'")
+		services.LogEvent(ServiceName, t0, "dispatched request to 'treq'")
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)

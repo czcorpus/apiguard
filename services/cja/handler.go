@@ -37,8 +37,9 @@ type Response struct {
 
 func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
+	var cached bool
 	defer func() {
-		services.LogEvent(ServiceName, t0, nil, "processed request to 'cja'")
+		services.LogServiceRequest(ServiceName, t0, &cached, nil)
 	}()
 
 	query := req.URL.Query().Get("q")
@@ -51,7 +52,7 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	responseHTML, backlink, err := aa.createRequests(
+	responseHTML, backlink, cached, err := aa.createRequests(
 		fmt.Sprintf("%s/e-cja/h/?hw=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		fmt.Sprintf("%s/e-cja/h/?doklad=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		req,
@@ -71,35 +72,35 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *CJAActions) createSubRequest(url string, req *http.Request) (string, int, error) {
+func (aa *CJAActions) createSubRequest(url string, req *http.Request) (string, int, bool, error) {
 	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, status, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
-			return "", 0, err
+			return "", 0, false, err
 		}
 		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
-			return "", 0, err
+			return "", 0, false, err
 		}
-		return sbody, status, nil
+		return sbody, status, false, nil
 	}
-	return cachedResult, 200, nil
+	return cachedResult, 200, true, nil
 }
 
-func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) (string, string, error) {
-	result, status, err := aa.createSubRequest(url1, req)
+func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) (string, string, bool, error) {
+	result, status, cached, err := aa.createSubRequest(url1, req)
 	if err != nil {
-		return "", "", err
+		return "", "", cached, err
 	}
 	if status == 500 {
-		result, _, err = aa.createSubRequest(url2, req)
+		result, _, cached, err = aa.createSubRequest(url2, req)
 		if err != nil {
-			return "", "", err
+			return "", "", cached, err
 		}
-		return result, url2, nil
+		return result, url2, cached, nil
 	}
-	return result, url1, nil
+	return result, url1, cached, nil
 }
 
 func NewCJAActions(

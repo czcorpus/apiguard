@@ -35,9 +35,10 @@ type Response struct {
 }
 
 func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
+	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		services.LogEvent(ServiceName, t0, nil, "processed request to 'kla'")
+		services.LogServiceRequest(ServiceName, t0, &cached, nil)
 	}()
 
 	queries, ok := req.URL.Query()["q"]
@@ -68,10 +69,11 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 	var images []string
 	var query string
 	for _, query = range queries {
-		responseHTML, err := aa.createMainRequest(
+		responseHTML, cached2, err := aa.createMainRequest(
 			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_cards=cards&pocet_karet=100&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
 			req,
 		)
+		cached = cached || cached2
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -93,23 +95,23 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-func (aa *KLAActions) createMainRequest(url string, req *http.Request) (string, error) {
+func (aa *KLAActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
 	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return sbody, nil
+		return sbody, false, nil
 
 	} else if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return cachedResult, nil
+	return cachedResult, true, nil
 }
 
 func NewKLAActions(

@@ -54,6 +54,7 @@ type ProxiedResponse struct {
 	Headers    http.Header
 	StatusCode int
 	Err        error
+	Cached     bool
 }
 
 type APIProxy struct {

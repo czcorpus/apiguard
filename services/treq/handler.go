@@ -40,6 +40,7 @@ type TreqProxy struct {
 }
 
 func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+	var cached bool
 	var userID int
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	defer func() {
@@ -50,7 +51,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      userID,
 			}
 		}
-		services.LogEvent(ServiceName, t0, &userID, "dispatched request to 'treq'")
+		services.LogServiceRequest(ServiceName, t0, &cached, &userID)
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
@@ -77,6 +78,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	serviceResp := kp.makeRequest(req)
+	cached = serviceResp.Cached
 	if serviceResp.Err != nil {
 		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
@@ -122,6 +124,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) *services.ProxiedResponse {
 		Body:       []byte(body),
 		Headers:    *header,
 		StatusCode: 200,
+		Cached:     true,
 	}
 }
 

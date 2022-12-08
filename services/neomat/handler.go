@@ -34,9 +34,10 @@ type Response struct {
 }
 
 func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
+	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		services.LogEvent(ServiceName, t0, nil, "processed request to 'neomat'")
+		services.LogServiceRequest(ServiceName, t0, &cached, nil)
 	}()
 
 	query := req.URL.Query().Get("q")
@@ -59,7 +60,7 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	responseHTML, err := aa.createMainRequest(
+	responseHTML, cached, err := aa.createMainRequest(
 		fmt.Sprintf("%s/index.php?retezec=%s&prijimam=1", aa.conf.BaseURL, url.QueryEscape(query)),
 		req,
 	)
@@ -77,23 +78,23 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, Response{Entries: entries})
 }
 
-func (aa *NeomatActions) createMainRequest(url string, req *http.Request) (string, error) {
+func (aa *NeomatActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
 	cachedResult, _, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 		err = aa.cache.Set(req, sbody, nil)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return sbody, nil
+		return sbody, false, nil
 
 	} else if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return cachedResult, nil
+	return cachedResult, true, nil
 }
 
 func NewNeomatActions(

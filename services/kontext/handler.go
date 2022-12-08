@@ -70,6 +70,7 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID int
+	var cached bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	defer func() {
 		if kp.reqCounter != nil {
@@ -79,7 +80,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      userID,
 			}
 		}
-		services.LogEvent(ServiceName, t0, &userID, "dispatched request to 'kontext'")
+		services.LogServiceRequest(ServiceName, t0, &cached, &userID)
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
@@ -106,6 +107,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	serviceResp := kp.makeRequest(req, reqProps)
+	cached = serviceResp.Cached
 	if serviceResp.Err != nil {
 		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
@@ -158,6 +160,7 @@ func (kp *KontextProxy) makeRequest(
 		Body:       []byte(body),
 		Headers:    *header,
 		StatusCode: 200,
+		Cached:     true,
 	}
 }
 

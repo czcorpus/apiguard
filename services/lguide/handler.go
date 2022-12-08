@@ -63,23 +63,23 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 	return string(body), nil
 }
 
-func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) (string, error) {
+func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
 	cachedResult, _, err := lga.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		sbody, _, err := services.GetRequest(url, lga.conf.ClientUserAgent)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 		err = lga.cache.Set(req, sbody, nil)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
-		return sbody, nil
+		return sbody, false, nil
 
 	} else if err != nil {
-		return "", err
+		return "", false, err
 	}
-	return cachedResult, nil
+	return cachedResult, true, nil
 }
 
 func (lga *LanguageGuideActions) createResourceRequest(url string) error {
@@ -111,9 +111,10 @@ func (lga *LanguageGuideActions) triggerDummyRequests(query string, data *Parsed
 }
 
 func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
+	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
-		services.LogEvent(ServiceName, t0, nil, "processed request to 'lguide'")
+		services.LogServiceRequest(ServiceName, t0, &cached, nil)
 	}()
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))
@@ -132,12 +133,12 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	var responseHTML string
 	direct := req.URL.Query().Get("direct")
 	if direct == "1" {
-		responseHTML, err = lga.createMainRequest(
+		responseHTML, cached, err = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(query)),
 			req,
 		)
 	} else {
-		responseHTML, err = lga.createMainRequest(
+		responseHTML, cached, err = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)),
 			req,
 		)
@@ -150,7 +151,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	parsed := Parse(responseHTML)
 	if len(parsed.Alternatives) > 0 {
 		alts := parsed.Alternatives
-		responseHTML, err = lga.createMainRequest(
+		responseHTML, cached, err = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(alts[0].Id)),
 			req,
 		)

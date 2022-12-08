@@ -8,8 +8,9 @@ package reqcache
 
 import (
 	"apiguard/fsops"
+	"apiguard/services"
 	"crypto/sha1"
-	"encoding/json"
+	"encoding/gob"
 	"errors"
 	"fmt"
 	"net/http"
@@ -29,11 +30,6 @@ type ReqCache struct {
 	conf *Conf
 }
 
-type CacheData struct {
-	Header *http.Header `json:"header"`
-	Body   string       `json:"body"`
-}
-
 func (rc *ReqCache) createItemPath(url string) string {
 	h := sha1.New()
 	h.Write([]byte(url))
@@ -41,41 +37,38 @@ func (rc *ReqCache) createItemPath(url string) string {
 	return path.Join(rc.conf.RootPath, bs[0:1], bs)
 }
 
-func (rc *ReqCache) Get(req *http.Request) (string, *http.Header, error) {
+func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
 	filePath := rc.createItemPath(req.URL.Path)
 	if !fsops.IsFile(filePath) ||
 		time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
-		return "", nil, ErrCacheMiss
+		return nil, ErrCacheMiss
 	}
 	newTime := time.Now()
 	err := os.Chtimes(filePath, newTime, newTime)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	rawData, err := os.ReadFile(filePath)
+	fr, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if err != nil {
-		return "", nil, err
+		return nil, err
 	}
-	cacheData := CacheData{}
-	err = json.Unmarshal(rawData, &cacheData)
-	if err != nil {
-		return "", nil, err
-	}
-	return cacheData.Body, cacheData.Header, err
+	dec := gob.NewDecoder(fr)
+	var ans services.BackendResponse
+	err = dec.Decode(&ans)
+	return ans, err
 }
 
-func (rc *ReqCache) Set(req *http.Request, body string, header *http.Header) error {
-	if req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
+func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error {
+	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
+		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
 		targetPath := rc.createItemPath(req.URL.Path)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
-		rawData, err := json.Marshal(CacheData{
-			Header: header,
-			Body:   body,
-		})
+		fw, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			return err
 		}
-		return os.WriteFile(targetPath, rawData, 0644)
+		enc := gob.NewEncoder(fw)
+		return enc.Encode(resp)
 	}
 	return nil
 }

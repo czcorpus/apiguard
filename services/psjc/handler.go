@@ -58,17 +58,17 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	var entries []string
 	var query string
 	for _, query = range queries {
-		responseHTML, cached2, err := aa.createMainRequest(
+		resp := aa.createMainRequest(
 			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
 			req,
 		)
-		cached = cached || cached2
+		cached = cached || resp.IsCached()
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
 
-		entries, err = parseData(responseHTML)
+		entries, err = parseData(string(resp.GetBody()))
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -85,23 +85,20 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
-func (aa *PSJCActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
-	cachedResult, _, err := aa.cache.Get(req)
+func (aa *PSJCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+	resp, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
-		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp := services.GetRequest(url, aa.conf.ClientUserAgent)
+		err = aa.cache.Set(req, resp)
 		if err != nil {
-			return "", false, err
+			return &services.SimpleResponse{Err: err}
 		}
-		err = aa.cache.Set(req, sbody, nil)
-		if err != nil {
-			return "", false, err
-		}
-		return sbody, false, nil
+		return resp
 
 	} else if err != nil {
-		return "", false, err
+		return &services.SimpleResponse{Err: err}
 	}
-	return cachedResult, true, nil
+	return resp
 }
 
 func NewPSJCActions(

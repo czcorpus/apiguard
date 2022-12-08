@@ -78,54 +78,49 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	serviceResp := kp.makeRequest(req)
-	cached = serviceResp.Cached
-	if serviceResp.Err != nil {
-		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
+	cached = serviceResp.IsCached()
+	if serviceResp.GetError() != nil {
+		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
 			w,
-			fmt.Sprintf("failed to proxy request: %s", serviceResp.Err),
+			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
 			http.StatusInternalServerError,
 		)
 		return
 	}
 
-	for k, v := range serviceResp.Headers {
+	for k, v := range serviceResp.GetHeaders() {
 		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
-	w.WriteHeader(serviceResp.StatusCode)
-	w.Write(serviceResp.Body)
+	w.WriteHeader(serviceResp.GetStatusCode())
+	w.Write(serviceResp.GetBody())
 }
 
-func (tp *TreqProxy) makeRequest(req *http.Request) *services.ProxiedResponse {
-	body, header, err := tp.cache.Get(req)
+func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
+	resp, err := tp.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 		urlArgs := req.URL.Query()
 		if _, ok := urlArgs["format"]; !ok {
 			urlArgs["format"] = []string{"json"}
 		}
-		serviceResp := tp.apiProxy.Request(
+		resp = tp.apiProxy.Request(
 			// TODO use some path builder here
 			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 			req.Method,
 			req.Header,
 			req.Body,
 		)
-		if serviceResp.Err != nil {
-			return serviceResp
+		err := tp.cache.Set(req, resp)
+		if err != nil {
+			return &services.ProxiedResponse{Err: err}
 		}
-		serviceResp.Err = tp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
-		return serviceResp
+		return resp
 
 	} else if err != nil {
 		return &services.ProxiedResponse{Err: err}
 	}
-	return &services.ProxiedResponse{
-		Body:       []byte(body),
-		Headers:    *header,
-		StatusCode: 200,
-		Cached:     true,
-	}
+	return resp
 }
 
 func NewTreqProxy(

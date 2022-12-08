@@ -63,18 +63,18 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	response := Response{Entries: make([]Entry, 0)}
 	var query string
 	for _, query = range queries {
-		responseHTML, cached2, err := aa.createMainRequest(
+		resp := aa.createMainRequest(
 			fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)),
 			req,
 		)
-		cached = cached || cached2
+		cached = cached || resp.IsCached()
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
 		}
 
 		// check if there are multiple results
-		STIs, err := lookForSTI(responseHTML)
+		STIs, err := lookForSTI(string(resp.GetBody()))
 		if err != nil {
 			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 			return
@@ -82,16 +82,16 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 
 		if len(STIs) > 0 {
 			for _, STI := range STIs {
-				subResponseHTML, cached2, err := aa.createMainRequest(
+				resp := aa.createMainRequest(
 					fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI),
 					req,
 				)
-				cached = cached || cached2
+				cached = cached || resp.IsCached()
 				if err != nil {
 					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 					return
 				}
-				payload, err := parseData(subResponseHTML)
+				payload, err := parseData(string(resp.GetBody()))
 				if err != nil {
 					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 					return
@@ -104,7 +104,7 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 			response.Query = query
 			break
 		} else {
-			payload, err := parseData(responseHTML)
+			payload, err := parseData(string(resp.GetBody()))
 			if err != nil {
 				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 				return
@@ -123,23 +123,20 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *SSJCActions) createMainRequest(url string, req *http.Request) (string, bool, error) {
-	cachedResult, _, err := aa.cache.Get(req)
+func (aa *SSJCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+	resp, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
-		sbody, _, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
+		err = aa.cache.Set(req, resp)
 		if err != nil {
-			return "", false, err
+			return &services.SimpleResponse{Err: err}
 		}
-		err = aa.cache.Set(req, sbody, nil)
-		if err != nil {
-			return "", false, err
-		}
-		return sbody, false, nil
+		return resp
 
 	} else if err != nil {
-		return "", false, err
+		return &services.SimpleResponse{Err: err}
 	}
-	return cachedResult, true, nil
+	return resp
 }
 
 func NewSSJCActions(

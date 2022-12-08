@@ -52,55 +52,47 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		return
 	}
-	responseHTML, backlink, cached, err := aa.createRequests(
+	resp := aa.createRequests(
 		fmt.Sprintf("%s/e-cja/h/?hw=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		fmt.Sprintf("%s/e-cja/h/?doklad=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		req,
 	)
-	if err != nil {
+	if resp.GetError() != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
 
-	response, err := parseData(responseHTML, aa.conf.BaseURL)
+	response, err := parseData(string(resp.GetBody()), aa.conf.BaseURL)
 	if err != nil {
 		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
 		return
 	}
-	response.Backlink = backlink
+	// TODO !!!! response.Backlink = backlink
 
 	services.WriteJSONResponse(w, response)
 }
 
-func (aa *CJAActions) createSubRequest(url string, req *http.Request) (string, int, bool, error) {
-	cachedResult, _, err := aa.cache.Get(req)
+func (aa *CJAActions) createSubRequest(url string, req *http.Request) services.BackendResponse {
+	resp, err := aa.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
-		sbody, status, err := services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
+		err = aa.cache.Set(req, resp)
 		if err != nil {
-			return "", 0, false, err
+			return &services.SimpleResponse{Err: err}
 		}
-		err = aa.cache.Set(req, sbody, nil)
-		if err != nil {
-			return "", 0, false, err
-		}
-		return sbody, status, false, nil
 	}
-	return cachedResult, 200, true, nil
+	return resp
 }
 
-func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) (string, string, bool, error) {
-	result, status, cached, err := aa.createSubRequest(url1, req)
-	if err != nil {
-		return "", "", cached, err
+func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) services.BackendResponse {
+	resp := aa.createSubRequest(url1, req)
+	if resp.GetError() != nil {
+		return resp
 	}
-	if status == 500 {
-		result, _, cached, err = aa.createSubRequest(url2, req)
-		if err != nil {
-			return "", "", cached, err
-		}
-		return result, url2, cached, nil
+	if resp.GetStatusCode() == 500 {
+		return aa.createSubRequest(url2, req)
 	}
-	return result, url1, cached, nil
+	return resp
 }
 
 func NewCJAActions(

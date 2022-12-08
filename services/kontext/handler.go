@@ -107,30 +107,30 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	serviceResp := kp.makeRequest(req, reqProps)
-	cached = serviceResp.Cached
-	if serviceResp.Err != nil {
-		log.Error().Err(serviceResp.Err).Msgf("failed to proxy request %s", req.URL.Path)
+	cached = serviceResp.IsCached()
+	if serviceResp.GetError() != nil {
+		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)
 		http.Error(
 			w,
-			fmt.Sprintf("failed to proxy request: %s", serviceResp.Err),
+			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
 			http.StatusInternalServerError,
 		)
 		return
 	}
 
-	for k, v := range serviceResp.Headers {
+	for k, v := range serviceResp.GetHeaders() {
 		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
-	w.WriteHeader(serviceResp.StatusCode)
-	w.Write(serviceResp.Body)
+	w.WriteHeader(serviceResp.GetStatusCode())
+	w.Write([]byte(serviceResp.GetBody()))
 }
 
 func (kp *KontextProxy) makeRequest(
 	req *http.Request,
 	reqProps services.ReqProperties,
-) *services.ProxiedResponse {
+) services.BackendResponse {
 
-	body, header, err := kp.cache.Get(req)
+	resp, err := kp.cache.Get(req)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 
@@ -140,28 +140,23 @@ func (kp *KontextProxy) makeRequest(
 		}
 		urlArgs := req.URL.Query()
 		dfltArgs.Apply(urlArgs)
-		serviceResp := kp.apiProxy.Request(
+		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
 			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
 			req.Method,
 			req.Header,
 			req.Body,
 		)
-		if serviceResp.Err != nil {
-			return serviceResp
+		err = kp.cache.Set(req, resp)
+		if err != nil {
+			resp = &services.ProxiedResponse{Err: err}
 		}
-		serviceResp.Err = kp.cache.Set(req, string(serviceResp.Body), &serviceResp.Headers)
-		return serviceResp
+		return resp
 
 	} else if err != nil {
 		return &services.ProxiedResponse{Err: err}
 	}
-	return &services.ProxiedResponse{
-		Body:       []byte(body),
-		Headers:    *header,
-		StatusCode: 200,
-		Cached:     true,
-	}
+	return resp
 }
 
 func NewKontextProxy(

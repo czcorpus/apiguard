@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -492,6 +493,11 @@ func runLearn(db *sql.DB, conf *config.Configuration) {
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
 	}
+}
+
+func init() {
+	gob.Register(&services.SimpleResponse{})
+	gob.Register(&services.ProxiedResponse{})
 }
 
 func main() {

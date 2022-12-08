@@ -137,6 +137,8 @@ func (kp *KontextProxy) makeRequest(
 		dfltArgs, ok := kp.defaults[reqProps.SessionID]
 		if !ok {
 			dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
+			dfltArgs.Set("format", "json")
+			kp.defaults[reqProps.SessionID] = dfltArgs
 		}
 		urlArgs := req.URL.Query()
 		dfltArgs.ApplyTo(urlArgs)

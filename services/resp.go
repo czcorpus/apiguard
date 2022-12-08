@@ -36,6 +36,10 @@ func (pr *ProxiedResponse) IsCached() bool {
 	return pr.Cached
 }
 
+func (pr *ProxiedResponse) MarkCached() {
+	pr.Cached = true
+}
+
 type SimpleResponse struct {
 	Body       []byte
 	StatusCode int
@@ -61,4 +65,8 @@ func (sr *SimpleResponse) GetError() error {
 
 func (sr *SimpleResponse) IsCached() bool {
 	return sr.Cached
+}
+
+func (sr *SimpleResponse) MarkCached() {
+	sr.Cached = true
 }

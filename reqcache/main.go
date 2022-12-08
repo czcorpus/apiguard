@@ -67,6 +67,7 @@ func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error 
 		if err != nil {
 			return err
 		}
+		resp.MarkCached()
 		enc := gob.NewEncoder(fw)
 		return enc.Encode(&resp)
 	}

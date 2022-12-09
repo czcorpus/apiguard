@@ -28,6 +28,7 @@ import (
 	"apiguard/cncdb"
 	"apiguard/cncdb/analyzer"
 	"apiguard/config"
+	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend/assc"
@@ -124,7 +125,7 @@ func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
 	return cncDB
 }
 
-func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Configuration, userTableName string) {
+func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configuration, userTableName string) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -163,6 +164,8 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 		log.Fatal().Err(err).Send()
 	}
 
+	// ----------------------
+
 	var cache services.Cache
 	if conf.Cache.RootPath != "" {
 		cache = reqcache.NewReqCache(&conf.Cache)
@@ -172,6 +175,8 @@ func runService(db *sql.DB, globalCtx *services.GlobalContext, conf *config.Conf
 		cache = reqcache.NewNullCache()
 		log.Info().Msg("using NULL cache (path not specified)")
 	}
+
+	// --------------------
 
 	// "Jazyková příručka ÚJČ"
 
@@ -542,8 +547,9 @@ func main() {
 		return
 	case "start":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
-		globalCtx := &services.GlobalContext{
+		globalCtx := &ctx.GlobalContext{
 			TimezoneLocation: conf.TimezoneLocation(),
+			BackendLogger:    ctx.NewBackendLogger(conf.Monitoring, conf.TimezoneLocation()),
 		}
 		log.Info().
 			Str("version", versionInfo.Version).

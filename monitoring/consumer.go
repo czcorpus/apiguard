@@ -30,35 +30,29 @@ func (cm ConfirmMsg) String() string {
 	return fmt.Sprintf("ConfirmMsg{Error: %v}", cm.Error)
 }
 
-// RunWriteConsumer reads from incomingData channel and stores the data
+// RunWriteConsumerSync reads from incomingData channel and stores the data
 // to a configured InfluxDB measurement. For performance reasons, the actual
 // database write is performed each time number of added items equals
 // conf.PushChunkSize and also once the incomingData channel is closed.
-func RunWriteConsumer[T Influxable](conf *ConnectionConf, incomingData <-chan T) {
-	confirmChan := make(chan ConfirmMsg)
-	defer func() {
-		close(confirmChan)
-	}()
-	go func() {
-		if conf.IsConfigured() {
-			var err error
-			errListener := func(err error) {
-				log.Error().Err(err).Msg("")
-			}
-			client, err := NewRecordWriter[T](conf, errListener)
-			if err != nil {
-				log.Error().Err(err).Msg("")
-			}
-			for rec := range incomingData {
-				client.AddRecord(rec)
-			}
-			if err != nil {
-				log.Error().Err(err).Msg("")
-			}
-
-		} else {
-			for range incomingData {
-			}
+func RunWriteConsumerSync[T Influxable](conf *ConnectionConf, incomingData <-chan T) {
+	if conf.IsConfigured() {
+		var err error
+		errListener := func(err error) {
+			log.Error().Err(err).Send()
 		}
-	}()
+		client, err := NewRecordWriter[T](conf, errListener)
+		if err != nil {
+			log.Error().Err(err).Send()
+		}
+		for rec := range incomingData {
+			client.AddRecord(rec)
+		}
+		if err != nil {
+			log.Error().Err(err).Send()
+		}
+
+	} else {
+		for range incomingData {
+		}
+	}
 }

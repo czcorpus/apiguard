@@ -155,8 +155,8 @@ func (kp *KontextProxy) makeRequest(
 			resp = &services.ProxiedResponse{Err: err}
 		}
 		return resp
-
-	} else if err != nil {
+	}
+	if err != nil {
 		return &services.ProxiedResponse{Err: err}
 	}
 	return resp

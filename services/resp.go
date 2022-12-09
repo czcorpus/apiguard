@@ -6,7 +6,9 @@
 
 package services
 
-import "net/http"
+import (
+	"net/http"
+)
 
 type ProxiedResponse struct {
 	Body       []byte
@@ -40,6 +42,9 @@ func (pr *ProxiedResponse) MarkCached() {
 	pr.Cached = true
 }
 
+// SimpleResponse represents a backend response where we don't
+// care about authentication and/or information returned via
+// headers
 type SimpleResponse struct {
 	Body       []byte
 	StatusCode int

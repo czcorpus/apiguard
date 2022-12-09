@@ -8,6 +8,7 @@ package treq
 
 import (
 	"apiguard/alarms"
+	"apiguard/cncdb/analyzer"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/logging"
@@ -30,7 +31,7 @@ type TreqProxy struct {
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
-	analyzer        services.ReqAnalyzer
+	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
 	apiProxy        services.APIProxy
 
@@ -127,7 +128,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 func NewTreqProxy(
 	globalCtx *services.GlobalContext,
 	conf *Conf,
-	analyzer services.ReqAnalyzer,
+	analyzer *analyzer.CNCUserAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
 	reqCounter chan<- alarms.RequestInfo,

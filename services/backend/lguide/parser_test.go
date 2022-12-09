@@ -17,7 +17,7 @@ import (
 
 func loadTestingFile(relativePath string, t *testing.T) string {
 	_, filepath, _, _ := runtime.Caller(0)
-	srcPath := path.Join(filepath, "..", "..", "..", relativePath)
+	srcPath := path.Join(filepath, "..", "..", "..", "..", relativePath)
 	content, err := os.ReadFile(srcPath)
 	if err != nil {
 		t.Error(err)

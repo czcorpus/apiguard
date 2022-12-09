@@ -66,6 +66,7 @@ func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
 	}
 	dec := gob.NewDecoder(fr)
 	var ans services.BackendResponse
+	ans.MarkCached()
 	err = dec.Decode(&ans)
 	return ans, err
 }
@@ -79,7 +80,6 @@ func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error 
 		if err != nil {
 			return err
 		}
-		resp.MarkCached()
 		enc := gob.NewEncoder(fw)
 		return enc.Encode(&resp)
 	}

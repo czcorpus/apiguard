@@ -33,6 +33,7 @@ func NewBackendLogger(conf monitoring.ConnectionConf, timezoneLocation *time.Loc
 		monitoring.RunWriteConsumerSync(&conf, blstream)
 	}()
 	return &BackendLogger{
-		stream: blstream,
+		stream:           blstream,
+		timezoneLocation: timezoneLocation,
 	}
 }

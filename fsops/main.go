@@ -15,7 +15,7 @@ import (
 func IsFile(path string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return false, err
+		return false, nil
 	}
 	finfo, err := f.Stat()
 	if err != nil {

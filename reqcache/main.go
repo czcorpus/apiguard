@@ -41,12 +41,22 @@ func (rc *ReqCache) createItemPath(req *http.Request) string {
 
 func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
 	filePath := rc.createItemPath(req)
-	if !fsops.IsFile(filePath) ||
-		time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
+	isFile, err := fsops.IsFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	if !isFile {
+		return nil, ErrCacheMiss
+	}
+	if time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
+		err := fsops.DeleteFile(filePath)
+		if err != nil {
+			return nil, err
+		}
 		return nil, ErrCacheMiss
 	}
 	newTime := time.Now()
-	err := os.Chtimes(filePath, newTime, newTime)
+	err = os.Chtimes(filePath, newTime, newTime)
 	if err != nil {
 		return nil, err
 	}

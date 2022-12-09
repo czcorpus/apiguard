@@ -143,8 +143,11 @@ func NewAnalyzer(
 ) (*Analyzer, error) {
 	currDump := mkDumpPath(conf.InternalDataPath)
 	var network *deep.Neural
-
-	if fsops.IsFile(currDump) {
+	currDumpIsFile, err := fsops.IsFile(currDump)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create analyzer: %w", err)
+	}
+	if currDumpIsFile {
 		var err error
 		network, err = loadNetwork(currDump)
 		if err != nil {

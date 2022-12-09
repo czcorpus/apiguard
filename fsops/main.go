@@ -7,20 +7,32 @@
 package fsops
 
 import (
+	"fmt"
 	"os"
 	"time"
 )
 
-func IsFile(path string) bool {
+func IsFile(path string) (bool, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return false
+		return false, err
 	}
 	finfo, err := f.Stat()
 	if err != nil {
-		return false
+		return false, err
 	}
-	return finfo.Mode().IsRegular()
+	return finfo.Mode().IsRegular(), nil
+}
+
+func DeleteFile(path string) error {
+	isFile, err := IsFile(path)
+	if err != nil {
+		return fmt.Errorf("failed to delete file %s: %w", path, err)
+	}
+	if !isFile {
+		return fmt.Errorf("failed to delete file %s: path is not a file", path)
+	}
+	return os.Remove(path)
 }
 
 func GetFileMtime(filePath string) time.Time {

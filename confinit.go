@@ -30,7 +30,7 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 			"/usr/local/etc/apiguard.json",
 		}
 		for _, path := range srchPaths {
-			if fsops.IsFile(path) {
+			if isFile, _ := fsops.IsFile(path); isFile {
 				conf = config.LoadConfig(path)
 				break
 			}

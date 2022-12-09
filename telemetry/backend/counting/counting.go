@@ -7,7 +7,7 @@
 package counting
 
 import (
-	"apiguard/logging"
+	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"apiguard/telemetry/backend"
 	"math"

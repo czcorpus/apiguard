@@ -12,6 +12,7 @@ import (
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/defaults"
+	"apiguard/services/logging"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -80,7 +81,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      userID,
 			}
 		}
-		services.LogServiceRequest(ServiceName, t0, &cached, &userID)
+		logging.LogServiceRequest(ServiceName, t0, &cached, &userID)
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)

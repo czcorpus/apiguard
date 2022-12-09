@@ -10,6 +10,7 @@ import (
 	"apiguard/botwatch"
 	"apiguard/reqcache"
 	"apiguard/services"
+	"apiguard/services/logging"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -39,7 +40,7 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	var cached bool
 	defer func() {
-		services.LogServiceRequest(ServiceName, t0, &cached, nil)
+		logging.LogServiceRequest(ServiceName, t0, &cached, nil)
 	}()
 
 	query := req.URL.Query().Get("q")

@@ -7,8 +7,8 @@
 package entropy
 
 import (
-	"apiguard/logging"
 	"apiguard/monitoring"
+	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"apiguard/telemetry/backend"
 	"apiguard/telemetry/preprocess"

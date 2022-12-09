@@ -14,7 +14,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"apiguard/logging"
+	"apiguard/services/logging"
 	"apiguard/telemetry"
 )
 

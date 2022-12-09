@@ -7,7 +7,7 @@
 package dumb
 
 import (
-	"apiguard/logging"
+	"apiguard/services/logging"
 	"apiguard/telemetry/backend"
 	"net/http"
 

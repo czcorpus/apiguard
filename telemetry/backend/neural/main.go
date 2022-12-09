@@ -8,7 +8,7 @@ package neural
 
 import (
 	"apiguard/fsops"
-	"apiguard/logging"
+	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"apiguard/telemetry/backend"
 	"apiguard/telemetry/backend/entropy"

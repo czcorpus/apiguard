@@ -9,9 +9,9 @@ package lguide
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb"
-	"apiguard/logging"
 	"apiguard/reqcache"
 	"apiguard/services"
+	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"crypto/tls"
 	"fmt"
@@ -111,7 +111,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
-		services.LogServiceRequest(ServiceName, t0, &cached, nil)
+		logging.LogServiceRequest(ServiceName, t0, &cached, nil)
 	}()
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))

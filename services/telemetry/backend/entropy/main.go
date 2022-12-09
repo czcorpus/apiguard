@@ -9,9 +9,9 @@ package entropy
 import (
 	"apiguard/monitoring"
 	"apiguard/services/logging"
-	"apiguard/telemetry"
-	"apiguard/telemetry/backend"
-	"apiguard/telemetry/preprocess"
+	"apiguard/services/telemetry"
+	"apiguard/services/telemetry/backend"
+	"apiguard/services/telemetry/preprocess"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"

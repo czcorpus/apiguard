@@ -8,7 +8,7 @@ package dumb
 
 import (
 	"apiguard/services/logging"
-	"apiguard/telemetry/backend"
+	"apiguard/services/telemetry/backend"
 	"net/http"
 
 	"github.com/rs/zerolog/log"

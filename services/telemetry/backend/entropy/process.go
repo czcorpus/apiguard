@@ -7,7 +7,7 @@
 package entropy
 
 import (
-	"apiguard/telemetry/preprocess"
+	"apiguard/services/telemetry/preprocess"
 	"fmt"
 	"math"
 )

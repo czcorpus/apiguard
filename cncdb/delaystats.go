@@ -9,7 +9,7 @@ package cncdb
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb/rdelay"
-	"apiguard/telemetry"
+	"apiguard/services/telemetry"
 	"database/sql"
 	"fmt"
 	"net"

@@ -8,8 +8,8 @@ package counting
 
 import (
 	"apiguard/services/logging"
-	"apiguard/telemetry"
-	"apiguard/telemetry/backend"
+	"apiguard/services/telemetry"
+	"apiguard/services/telemetry/backend"
 	"math"
 	"net/http"
 

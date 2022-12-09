@@ -21,7 +21,7 @@ import (
 	"apiguard/services/backend/psjc"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
-	"apiguard/telemetry"
+	"apiguard/services/telemetry"
 	"encoding/json"
 	"io/ioutil"
 	"time"

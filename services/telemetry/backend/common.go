@@ -7,7 +7,7 @@
 package backend
 
 import (
-	"apiguard/telemetry"
+	"apiguard/services/telemetry"
 	"errors"
 )
 

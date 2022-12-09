@@ -12,7 +12,7 @@ import (
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/logging"
-	"apiguard/telemetry"
+	"apiguard/services/telemetry"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"

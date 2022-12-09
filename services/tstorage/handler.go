@@ -10,7 +10,7 @@ import (
 	"apiguard/cncdb"
 	"apiguard/services"
 	"apiguard/services/logging"
-	"apiguard/telemetry"
+	"apiguard/services/telemetry"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"

@@ -15,7 +15,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"apiguard/services/logging"
-	"apiguard/telemetry"
+	"apiguard/services/telemetry"
 )
 
 type StoreHandler interface {

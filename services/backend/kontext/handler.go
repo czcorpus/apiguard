@@ -159,7 +159,7 @@ func (kp *KontextProxy) makeRequest(
 	if err != nil {
 		return &services.ProxiedResponse{Err: err}
 	}
-	return kp.analyzer.ValidateResponseSession(req, resp)
+	return resp
 }
 
 func NewKontextProxy(

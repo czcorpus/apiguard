@@ -42,19 +42,6 @@ func (pr *ProxiedResponse) MarkCached() {
 	pr.Cached = true
 }
 
-func (pr *ProxiedResponse) IsValidSession(sessionKey, currValue string) (bool, error) {
-	req, err := http.NewRequest(http.MethodGet, "", nil)
-	if err != nil {
-		return false, err
-	}
-	req.Header = pr.Headers
-	v, err := req.Cookie(sessionKey)
-	if err != nil {
-		return false, err
-	}
-	return v.Value == currValue, nil
-}
-
 // SimpleResponse represents a backend response where we don't
 // care about authentication and/or information returned via
 // headers
@@ -87,8 +74,4 @@ func (sr *SimpleResponse) IsCached() bool {
 
 func (sr *SimpleResponse) MarkCached() {
 	sr.Cached = true
-}
-
-func (sr *SimpleResponse) IsValidSession(sessionKey, currValue string) (bool, error) {
-	return true, nil
 }

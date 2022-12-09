@@ -24,27 +24,6 @@ type CNCUserAnalyzer struct {
 	AnonymousUserID      int
 }
 
-// ValidateResponseSession checks whether the session ID stored in 'resp'
-// response matches the one provided in 'req'. In case the valued
-// do not match, the response 'resp' is replaced by a new one with
-// status "forbidden".
-// This is intended for responses stored in cache (or somewhere else) as
-// normally a backend returning the response is expected to handle session
-// management by itself.
-func (kua *CNCUserAnalyzer) ValidateResponseSession(
-	req *http.Request,
-	resp services.BackendResponse,
-) services.BackendResponse {
-	validSess, err := resp.IsValidSession(kua.CNCSessionCookieName, kua.GetSessionID(req))
-	if err != nil {
-		return &services.ProxiedResponse{Err: err}
-	}
-	if !validSess {
-		return &services.ProxiedResponse{StatusCode: http.StatusForbidden}
-	}
-	return resp
-}
-
 func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 	return 0, nil
 }

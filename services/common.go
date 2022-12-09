@@ -18,7 +18,6 @@ type BackendResponse interface {
 	IsCached() bool
 	MarkCached()
 	GetError() error
-	IsValidSession(sessionKey, currValue string) (bool, error)
 }
 
 type Cache interface {

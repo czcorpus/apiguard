@@ -122,7 +122,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 	} else if err != nil {
 		return &services.ProxiedResponse{Err: err}
 	}
-	return tp.analyzer.ValidateResponseSession(req, resp)
+	return resp
 }
 
 func NewTreqProxy(

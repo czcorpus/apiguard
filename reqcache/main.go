@@ -30,15 +30,17 @@ type ReqCache struct {
 	conf *Conf
 }
 
-func (rc *ReqCache) createItemPath(url string) string {
+func (rc *ReqCache) createItemPath(req *http.Request) string {
 	h := sha1.New()
-	h.Write([]byte(url))
+	h.Write([]byte(req.URL.Path))
+	h.Write([]byte(req.URL.Query().Encode()))
+	h.Write([]byte(req.Header.Get("Cookie")))
 	bs := fmt.Sprintf("%x.gob", h.Sum(nil))
 	return path.Join(rc.conf.RootPath, bs[0:1], bs)
 }
 
 func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
-	filePath := rc.createItemPath(req.URL.Path)
+	filePath := rc.createItemPath(req)
 	if !fsops.IsFile(filePath) ||
 		time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
 		return nil, ErrCacheMiss
@@ -61,7 +63,7 @@ func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
 func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
-		targetPath := rc.createItemPath(req.URL.Path)
+		targetPath := rc.createItemPath(req)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		fw, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -75,5 +77,7 @@ func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error 
 }
 
 func NewReqCache(conf *Conf) *ReqCache {
-	return &ReqCache{conf: conf}
+	return &ReqCache{
+		conf: conf,
+	}
 }

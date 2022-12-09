@@ -8,9 +8,9 @@ package tstorage
 
 import (
 	"apiguard/cncdb"
-	"apiguard/logging"
 	"apiguard/services"
-	"apiguard/telemetry"
+	"apiguard/services/logging"
+	"apiguard/services/telemetry"
 	"encoding/json"
 	"io/ioutil"
 	"net/http"

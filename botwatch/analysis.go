@@ -7,15 +7,15 @@
 package botwatch
 
 import (
-	"apiguard/logging"
 	"apiguard/monitoring"
 	"apiguard/services"
-	"apiguard/telemetry"
-	"apiguard/telemetry/backend"
-	"apiguard/telemetry/backend/counting"
-	"apiguard/telemetry/backend/dumb"
-	"apiguard/telemetry/backend/entropy"
-	"apiguard/telemetry/backend/neural"
+	"apiguard/services/logging"
+	"apiguard/services/telemetry"
+	"apiguard/services/telemetry/backend"
+	"apiguard/services/telemetry/backend/counting"
+	"apiguard/services/telemetry/backend/dumb"
+	"apiguard/services/telemetry/backend/entropy"
+	"apiguard/services/telemetry/backend/neural"
 	"fmt"
 	"math"
 	"net"

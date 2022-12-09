@@ -9,6 +9,7 @@ package lguide
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb"
+	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/logging"
@@ -33,7 +34,7 @@ const (
 )
 
 type LanguageGuideActions struct {
-	globalCtx       *services.GlobalContext
+	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
@@ -111,7 +112,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
-		logging.LogServiceRequest(ServiceName, t0, &cached, nil)
+		lga.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, nil)
 	}()
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))
@@ -172,7 +173,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 }
 
 func NewLanguageGuideActions(
-	globalCtx *services.GlobalContext,
+	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,

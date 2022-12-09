@@ -6,7 +6,10 @@
 
 package monitoring
 
-import "time"
+import (
+	"strconv"
+	"time"
+)
 
 type TelemetryEntropy struct {
 	Created                       time.Time
@@ -33,4 +36,26 @@ func (te *TelemetryEntropy) ToInfluxDB() (map[string]string, map[string]any) {
 
 func (te *TelemetryEntropy) GetTime() time.Time {
 	return te.Created
+}
+
+type BackendRequest struct {
+	Created  time.Time
+	Service  string
+	ProcTime float64
+	IsCached bool
+	UserID   int
+}
+
+func (br *BackendRequest) ToInfluxDB() (map[string]string, map[string]any) {
+	return map[string]string{
+			"service":  br.Service,
+			"isCached": strconv.FormatBool(br.IsCached),
+		},
+		map[string]any{
+			"procTime": br.ProcTime,
+		}
+}
+
+func (br *BackendRequest) GetTime() time.Time {
+	return br.Created
 }

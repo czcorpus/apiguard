@@ -9,10 +9,10 @@ package kontext
 import (
 	"apiguard/alarms"
 	"apiguard/cncdb/analyzer"
+	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/defaults"
-	"apiguard/services/logging"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -29,7 +29,7 @@ const (
 )
 
 type KontextProxy struct {
-	globalCtx       *services.GlobalContext
+	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -81,7 +81,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      userID,
 			}
 		}
-		logging.LogServiceRequest(ServiceName, t0, &cached, &userID)
+		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, &userID)
 	}()
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
@@ -163,7 +163,7 @@ func (kp *KontextProxy) makeRequest(
 }
 
 func NewKontextProxy(
-	globalCtx *services.GlobalContext,
+	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	analyzer *analyzer.CNCUserAnalyzer,
 	readTimeoutSecs int,

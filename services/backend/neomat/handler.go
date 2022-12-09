@@ -8,9 +8,9 @@ package neomat
 
 import (
 	"apiguard/botwatch"
+	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
-	"apiguard/services/logging"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -23,7 +23,7 @@ const (
 )
 
 type NeomatActions struct {
-	globalCtx       *services.GlobalContext
+	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -38,7 +38,7 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		logging.LogServiceRequest(ServiceName, t0, &cached, nil)
+		aa.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, nil)
 	}()
 
 	query := req.URL.Query().Get("q")
@@ -96,7 +96,7 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) servic
 }
 
 func NewNeomatActions(
-	globalCtx *services.GlobalContext,
+	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,

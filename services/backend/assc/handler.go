@@ -8,9 +8,9 @@ package assc
 
 import (
 	"apiguard/botwatch"
+	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
-	"apiguard/services/logging"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,7 +31,7 @@ const (
 )
 
 type ASSCActions struct {
-	globalCtx       *services.GlobalContext
+	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
 	cache           services.Cache
@@ -42,7 +42,7 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		logging.LogServiceRequest(ServiceName, t0, &cached, nil)
+		aa.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, nil)
 	}()
 
 	queries, ok := req.URL.Query()["q"]
@@ -101,7 +101,7 @@ func (aa *ASSCActions) createMainRequest(url string, req *http.Request) services
 }
 
 func NewASSCActions(
-	globalCtx *services.GlobalContext,
+	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	cache services.Cache,
 	analyzer *botwatch.Analyzer,

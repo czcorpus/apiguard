@@ -167,9 +167,13 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 	// ----------------------
 
 	var cache services.Cache
-	if conf.Cache.RootPath != "" {
-		cache = reqcache.NewReqCache(&conf.Cache)
-		log.Info().Msgf("using request cache (path: %s)", conf.Cache.RootPath)
+	if conf.Cache.FileRootPath != "" {
+		cache = reqcache.NewFileReqCache(&conf.Cache)
+		log.Info().Msgf("using file request cache (path: %s)", conf.Cache.FileRootPath)
+
+	} else if conf.Cache.RedisAddr != "" {
+		cache = reqcache.NewRedisReqCache(&conf.Cache)
+		log.Info().Msgf("using redis request cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
 
 	} else {
 		cache = reqcache.NewNullCache()

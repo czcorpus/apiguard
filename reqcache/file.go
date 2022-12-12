@@ -11,7 +11,6 @@ import (
 	"apiguard/services"
 	"crypto/sha1"
 	"encoding/gob"
-	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -19,27 +18,20 @@ import (
 	"time"
 )
 
-var ErrCacheMiss = errors.New("cache miss")
-
-type Conf struct {
-	RootPath string `json:"rootPath"`
-	TTLSecs  int    `json:"ttlSecs"`
-}
-
-type ReqCache struct {
+type FileReqCache struct {
 	conf *Conf
 }
 
-func (rc *ReqCache) createItemPath(req *http.Request) string {
+func (frc *FileReqCache) createItemPath(req *http.Request) string {
 	h := sha1.New()
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))
 	h.Write([]byte(req.Header.Get("Cookie")))
 	bs := fmt.Sprintf("%x.gob", h.Sum(nil))
-	return path.Join(rc.conf.RootPath, bs[0:1], bs)
+	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
 }
 
-func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
+func (rc *FileReqCache) Get(req *http.Request) (services.BackendResponse, error) {
 	filePath := rc.createItemPath(req)
 	isFile, err := fsops.IsFile(filePath)
 	if err != nil {
@@ -73,10 +65,10 @@ func (rc *ReqCache) Get(req *http.Request) (services.BackendResponse, error) {
 	return ans, err
 }
 
-func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error {
+func (frc *FileReqCache) Set(req *http.Request, resp services.BackendResponse) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
-		targetPath := rc.createItemPath(req)
+		targetPath := frc.createItemPath(req)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		fw, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -88,8 +80,8 @@ func (rc *ReqCache) Set(req *http.Request, resp services.BackendResponse) error 
 	return nil
 }
 
-func NewReqCache(conf *Conf) *ReqCache {
-	return &ReqCache{
+func NewFileReqCache(conf *Conf) *FileReqCache {
+	return &FileReqCache{
 		conf: conf,
 	}
 }

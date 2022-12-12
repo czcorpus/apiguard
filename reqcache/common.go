@@ -6,9 +6,43 @@
 
 package reqcache
 
-import "errors"
+import (
+	"apiguard/services"
+	"crypto/sha1"
+	"errors"
+	"net/http"
+	"sort"
+	"strings"
+)
 
 var ErrCacheMiss = errors.New("cache miss")
+
+func generateCacheId(req *http.Request, resp services.BackendResponse, respectCookies []string) []byte {
+	h := sha1.New()
+	h.Write([]byte(req.URL.Path))
+	h.Write([]byte(req.URL.Query().Encode()))
+	if respectCookies != nil {
+		hashCookies := make([]string, 0)
+		respParams := http.Request{}
+		if resp != nil {
+			respParams.Header = resp.GetHeaders()
+		}
+		for _, respectCookie := range respectCookies {
+			respCookie, err := respParams.Cookie(respectCookie)
+			if err == nil {
+				hashCookies = append(hashCookies, respCookie.Name+"="+respCookie.Value)
+				continue
+			}
+			reqCookie, err := req.Cookie(respectCookie)
+			if err == nil {
+				hashCookies = append(hashCookies, reqCookie.Name+"="+reqCookie.Value)
+			}
+		}
+		sort.Strings(hashCookies)
+		h.Write([]byte(strings.Join(hashCookies, ";")))
+	}
+	return h.Sum(nil)
+}
 
 type Conf struct {
 	FileRootPath string `json:"fileRootPath"`

@@ -10,7 +10,6 @@ import (
 	"apiguard/services"
 	"bytes"
 	"context"
-	"crypto/sha1"
 	"encoding/gob"
 	"fmt"
 	"net/http"
@@ -25,16 +24,13 @@ type RedisReqCache struct {
 	redisContext context.Context
 }
 
-func (rrc *RedisReqCache) createCacheID(req *http.Request) string {
-	h := sha1.New()
-	h.Write([]byte(req.URL.Path))
-	h.Write([]byte(req.URL.Query().Encode()))
-	h.Write([]byte(req.Header.Get("Cookie")))
-	return fmt.Sprintf("apiguard:cache:%x", h.Sum(nil))
+func (rrc *RedisReqCache) createCacheID(req *http.Request, resp services.BackendResponse, respectCookies []string) string {
+	cacheID := generateCacheId(req, resp, respectCookies)
+	return fmt.Sprintf("apiguard:cache:%x", cacheID)
 }
 
-func (rrc *RedisReqCache) Get(req *http.Request) (services.BackendResponse, error) {
-	cacheID := rrc.createCacheID(req)
+func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (services.BackendResponse, error) {
+	cacheID := rrc.createCacheID(req, nil, respectCookies)
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
 		return nil, ErrCacheMiss
@@ -55,10 +51,10 @@ func (rrc *RedisReqCache) Get(req *http.Request) (services.BackendResponse, erro
 	return ans, err
 }
 
-func (rrc *RedisReqCache) Set(req *http.Request, resp services.BackendResponse) error {
+func (rrc *RedisReqCache) Set(req *http.Request, resp services.BackendResponse, respectCookies []string) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
-		cacheID := rrc.createCacheID(req)
+		cacheID := rrc.createCacheID(req, resp, respectCookies)
 		var buffer bytes.Buffer
 		encoder := gob.NewEncoder(&buffer)
 		err := encoder.Encode(&resp)

@@ -131,7 +131,7 @@ func (kp *KontextProxy) makeRequest(
 	reqProps services.ReqProperties,
 ) services.BackendResponse {
 
-	resp, err := kp.cache.Get(req)
+	resp, err := kp.cache.Get(req, []string{kp.conf.SessionCookieName})
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 
@@ -150,7 +150,7 @@ func (kp *KontextProxy) makeRequest(
 			req.Header,
 			req.Body,
 		)
-		err = kp.cache.Set(req, resp)
+		err = kp.cache.Set(req, resp, []string{kp.conf.SessionCookieName})
 		if err != nil {
 			resp = &services.ProxiedResponse{Err: err}
 		}

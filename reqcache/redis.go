@@ -12,6 +12,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -29,7 +30,7 @@ func (rrc *RedisReqCache) createCacheID(req *http.Request) string {
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))
 	h.Write([]byte(req.Header.Get("Cookie")))
-	return string(h.Sum([]byte("apiguard:cache:")))
+	return fmt.Sprintf("apiguard:cache:%x", h.Sum(nil))
 }
 
 func (rrc *RedisReqCache) Get(req *http.Request) (services.BackendResponse, error) {
@@ -48,6 +49,9 @@ func (rrc *RedisReqCache) Get(req *http.Request) (services.BackendResponse, erro
 	decoder := gob.NewDecoder(reader)
 	var ans services.BackendResponse
 	err = decoder.Decode(&ans)
+	if err == nil {
+		ans.MarkCached()
+	}
 	return ans, err
 }
 
@@ -57,7 +61,7 @@ func (rrc *RedisReqCache) Set(req *http.Request, resp services.BackendResponse) 
 		cacheID := rrc.createCacheID(req)
 		var buffer bytes.Buffer
 		encoder := gob.NewEncoder(&buffer)
-		err := encoder.Encode(resp)
+		err := encoder.Encode(&resp)
 		if err != nil {
 			return err
 		}
@@ -65,8 +69,6 @@ func (rrc *RedisReqCache) Set(req *http.Request, resp services.BackendResponse) 
 		if err != nil {
 			return err
 		}
-		resp.MarkCached()
-		return nil
 	}
 	return nil
 }

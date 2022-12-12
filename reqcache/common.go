@@ -23,31 +23,19 @@ func generateCacheId(req *http.Request, resp services.BackendResponse, respectCo
 	h.Write([]byte(req.URL.Query().Encode()))
 	if respectCookies != nil {
 		hashCookies := make([]string, 0)
-		var respCookies []string
-		if resp == nil {
-			respCookies = make([]string, 0)
-		} else {
-			respCookies = strings.Split(resp.GetHeaders().Get("Cookies"), ";")
+		respParams := http.Request{}
+		if resp != nil {
+			respParams.Header = resp.GetHeaders()
 		}
 		for _, respectCookie := range respectCookies {
-			filledFromResponse := false
-			for _, respCookie := range respCookies {
-				kv := strings.Split(strings.TrimSpace(respCookie), "=")
-				if kv[0] == respectCookie {
-					if len(kv) > 1 {
-						hashCookies = append(hashCookies, kv[0]+"="+kv[1])
-					} else {
-						hashCookies = append(hashCookies, kv[0]+"=")
-					}
-					filledFromResponse = true
-					break
-				}
+			respCookie, err := respParams.Cookie(respectCookie)
+			if err == nil {
+				hashCookies = append(hashCookies, respCookie.Name+"="+respCookie.Value)
+				continue
 			}
-			if !filledFromResponse {
-				reqCookie, err := req.Cookie(respectCookie)
-				if err == nil {
-					hashCookies = append(hashCookies, reqCookie.Name+"="+reqCookie.Value)
-				}
+			reqCookie, err := req.Cookie(respectCookie)
+			if err == nil {
+				hashCookies = append(hashCookies, reqCookie.Name+"="+reqCookie.Value)
 			}
 		}
 		sort.Strings(hashCookies)

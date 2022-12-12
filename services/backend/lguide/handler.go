@@ -65,10 +65,10 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 }
 
 func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
-	resp, err := lga.cache.Get(req)
+	resp, err := lga.cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
 		resp := services.GetRequest(url, lga.conf.ClientUserAgent)
-		err = lga.cache.Set(req, resp)
+		err = lga.cache.Set(req, resp, nil)
 		if err != nil {
 			return &services.SimpleResponse{Err: err}
 		}

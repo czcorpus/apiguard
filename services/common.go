@@ -21,8 +21,8 @@ type BackendResponse interface {
 }
 
 type Cache interface {
-	Get(req *http.Request) (BackendResponse, error)
-	Set(req *http.Request, resp BackendResponse) error
+	Get(req *http.Request, respectCookies []string) (BackendResponse, error)
+	Set(req *http.Request, resp BackendResponse, respectCookies []string) error
 }
 
 type GlobalContext struct {

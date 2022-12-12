@@ -125,10 +125,10 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 }
 
 func (aa *SSJCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
-	resp, err := aa.cache.Get(req)
+	resp, err := aa.cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
 		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.cache.Set(req, resp)
+		err = aa.cache.Set(req, resp, nil)
 		if err != nil {
 			return &services.SimpleResponse{Err: err}
 		}

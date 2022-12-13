@@ -51,11 +51,13 @@ func (db *InfluxDBAdapter) Address() string {
 }
 
 func (db *InfluxDBAdapter) OnError(handler func(error)) {
-	go func() {
-		for err := range db.errChan {
-			handler(err)
-		}
-	}()
+	if db != nil {
+		go func() {
+			for err := range db.errChan {
+				handler(err)
+			}
+		}()
+	}
 }
 
 func ConnectAPI(conf *ConnectionConf) *InfluxDBAdapter {

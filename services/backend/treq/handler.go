@@ -76,7 +76,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
 	passedHeaders := req.Header
 	if kp.conf.UseHeaderXApiKey {
-		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
+		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
 	}
 
 	serviceResp := kp.makeRequest(req)
@@ -99,7 +99,7 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 }
 
 func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
-	resp, err := tp.cache.Get(req, []string{tp.conf.SessionCookieName})
+	resp, err := tp.cache.Get(req, []string{tp.analyzer.CNCSessionCookieName})
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 		urlArgs := req.URL.Query()
@@ -110,7 +110,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 			req.Header,
 			req.Body,
 		)
-		err := tp.cache.Set(req, resp, []string{tp.conf.SessionCookieName})
+		err := tp.cache.Set(req, resp, []string{tp.analyzer.CNCSessionCookieName})
 		if err != nil {
 			return &services.ProxiedResponse{Err: err}
 		}

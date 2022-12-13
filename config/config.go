@@ -51,6 +51,10 @@ type servicesSection struct {
 	Treq          treq.Conf    `json:"treq"`
 }
 
+type CNCAuthConf struct {
+	SessionCookieName string `json:"sessionCookieName"`
+}
+
 func (services *servicesSection) validate() error {
 	if services.ASSC.BaseURL != "" {
 		log.Info().Msgf("Service ASSC enabled")
@@ -96,6 +100,7 @@ type Configuration struct {
 	IPBanTTLSecs           int                   `json:"IpBanTtlSecs"`
 	CNCDB                  cncdb.Conf            `json:"cncDb"`
 	Mail                   alarms.MailConf       `json:"mail"`
+	CNCAuth                CNCAuthConf           `json:"cncAuth"`
 }
 
 func (c *Configuration) Validate() error {

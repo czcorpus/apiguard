@@ -13,7 +13,6 @@
         "kontext": {
             "internalUrl": "http://localhost:8080",
             "externalUrl": "http://localhost:3010/service/kontext",
-            "sessionCookieName": "cnc_toolbar_sid",
             "alarm": {
                 "reqPerTimeThreshold": 2,
                 "reqCheckingIntervalSecs": 10,
@@ -23,7 +22,6 @@
         "treq": {
             "internalUrl": "http://localhost:8081",
             "externalUrl": "http://localhost:3010/service/treq",
-            "sessionCookieName": "cnc_toolbar_sid",
             "alarm": {
                 "reqPerTimeThreshold": 2,
                 "reqCheckingIntervalSecs": 10,
@@ -56,7 +54,10 @@
         "database": "cnc_database_name"
     },
     "cache": {
-        "rootPath": "",
+        "fileRootPath": "",
         "ttlSecs": 3600
+    },
+    "cncAuth": {
+        "sessionCookieName": "cnc_toolbar_sid"
     }
 }

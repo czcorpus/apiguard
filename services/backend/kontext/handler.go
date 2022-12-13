@@ -104,7 +104,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
 	passedHeaders := req.Header
 	if kp.conf.UseHeaderXApiKey {
-		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.conf.SessionCookieName)}
+		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
 	}
 
 	serviceResp := kp.makeRequest(req, reqProps)
@@ -131,7 +131,7 @@ func (kp *KontextProxy) makeRequest(
 	reqProps services.ReqProperties,
 ) services.BackendResponse {
 
-	resp, err := kp.cache.Get(req, []string{kp.conf.SessionCookieName})
+	resp, err := kp.cache.Get(req, []string{kp.analyzer.CNCSessionCookieName})
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 
@@ -150,7 +150,7 @@ func (kp *KontextProxy) makeRequest(
 			req.Header,
 			req.Body,
 		)
-		err = kp.cache.Set(req, resp, []string{kp.conf.SessionCookieName})
+		err = kp.cache.Set(req, resp, []string{kp.analyzer.CNCSessionCookieName})
 		if err != nil {
 			resp = &services.ProxiedResponse{Err: err}
 		}

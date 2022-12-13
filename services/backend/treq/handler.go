@@ -103,9 +103,6 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 		urlArgs := req.URL.Query()
-		if _, ok := urlArgs["format"]; !ok {
-			urlArgs["format"] = []string{"json"}
-		}
 		resp = tp.apiProxy.Request(
 			// TODO use some path builder here
 			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),

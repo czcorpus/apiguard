@@ -282,7 +282,7 @@ func runService(
 
 	// KonText (API) proxy
 
-	cnca := analyzer.NewCNCUserAnalyzer(
+	cncKa := analyzer.NewCNCUserAnalyzer(
 		globalCtx.CNCDB,
 		conf.TimezoneLocation(),
 		userTableName,
@@ -297,7 +297,7 @@ func runService(
 	kontextActions := kontext.NewKontextProxy(
 		globalCtx,
 		&conf.Services.Kontext,
-		cnca,
+		cncKa,
 		conf.ServerReadTimeoutSecs,
 		globalCtx.CNCDB,
 		kontextReqCounter,
@@ -307,6 +307,14 @@ func runService(
 
 	// Treq (API) proxy
 
+	cncTa := analyzer.NewCNCUserAnalyzer(
+		globalCtx.CNCDB,
+		conf.TimezoneLocation(),
+		userTableName,
+		conf.Services.Treq.SessionCookieName,
+		conf.CNCDB.AnonymousUserID,
+	)
+
 	var treqReqCounter chan<- alarms.RequestInfo
 	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
 		treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Kontext.Alarm)
@@ -314,7 +322,7 @@ func runService(
 	treqActions := treq.NewTreqProxy(
 		globalCtx,
 		&conf.Services.Treq,
-		cnca,
+		cncTa,
 		conf.ServerReadTimeoutSecs,
 		globalCtx.CNCDB,
 		treqReqCounter,

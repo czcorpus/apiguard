@@ -29,6 +29,7 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/config"
 	"apiguard/ctx"
+	"apiguard/monitoring/influx"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend/assc"
@@ -125,7 +126,24 @@ func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
 	return cncDB
 }
 
-func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configuration, userTableName string) {
+func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
+	db := influx.ConnectAPI(conf)
+	db.OnError(func(err error) {
+		log.Err(err).Msg("Failed to write measurement to InfluxDB")
+	})
+	log.Info().
+		Str("host", conf.Server).
+		Str("organization", conf.Organization).
+		Str("bucket", conf.Bucket).
+		Msgf("Connected to InfluxDB (v2)")
+	return db
+}
+
+func runService(
+	globalCtx *ctx.GlobalContext,
+	conf *config.Configuration,
+	userTableName string,
+) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
@@ -136,7 +154,7 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 
 	// alarm
 	alarm := alarms.NewAlarmTicker(
-		db,
+		globalCtx.CNCDB,
 		conf.TimezoneLocation(),
 		conf.Mail,
 		userTableName,
@@ -152,11 +170,11 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 		"/alarm", alarm.HandleReportListAction).Methods(http.MethodGet)
 
 	// telemetry analyzer
-	delayStats := cncdb.NewDelayStats(db, conf.TimezoneLocation())
+	delayStats := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
-		&conf.Monitoring,
+		globalCtx.InfluxDB,
 		delayStats,
 		delayStats,
 	)
@@ -265,7 +283,7 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 	// KonText (API) proxy
 
 	cnca := analyzer.NewCNCUserAnalyzer(
-		db,
+		globalCtx.CNCDB,
 		conf.TimezoneLocation(),
 		userTableName,
 		conf.Services.Kontext.SessionCookieName,
@@ -281,7 +299,7 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 		&conf.Services.Kontext,
 		cnca,
 		conf.ServerReadTimeoutSecs,
-		db,
+		globalCtx.CNCDB,
 		kontextReqCounter,
 		cache,
 	)
@@ -298,7 +316,7 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 		&conf.Services.Treq,
 		cnca,
 		conf.ServerReadTimeoutSecs,
-		db,
+		globalCtx.CNCDB,
 		treqReqCounter,
 		cache,
 	)
@@ -306,7 +324,7 @@ func runService(db *sql.DB, globalCtx *ctx.GlobalContext, conf *config.Configura
 
 	// user handling
 
-	usersActions := users.NewActions(&users.Conf{}, db, conf.TimezoneLocation())
+	usersActions := users.NewActions(&users.Conf{}, globalCtx.CNCDB, conf.TimezoneLocation())
 
 	router.HandleFunc("/user/{userID}/ban", usersActions.BanInfo).Methods(http.MethodGet)
 
@@ -412,8 +430,8 @@ func runCleanup(db *sql.DB, conf *config.Configuration) {
 	log.Info().Msgf("finished old data cleanup: %s", string(status))
 }
 
-func runStatus(db *sql.DB, conf *config.Configuration, ident string) {
-	delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
+func runStatus(globalCtx ctx.GlobalContext, conf *config.Configuration, ident string) {
+	delayLog := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {
@@ -432,7 +450,7 @@ func runStatus(db *sql.DB, conf *config.Configuration, ident string) {
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
-		&conf.Monitoring,
+		globalCtx.InfluxDB,
 		delayLog,
 		delayLog,
 	)
@@ -486,12 +504,12 @@ func runStatus(db *sql.DB, conf *config.Configuration, ident string) {
 	}
 }
 
-func runLearn(db *sql.DB, conf *config.Configuration) {
-	delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
+func runLearn(globalCtx ctx.GlobalContext, conf *config.Configuration) {
+	delayLog := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
-		&conf.Monitoring,
+		globalCtx.InfluxDB,
 		delayLog,
 		delayLog,
 	)
@@ -501,6 +519,16 @@ func runLearn(db *sql.DB, conf *config.Configuration) {
 	err = telemetryAnalyzer.Learn()
 	if err != nil {
 		log.Fatal().Err(err).Msg("")
+	}
+}
+
+func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
+	influxDB := openInfluxDB(&conf.Monitoring)
+	return ctx.GlobalContext{
+		TimezoneLocation: conf.TimezoneLocation(),
+		InfluxDB:         influxDB,
+		BackendLogger:    ctx.NewBackendLogger(influxDB, conf.TimezoneLocation()),
+		CNCDB:            openCNCDatabase(&conf.CNCDB),
 	}
 }
 
@@ -551,22 +579,18 @@ func main() {
 		return
 	case "start":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
-		globalCtx := &ctx.GlobalContext{
-			TimezoneLocation: conf.TimezoneLocation(),
-			BackendLogger:    ctx.NewBackendLogger(conf.Monitoring, conf.TimezoneLocation()),
-		}
+		globalCtx := createGlobalCtx(conf)
 		log.Info().
 			Str("version", versionInfo.Version).
 			Str("buildDate", versionInfo.BuildDate).
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
-		db := openCNCDatabase(&conf.CNCDB)
 		userTableName := cncdb.DfltUsersTableName
 		if conf.CNCDB.OverrideUsersTableName != "" {
 			userTableName = conf.CNCDB.OverrideUsersTableName
 			log.Warn().Msgf("overriding users table name to '%s'", userTableName)
 		}
-		runService(db, globalCtx, conf, userTableName)
+		runService(&globalCtx, conf, userTableName)
 	case "cleanup":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
@@ -618,12 +642,12 @@ func main() {
 		}
 	case "status":
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		runStatus(db, conf, flag.Arg(1))
+		globalCtx := createGlobalCtx(conf)
+		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		runLearn(db, conf)
+		globalCtx := createGlobalCtx(conf)
+		runLearn(globalCtx, conf)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

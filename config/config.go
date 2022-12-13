@@ -10,7 +10,7 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
-	"apiguard/monitoring"
+	"apiguard/monitoring/influx"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -80,22 +80,22 @@ func (services *servicesSection) validate() error {
 }
 
 type Configuration struct {
-	ServerHost             string                    `json:"serverHost"`
-	ServerPort             int                       `json:"serverPort"`
-	ServerReadTimeoutSecs  int                       `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                       `json:"serverWriteTimeoutSecs"`
-	TimeZone               string                    `json:"timeZone"`
-	Botwatch               botwatch.Conf             `json:"botwatch"`
-	Telemetry              telemetry.Conf            `json:"telemetry"`
-	Services               servicesSection           `json:"services"`
-	Cache                  reqcache.Conf             `json:"cache"`
-	Monitoring             monitoring.ConnectionConf `json:"monitoring"`
-	LogPath                string                    `json:"logPath"`
-	LogLevel               string                    `json:"logLevel"`
-	CleanupMaxAgeDays      int                       `json:"cleanupMaxAgeDays"`
-	IPBanTTLSecs           int                       `json:"IpBanTtlSecs"`
-	CNCDB                  cncdb.Conf                `json:"cncDb"`
-	Mail                   alarms.MailConf           `json:"mail"`
+	ServerHost             string                `json:"serverHost"`
+	ServerPort             int                   `json:"serverPort"`
+	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
+	TimeZone               string                `json:"timeZone"`
+	Botwatch               botwatch.Conf         `json:"botwatch"`
+	Telemetry              telemetry.Conf        `json:"telemetry"`
+	Services               servicesSection       `json:"services"`
+	Cache                  reqcache.Conf         `json:"cache"`
+	Monitoring             influx.ConnectionConf `json:"monitoring"`
+	LogPath                string                `json:"logPath"`
+	LogLevel               string                `json:"logLevel"`
+	CleanupMaxAgeDays      int                   `json:"cleanupMaxAgeDays"`
+	IPBanTTLSecs           int                   `json:"IpBanTtlSecs"`
+	CNCDB                  cncdb.Conf            `json:"cncDb"`
+	Mail                   alarms.MailConf       `json:"mail"`
 }
 
 func (c *Configuration) Validate() error {

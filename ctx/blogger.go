@@ -8,6 +8,7 @@ package ctx
 
 import (
 	"apiguard/monitoring"
+	"apiguard/monitoring/influx"
 	"apiguard/services/logging"
 	"time"
 )
@@ -27,10 +28,10 @@ func (b *BackendLogger) Log(service string, procTime time.Duration, cached *bool
 	logging.LogServiceRequest(service, procTime, cached, userId)
 }
 
-func NewBackendLogger(conf monitoring.ConnectionConf, timezoneLocation *time.Location) *BackendLogger {
+func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {
 	blstream := make(chan *monitoring.BackendRequest)
 	go func() {
-		monitoring.RunWriteConsumerSync(&conf, blstream)
+		monitoring.RunWriteConsumerSync(db, blstream)
 	}()
 	return &BackendLogger{
 		stream:           blstream,

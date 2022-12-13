@@ -8,6 +8,7 @@ package entropy
 
 import (
 	"apiguard/monitoring"
+	"apiguard/monitoring/influx"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"apiguard/services/telemetry/backend"
@@ -89,7 +90,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 
 func NewAnalyzer(
 	db backend.TelemetryStorage,
-	monitoringConf *monitoring.ConnectionConf,
+	monitoringDB *influx.InfluxDBAdapter,
 	telemetryConf *telemetry.Conf,
 ) (*Analyzer, error) {
 	if telemetryConf.CustomConfPath == "" {
@@ -101,7 +102,7 @@ func NewAnalyzer(
 	}
 	entropyMsr := make(chan *monitoring.TelemetryEntropy)
 	go func() {
-		monitoring.RunWriteConsumerSync(monitoringConf, entropyMsr)
+		monitoring.RunWriteConsumerSync(monitoringDB, entropyMsr)
 	}()
 	return &Analyzer{
 		db:         db,

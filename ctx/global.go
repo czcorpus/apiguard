@@ -7,10 +7,17 @@
 package ctx
 
 import (
+	"apiguard/monitoring/influx"
+	"database/sql"
 	"time"
 )
 
+// GlobalContext provides access to shared resources and information needed by different
+// part of the application. It is OK to pass it by value as the properties of the struct
+// are pointers themselves (if needed).
 type GlobalContext struct {
 	TimezoneLocation *time.Location
 	BackendLogger    *BackendLogger
+	CNCDB            *sql.DB
+	InfluxDB         *influx.InfluxDBAdapter
 }

@@ -17,6 +17,7 @@
 package monitoring
 
 import (
+	"apiguard/monitoring/influx"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -31,19 +32,12 @@ func (cm ConfirmMsg) String() string {
 }
 
 // RunWriteConsumerSync reads from incomingData channel and stores the data
-// to a configured InfluxDB measurement. For performance reasons, the actual
-// database write is performed each time number of added items equals
-// conf.PushChunkSize and also once the incomingData channel is closed.
-func RunWriteConsumerSync[T Influxable](conf *ConnectionConf, incomingData <-chan T) {
-	if conf.IsConfigured() {
+// to via a provided InfluxDBAdapter ('db' arg.). In case 'db' is nil, the
+// function just listens to 'incomingData' and does nothing.
+func RunWriteConsumerSync[T influx.Influxable](db *influx.InfluxDBAdapter, incomingData <-chan T) {
+	if db != nil {
 		var err error
-		errListener := func(err error) {
-			log.Error().Err(err).Send()
-		}
-		client, err := NewRecordWriter[T](conf, errListener)
-		if err != nil {
-			log.Error().Err(err).Send()
-		}
+		client := NewRecordWriter[T](db)
 		for rec := range incomingData {
 			client.AddRecord(rec)
 		}

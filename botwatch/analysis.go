@@ -7,7 +7,7 @@
 package botwatch
 
 import (
-	"apiguard/monitoring"
+	"apiguard/monitoring/influx"
 	"apiguard/services"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -150,7 +150,7 @@ func (a *Analyzer) RegisterDelayLog(delay time.Duration) error {
 func NewAnalyzer(
 	conf *Conf,
 	telemetryConf *telemetry.Conf,
-	monitoringConf *monitoring.ConnectionConf,
+	monitoringDB *influx.InfluxDBAdapter,
 	db backend.TelemetryStorage,
 	statsStorage StatsStorage,
 ) (*Analyzer, error) {
@@ -168,7 +168,7 @@ func NewAnalyzer(
 			storage: statsStorage,
 		}, nil
 	case "entropy":
-		backend, err := entropy.NewAnalyzer(db, monitoringConf, telemetryConf)
+		backend, err := entropy.NewAnalyzer(db, monitoringDB, telemetryConf)
 		if err != nil {
 			return nil, err
 		}

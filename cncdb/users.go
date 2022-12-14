@@ -21,15 +21,18 @@ type User struct {
 }
 
 type UsersTable struct {
-	db        *sql.DB
-	tableName string
+	db         *sql.DB
+	tableProps UserTableProps
 }
 
 func (users *UsersTable) UserInfo(id int) (*User, error) {
 	row := users.db.QueryRow(
 		fmt.Sprintf(
-			"SELECT id, user, firstName, surname, email, affiliation FROM %s WHERE id = ?",
-			users.tableName),
+			"SELECT id, %s, %s, %s, email, affiliation FROM %s WHERE id = ?",
+			users.tableProps.UsernameColName,
+			users.tableProps.FirstnameColName,
+			users.tableProps.LastnameColName,
+			users.tableProps.UserTableName),
 		id,
 	)
 	var ans User
@@ -47,9 +50,9 @@ func (users *UsersTable) UserInfo(id int) (*User, error) {
 	return &ans, err
 }
 
-func NewUsersTable(db *sql.DB, tableName string) *UsersTable {
+func NewUsersTable(db *sql.DB, tableProps UserTableProps) *UsersTable {
 	return &UsersTable{
-		db:        db,
-		tableName: tableName,
+		db:         db,
+		tableProps: tableProps,
 	}
 }

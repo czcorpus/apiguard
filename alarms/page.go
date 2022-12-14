@@ -7,6 +7,7 @@
 package alarms
 
 import (
+	"apiguard/cncdb"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -32,6 +33,7 @@ type reportPageData struct {
 	Error           error
 	ReviewerMail    string
 	Report          *AlarmReport
+	Ban             *cncdb.UserBan
 }
 
 func (aticker *AlarmTicker) HandleConfirmationPage(w http.ResponseWriter, req *http.Request) {
@@ -56,8 +58,17 @@ func (aticker *AlarmTicker) HandleConfirmationPage(w http.ResponseWriter, req *h
 		log.Error().Err(data.Error).Send()
 
 	} else {
+		ban, err := cncdb.FindBanByReport(
+			aticker.db,
+			aticker.location,
+			alarmID,
+		)
+		data.Error = err
+		data.Ban = ban
 		data.Report = srchReport
 	}
 	err = tpl.ExecuteTemplate(w, "report.html", data)
-	log.Error().Err(err).Send() // TODO
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to render HTML template")
+	}
 }

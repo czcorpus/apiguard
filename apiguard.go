@@ -142,7 +142,7 @@ func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
 func runService(
 	globalCtx *ctx.GlobalContext,
 	conf *config.Configuration,
-	userTableName string,
+	userTableProps cncdb.UserTableProps,
 ) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -157,7 +157,7 @@ func runService(
 		globalCtx.CNCDB,
 		conf.TimezoneLocation(),
 		conf.Mail,
-		userTableName,
+		userTableProps,
 	)
 
 	router.HandleFunc(
@@ -285,7 +285,7 @@ func runService(
 	cnca := analyzer.NewCNCUserAnalyzer(
 		globalCtx.CNCDB,
 		conf.TimezoneLocation(),
-		userTableName,
+		userTableProps,
 		conf.CNCAuth.SessionCookieName,
 		conf.CNCDB.AnonymousUserID,
 	)
@@ -585,12 +585,8 @@ func main() {
 			Str("buildDate", versionInfo.BuildDate).
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
-		userTableName := cncdb.DfltUsersTableName
-		if conf.CNCDB.OverrideUsersTableName != "" {
-			userTableName = conf.CNCDB.OverrideUsersTableName
-			log.Warn().Msgf("overriding users table name to '%s'", userTableName)
-		}
-		runService(&globalCtx, conf, userTableName)
+		userTableProps := conf.CNCDB.ApplyOverrides()
+		runService(&globalCtx, conf, userTableProps)
 	case "cleanup":
 		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
@@ -619,7 +615,7 @@ func main() {
 		}
 		banHours := 24
 		_, err = cncdb.BanUser(
-			db, conf.TimezoneLocation(), userID, now, now.Add(time.Duration(banHours)*time.Hour))
+			db, conf.TimezoneLocation(), userID, nil, now, now.Add(time.Duration(banHours)*time.Hour))
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to ban user")
 

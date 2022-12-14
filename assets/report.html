@@ -44,6 +44,9 @@
             input.ban-hours {
                 width: 4em;
             }
+            .note {
+                color: #777777;
+            }
         </style>
     </head>
     <body>
@@ -96,20 +99,23 @@
             </table>
             {{ end }}
         </div>
-        <div id="msg"></div>
-        <p>
+        <div class="ban">
             {{ if .Error }}
             Nepodařilo se načíst data: <strong>{{ .Error }}</strong>
+            {{ else if .Ban }}
+            <p>Uživateli byl již uložen ban od {{ .Ban.StartDT }} do {{ .Ban.EndDT }}</p>
             {{ else }}
             <label>
                 Uložit ban na
                 <input class="ban-hours" type="number" name="ban-hours" value="24" />
-                hod. (0 pro žádný ban)
+                hod. <span class="note">(0 pro žádný ban resp. potvrzení o shlédnutí reportu)</span>
             </label>
                 <br />
             <button class="cnc-button" onclick="handleConfirm()">potvrdit</button>
+            <div id="msg"></div>
             {{ end }}
-        </p>
+        </div>
+
     </body>
     <script>
         const confirmationUrl = "{{ .ConfirmationUrl }}";
@@ -137,7 +143,7 @@
                 }
             ).then(
                 data => {
-                    document.getElementById('msg').innerHTML = `<div><strong>OK</strong><div><pre>${data}</pre>`;
+                    document.getElementById('msg').innerHTML = `<p><strong>... potvrzeno</strong><div></p>`;
                 },
                 err => {
                     document.getElementById('msg').innerHTML = `<strong>Došlo k chybě: ${err} </strong>`;

@@ -32,6 +32,7 @@ CREATE TABLE user_session (
 
 CREATE TABLE api_user_ban (
 	id INTEGER NOT NULL auto_increment,
+	report_id VARCHAR(36), -- report ID is stored only by a running service
 	user_id INTEGER NOT NULL,
 	start_dt DATETIME NOT NULL,
 	end_dt DATETIME NOT NULL,
@@ -63,16 +64,29 @@ grant select, update, delete, insert on apiguard_session_conf to 'apiguard'@'192
 */
 
 const (
-	DfltUsersTableName = "user"
+	DfltUsersTableName   = "user"
+	DfltUsernameColName  = "user"
+	DfltFirstnameColName = "firstName"
+	DfltLastnameColName  = "surname"
 )
 
+type UserTableProps struct {
+	UserTableName    string
+	UsernameColName  string
+	FirstnameColName string
+	LastnameColName  string
+}
+
 type Conf struct {
-	Name                   string `json:"name"`
-	Host                   string `json:"host"`
-	User                   string `json:"user"`
-	Password               string `json:"password"`
-	OverrideUsersTableName string `json:"overrideUsersTableName"`
-	AnonymousUserID        int    `json:"anonymousUserId"`
+	Name                     string `json:"name"`
+	Host                     string `json:"host"`
+	User                     string `json:"user"`
+	Password                 string `json:"password"`
+	OverrideUserTableName    string `json:"overrideUserTableName"`
+	OverrideUsernameColName  string `json:"overrideUsernameColName"`
+	OverrideFirstnameColName string `json:"overrideFirstnameColName"`
+	OverrideLastnameColName  string `json:"overrideLastnameColName"`
+	AnonymousUserID          int    `json:"anonymousUserId"`
 }
 
 func (conf *Conf) Validate(context string) error {
@@ -93,6 +107,31 @@ func (conf *Conf) Validate(context string) error {
 		return fmt.Errorf("%s.password is missing/empty", context)
 	}
 	return nil
+}
+
+func (conf *Conf) ApplyOverrides() UserTableProps {
+	var ans UserTableProps
+	ans.UserTableName = DfltUsersTableName
+	if conf.OverrideUserTableName != "" {
+		ans.UserTableName = conf.OverrideUserTableName
+		log.Warn().Msgf("overriding users table name to '%s'", ans.UserTableName)
+	}
+	ans.UsernameColName = DfltUsernameColName
+	if conf.OverrideUsernameColName != "" {
+		ans.UsernameColName = conf.OverrideUsernameColName
+		log.Warn().Msgf("overriding username column name in user table to '%s'", ans.UsernameColName)
+	}
+	ans.FirstnameColName = DfltFirstnameColName
+	if conf.OverrideFirstnameColName != "" {
+		ans.FirstnameColName = conf.OverrideFirstnameColName
+		log.Warn().Msgf("overriding 'first name' column name in user table to '%s'", ans.FirstnameColName)
+	}
+	ans.LastnameColName = DfltLastnameColName
+	if conf.OverrideLastnameColName != "" {
+		ans.LastnameColName = conf.OverrideLastnameColName
+		log.Warn().Msgf("overriding 'last name' column name in user table to '%s'", ans.LastnameColName)
+	}
+	return ans
 }
 
 func OpenDB(conf *Conf) (*sql.DB, error) {

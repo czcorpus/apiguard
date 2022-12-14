@@ -45,7 +45,13 @@ func MostRecentActiveBan(db *sql.DB, loc *time.Location, userID int) (UserBan, e
 
 // BanUser
 // The function returns an ID of a newly created row
-func BanUser(db *sql.DB, loc *time.Location, userID int, startDate, endDate time.Time) (int64, error) {
+func BanUser(
+	db *sql.DB,
+	loc *time.Location,
+	userID int,
+	reportID *string,
+	startDate, endDate time.Time,
+) (int64, error) {
 	var newID int64 = -1
 	tx, err := db.Begin()
 	if err != nil {
@@ -75,8 +81,8 @@ func BanUser(db *sql.DB, loc *time.Location, userID int, startDate, endDate time
 	}
 	var res sql.Result
 	res, err = tx.Exec(
-		"INSERT INTO api_user_ban (user_id, start_dt, end_dt, active) "+
-			"VALUES (?, ?, ?, 1)", userID, startDate, endDate)
+		"INSERT INTO api_user_ban (user_id, report_id, start_dt, end_dt, active) "+
+			"VALUES (?, ?, ?, ?, 1)", userID, reportID, startDate, endDate)
 	if err != nil {
 		return newID, fmt.Errorf("failed to insert new ban: %w", err)
 	}
@@ -111,7 +117,7 @@ func UnbanUser(db *sql.DB, loc *time.Location, userID int) (int64, error) {
 	return numBans, err
 }
 
-func FindBanForSession(db *sql.DB, loc *time.Location, sessionID string) (bool, int, error) {
+func FindBanBySession(db *sql.DB, loc *time.Location, sessionID string) (bool, int, error) {
 	now := time.Now().In(loc)
 	row := db.QueryRow(
 		"SELECT kb.active, us.user_id "+
@@ -127,4 +133,25 @@ func FindBanForSession(db *sql.DB, loc *time.Location, sessionID string) (bool, 
 		return true, userID, err
 	}
 	return false, userID, err
+}
+
+func FindBanByReport(db *sql.DB, loc *time.Location, reportID string) (*UserBan, error) {
+	now := time.Now().In(loc)
+	row := db.QueryRow(
+		"SELECT active, user_id, start_dt, end_dt "+
+			"FROM api_user_ban "+
+			"WHERE start_dt <= ? AND end_dt > ? AND active = 1 AND report_id = ?",
+		now, now, reportID)
+	fmt.Printf("SELECT active, user_id, start_dt, end_dt "+
+		"FROM api_user_ban "+
+		"WHERE start_dt <= '%v' AND end_dt > '%v' AND active = 1 AND report_id = '%s'",
+		now, now, reportID)
+	var ans UserBan
+	err := row.Scan(&ans.Active, &ans.UserID, &ans.StartDT, &ans.EndDT)
+	fmt.Println("ERR: ", err)
+	fmt.Println("ANS: ", ans)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	return &ans, err
 }

@@ -54,7 +54,7 @@ type AlarmTicker struct {
 	counter        chan RequestInfo
 	reports        []*AlarmReport
 	location       *time.Location
-	usersTableName string
+	userTableProps cncdb.UserTableProps
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
@@ -84,7 +84,8 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 					entry.conf,
 					aticker.location,
 				)
-				err := newReport.AttachUserInfo(cncdb.NewUsersTable(aticker.db, aticker.usersTableName))
+				err := newReport.AttachUserInfo(cncdb.NewUsersTable(
+					aticker.db, aticker.userTableProps))
 				if err != nil {
 					newReport.UserInfo = &cncdb.User{
 						ID:          -1,
@@ -242,6 +243,7 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 					aticker.db,
 					aticker.location,
 					report.RequestInfo.UserID,
+					&alarmID,
 					now,
 					now.Add(time.Duration(qry.BanHours)*time.Hour),
 				)
@@ -274,7 +276,7 @@ func NewAlarmTicker(
 	db *sql.DB,
 	loc *time.Location,
 	alarmConf MailConf,
-	usersTableName string,
+	userTableProps cncdb.UserTableProps,
 ) *AlarmTicker {
 	return &AlarmTicker{
 		db:             db,
@@ -282,6 +284,6 @@ func NewAlarmTicker(
 		counter:        make(chan RequestInfo, 1000),
 		location:       loc,
 		alarmConf:      alarmConf,
-		usersTableName: usersTableName,
+		userTableProps: userTableProps,
 	}
 }

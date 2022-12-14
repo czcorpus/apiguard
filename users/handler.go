@@ -85,7 +85,7 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	now := time.Now().In(a.location)
-	newID, err := cncdb.BanUser(a.cncDB, a.location, userID, now, now.Add(banLen))
+	newID, err := cncdb.BanUser(a.cncDB, a.location, userID, nil, now, now.Add(banLen))
 	if err == cncdb.ErrorUserAlreadyBannned {
 		uniresp.WriteJSONErrorResponse(
 			w,

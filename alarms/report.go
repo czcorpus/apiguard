@@ -12,6 +12,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,6 +22,12 @@ var (
 	ErrConfirmationKeyNotFound       = errors.New("confirmation key not foud")
 	ErrMissingReviewerIdentification = errors.New("missing reviewer identification")
 )
+
+type reportFloat float64
+
+func (rf reportFloat) String() string {
+	return fmt.Sprintf("%01.2f", rf)
+}
 
 type Reviewer struct {
 	UserID   int       `json:"userId"`
@@ -119,8 +126,8 @@ func (report *AlarmReport) ConfirmReviewViaID(alarmID string, reviewerID int) er
 	return nil
 }
 
-func (report *AlarmReport) ExceedPercent() float64 {
-	return (float64(report.RequestInfo.NumRequests)/float64(report.Rules.ReqPerTimeThreshold) - 1) * 100
+func (report *AlarmReport) ExceedPercent() reportFloat {
+	return (reportFloat(report.RequestInfo.NumRequests)/reportFloat(report.Rules.ReqPerTimeThreshold) - 1) * 100
 }
 
 func generateReviewCode() string {

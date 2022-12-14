@@ -19,7 +19,7 @@ import (
 type CNCUserAnalyzer struct {
 	db                   *sql.DB
 	location             *time.Location
-	UsersTableName       string
+	userTableProps       cncdb.UserTableProps
 	CNCSessionCookieName string
 	AnonymousUserID      int
 }
@@ -59,7 +59,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) service
 		}
 	}
 	sessionID := kua.GetSessionID(req)
-	banned, userID, err := cncdb.FindBanForSession(kua.db, kua.location, sessionID)
+	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID)
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
@@ -83,7 +83,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) service
 func NewCNCUserAnalyzer(
 	db *sql.DB,
 	locaction *time.Location,
-	usersTableName string,
+	userTableProps cncdb.UserTableProps,
 	cncSessionCookieName string,
 	anonymousUserID int,
 
@@ -91,7 +91,7 @@ func NewCNCUserAnalyzer(
 	return &CNCUserAnalyzer{
 		db:                   db,
 		location:             locaction,
-		UsersTableName:       usersTableName,
+		userTableProps:       userTableProps,
 		CNCSessionCookieName: cncSessionCookieName,
 		AnonymousUserID:      anonymousUserID,
 	}

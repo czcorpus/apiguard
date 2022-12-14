@@ -45,21 +45,22 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var cached bool
 	var userID int
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	defer func() {
+	defer func(currUserID *int) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
 				NumRequests: 1,
-				UserID:      userID,
+				UserID:      *currUserID,
 			}
 		}
 		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, &userID)
-	}()
+	}(&userID)
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
 	reqProps := kp.analyzer.UserInducedResponseStatus(req)
+	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
 		http.Error(

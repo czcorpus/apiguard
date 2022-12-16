@@ -291,8 +291,8 @@ func runService(
 	)
 
 	var kontextReqCounter chan<- alarms.RequestInfo
-	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
-		kontextReqCounter = alarm.Register(kontext.ServiceName, conf.Services.Kontext.Alarm)
+	if len(conf.Services.Kontext.Limits) > 0 {
+		kontextReqCounter = alarm.Register(kontext.ServiceName, conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
 	}
 	kontextActions := kontext.NewKontextProxy(
 		globalCtx,
@@ -308,8 +308,8 @@ func runService(
 	// Treq (API) proxy
 
 	var treqReqCounter chan<- alarms.RequestInfo
-	if conf.Services.Kontext.Alarm.ReqCheckingIntervalSecs != 0 {
-		treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Kontext.Alarm)
+	if len(conf.Services.Treq.Limits) > 0 {
+		treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
 	}
 	treqActions := treq.NewTreqProxy(
 		globalCtx,

@@ -37,7 +37,8 @@ type Reviewer struct {
 
 type AlarmReport struct {
 	RequestInfo RequestInfo
-	Rules       Conf
+	Alarm       AlarmConf
+	Rules       Limit
 	Created     time.Time
 	Reviewed    time.Time
 	ReviewCode  string
@@ -63,7 +64,7 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 	return json.Marshal(
 		struct {
 			RequestInfo RequestInfo `json:"requestInfo"`
-			Rules       Conf        `json:"rules"`
+			Rules       AlarmConf   `json:"rules"`
 			Created     time.Time   `json:"created"`
 			Reviewed    time.Time   `json:"reviewed"`
 			ReviewCode  string      `json:"reviewCode"`
@@ -71,7 +72,7 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 			Reviewers   []string    `json:"reviewers"`
 		}{
 			RequestInfo: report.RequestInfo,
-			Rules:       report.Rules,
+			Rules:       report.Alarm,
 			Created:     report.Created,
 			Reviewed:    report.Reviewed,
 			ReviewCode:  report.ReviewCode,
@@ -136,12 +137,13 @@ func generateReviewCode() string {
 	return hex.EncodeToString(sum[:])
 }
 
-func NewAlarmReport(reqInfo RequestInfo, rules Conf, loc *time.Location) *AlarmReport {
+func NewAlarmReport(reqInfo RequestInfo, alarmConf AlarmConf, rules Limit, loc *time.Location) *AlarmReport {
 	return &AlarmReport{
 		reviews:     make([]Reviewer, 0, 5),
 		Created:     time.Now().In(loc),
 		RequestInfo: reqInfo,
 		ReviewCode:  generateReviewCode(),
+		Alarm:       alarmConf,
 		Rules:       rules,
 		location:    loc,
 	}

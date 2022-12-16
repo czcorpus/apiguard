@@ -6,10 +6,13 @@
 
 package alarms
 
-type Conf struct {
-	ReqPerTimeThreshold     int      `json:"reqPerTimeThreshold"`
-	ReqCheckingIntervalSecs int      `json:"reqCheckingIntervalSecs"`
-	Recipients              []string `json:"recipients"`
+type Limit struct {
+	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
+	ReqCheckingIntervalSecs int `json:"reqCheckingIntervalSecs"`
+}
+
+type AlarmConf struct {
+	Recipients []string `json:"recipients"`
 }
 
 type MailConf struct {

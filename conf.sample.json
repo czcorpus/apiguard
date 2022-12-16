@@ -13,18 +13,20 @@
         "kontext": {
             "internalUrl": "http://localhost:8080",
             "externalUrl": "http://localhost:3010/service/kontext",
+            "limits": [
+                {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+            ],
             "alarm": {
-                "reqPerTimeThreshold": 2,
-                "reqCheckingIntervalSecs": 10,
                 "recipients": ["tomas.machalek@gmail.com"]
             }
         },
         "treq": {
             "internalUrl": "http://localhost:8081",
             "externalUrl": "http://localhost:3010/service/treq",
+            "limits": [
+                {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+            ],
             "alarm": {
-                "reqPerTimeThreshold": 2,
-                "reqCheckingIntervalSecs": 10,
                 "recipients": ["tomas.machalek@gmail.com"]
             }
         }

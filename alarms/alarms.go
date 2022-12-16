@@ -23,7 +23,8 @@ import (
 )
 
 type serviceEntry struct {
-	conf           Conf
+	conf           AlarmConf
+	limits         []Limit
 	service        string
 	clientRequests map[int]int // userID -> num requests
 }
@@ -72,84 +73,87 @@ func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, revie
 }
 
 func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixTime int64) {
-	if unixTime%int64(entry.conf.ReqCheckingIntervalSecs) == 0 {
-		for userID, numReq := range entry.clientRequests {
-			if numReq > entry.conf.ReqPerTimeThreshold {
-				newReport := NewAlarmReport(
-					RequestInfo{
-						Service:     entry.service,
-						NumRequests: numReq,
-						UserID:      userID,
-					},
-					entry.conf,
-					aticker.location,
-				)
-				err := newReport.AttachUserInfo(cncdb.NewUsersTable(
-					aticker.db, aticker.userTableProps))
-				if err != nil {
-					newReport.UserInfo = &cncdb.User{
-						ID:          -1,
-						Username:    "invalid",
-						FirstName:   "-",
-						LastName:    "-",
-						Affiliation: "-",
-					}
-					log.Error().
-						Err(err).
-						Str("reportId", newReport.ReviewCode).
-						Msg("failed to attach user info to a report")
-				}
-				aticker.reports = append(aticker.reports, newReport)
-
-				go func() {
-					client, err := uniresp.DialSmtpServer(
-						aticker.alarmConf.SMTPServer,
-						aticker.alarmConf.SmtpUsername,
-						aticker.alarmConf.SmtpPassword,
+	for _, limit := range entry.limits {
+		if unixTime%int64(limit.ReqCheckingIntervalSecs) == 0 {
+			for userID, numReq := range entry.clientRequests {
+				if numReq > limit.ReqPerTimeThreshold {
+					newReport := NewAlarmReport(
+						RequestInfo{
+							Service:     entry.service,
+							NumRequests: numReq,
+							UserID:      userID,
+						},
+						entry.conf,
+						limit,
+						aticker.location,
 					)
+					err := newReport.AttachUserInfo(cncdb.NewUsersTable(
+						aticker.db, aticker.userTableProps))
 					if err != nil {
-						log.Error().Err(err).Msg("failed to send alarm e-mail")
-						return
+						newReport.UserInfo = &cncdb.User{
+							ID:          -1,
+							Username:    "invalid",
+							FirstName:   "-",
+							LastName:    "-",
+							Affiliation: "-",
+						}
+						log.Error().
+							Err(err).
+							Str("reportId", newReport.ReviewCode).
+							Msg("failed to attach user info to a report")
 					}
-					defer client.Close()
-					if err != nil {
-						log.Error().Err(err).Msg("failed to send alarm e-mail")
-						return
-					}
+					aticker.reports = append(aticker.reports, newReport)
 
-					for _, recipient := range entry.conf.Recipients {
-						log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
-						page := aticker.createConfirmationPageURL(newReport, recipient)
-						err := mail.SendNotification(
-							client,
-							aticker.location,
-							aticker.alarmConf.Sender,
-							[]string{recipient},
-							fmt.Sprintf(
-								"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
-								newReport.ExceedPercent(), entry.service,
-							),
-							fmt.Sprintf(
-								"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
-									"Max. povolený limit pro tuto službu je %d dotazů za %d sekund.",
-								entry.service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
-								newReport.Rules.ReqPerTimeThreshold,
-								newReport.Rules.ReqCheckingIntervalSecs,
-							),
-							fmt.Sprintf(
-								"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
-								page, page,
-							),
+					go func() {
+						client, err := uniresp.DialSmtpServer(
+							aticker.alarmConf.SMTPServer,
+							aticker.alarmConf.SmtpUsername,
+							aticker.alarmConf.SmtpPassword,
 						)
 						if err != nil {
-							log.Error().
-								Err(err).
-								Msgf("failed to send a notification e-mail to %s", recipient)
+							log.Error().Err(err).Msg("failed to send alarm e-mail")
+							return
 						}
-					}
-				}()
-				entry.clientRequests[userID] = 0
-				log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)
+						defer client.Close()
+						if err != nil {
+							log.Error().Err(err).Msg("failed to send alarm e-mail")
+							return
+						}
+
+						for _, recipient := range entry.conf.Recipients {
+							log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
+							page := aticker.createConfirmationPageURL(newReport, recipient)
+							err := mail.SendNotification(
+								client,
+								aticker.location,
+								aticker.alarmConf.Sender,
+								[]string{recipient},
+								fmt.Sprintf(
+									"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
+									newReport.ExceedPercent(), entry.service,
+								),
+								fmt.Sprintf(
+									"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
+										"Max. povolený limit pro tuto službu je %d dotazů za %d sekund.",
+									entry.service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
+									newReport.Rules.ReqPerTimeThreshold,
+									newReport.Rules.ReqCheckingIntervalSecs,
+								),
+								fmt.Sprintf(
+									"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
+									page, page,
+								),
+							)
+							if err != nil {
+								log.Error().
+									Err(err).
+									Msgf("failed to send a notification e-mail to %s", recipient)
+							}
+						}
+					}()
+					entry.clientRequests[userID] = 0
+					log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)
+				}
 			}
 		}
 	}
@@ -178,11 +182,12 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 	}
 }
 
-func (aticker *AlarmTicker) Register(service string, conf Conf) chan<- RequestInfo {
+func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- RequestInfo {
 	aticker.servicesLock.Lock()
 	aticker.clients[service] = &serviceEntry{
 		service:        service,
 		conf:           conf,
+		limits:         limits,
 		clientRequests: make(map[int]int),
 	}
 	aticker.servicesLock.Unlock()

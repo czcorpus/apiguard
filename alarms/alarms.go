@@ -10,10 +10,12 @@ import (
 	"apiguard/alarms/mail"
 	"apiguard/cncdb"
 	"database/sql"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -46,16 +48,81 @@ type handleReviewResponse struct {
 	BanID     int64        `json:"banId,omitempty"`
 }
 
+func fileExists(filename string) bool {
+	info, err := os.Stat(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return !info.IsDir()
+}
+
 type AlarmTicker struct {
 	db             *sql.DB
 	alarmConf      MailConf
-	clients        map[string]*serviceEntry
+	clients        map[string]*serviceEntry //save
 	servicesLock   sync.Mutex
 	ticker         *time.Ticker
 	counter        chan RequestInfo
-	reports        []*AlarmReport
+	reports        []*AlarmReport //save
 	location       *time.Location
 	userTableProps cncdb.UserTableProps
+}
+
+func (aticker *AlarmTicker) saveAttributes() error {
+	file, err := os.Create(path.Join(aticker.alarmConf.StatusDataDir, "clients"))
+	if err != nil {
+		return err
+	}
+	encoder := gob.NewEncoder(file)
+	err = encoder.Encode(aticker.clients)
+	if err != nil {
+		return err
+	}
+	err = file.Close()
+	if err != nil {
+		return err
+	}
+
+	file, err = os.Create(path.Join(aticker.alarmConf.StatusDataDir, "reports"))
+	if err != nil {
+		return err
+	}
+	encoder = gob.NewEncoder(file)
+	err = encoder.Encode(aticker.reports)
+	if err != nil {
+		return err
+	}
+	err = file.Close()
+	return err
+}
+
+func (aticker *AlarmTicker) loadAttributes() error {
+	file_path := path.Join(aticker.alarmConf.StatusDataDir, "clients")
+	if fileExists(file_path) {
+		file, err := os.Open(file_path)
+		if err != nil {
+			return err
+		}
+		decoder := gob.NewDecoder(file)
+		err = decoder.Decode(&aticker.clients)
+		if err != nil {
+			return err
+		}
+	}
+
+	file_path = path.Join(aticker.alarmConf.StatusDataDir, "reports")
+	if fileExists(file_path) {
+		file, err := os.Open(file_path)
+		if err != nil {
+			return err
+		}
+		decoder := gob.NewDecoder(file)
+		err = decoder.Decode(&aticker.reports)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {

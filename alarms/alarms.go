@@ -68,7 +68,7 @@ type AlarmTicker struct {
 	userTableProps cncdb.UserTableProps
 }
 
-func (aticker *AlarmTicker) saveAttributes() error {
+func (aticker *AlarmTicker) SaveAttributes() error {
 	file, err := os.Create(path.Join(aticker.alarmConf.StatusDataDir, "clients"))
 	if err != nil {
 		return err
@@ -93,10 +93,11 @@ func (aticker *AlarmTicker) saveAttributes() error {
 		return err
 	}
 	err = file.Close()
+	log.Debug().Msg("Alarm saved loaded")
 	return err
 }
 
-func (aticker *AlarmTicker) loadAttributes() error {
+func (aticker *AlarmTicker) LoadAttributes() error {
 	file_path := path.Join(aticker.alarmConf.StatusDataDir, "clients")
 	if fileExists(file_path) {
 		file, err := os.Open(file_path)
@@ -105,6 +106,10 @@ func (aticker *AlarmTicker) loadAttributes() error {
 		}
 		decoder := gob.NewDecoder(file)
 		err = decoder.Decode(&aticker.clients)
+		if err != nil {
+			return err
+		}
+		err = file.Close()
 		if err != nil {
 			return err
 		}
@@ -121,7 +126,12 @@ func (aticker *AlarmTicker) loadAttributes() error {
 		if err != nil {
 			return err
 		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
 	}
+	log.Debug().Msg("Alarm attributes loaded")
 	return nil
 }
 

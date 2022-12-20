@@ -139,6 +139,13 @@ func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
 	return db
 }
 
+func preExit(alarm *alarms.AlarmTicker) {
+	err := alarm.SaveAttributes()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to save alarm attributes")
+	}
+}
+
 func runService(
 	globalCtx *ctx.GlobalContext,
 	conf *config.Configuration,
@@ -159,6 +166,10 @@ func runService(
 		conf.Mail,
 		userTableProps,
 	)
+	err := alarm.LoadAttributes()
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to load alarm attributes")
+	}
 
 	router.HandleFunc(
 		"/alarm/{alarmID}/confirmation", alarm.HandleReviewAction).Methods(http.MethodPost)
@@ -385,6 +396,7 @@ func runService(
 
 	go func() {
 		evt := <-syscallChan
+		preExit(alarm)
 		exitEvent <- evt
 		close(exitEvent)
 	}()

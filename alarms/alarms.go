@@ -25,10 +25,10 @@ import (
 )
 
 type serviceEntry struct {
-	conf           AlarmConf
-	limits         []Limit
-	service        string
-	clientRequests map[int]int // userID -> num requests
+	Conf           AlarmConf
+	Limits         []Limit
+	Service        string
+	ClientRequests map[int]int // userID -> num requests
 }
 
 type RequestInfo struct {
@@ -93,7 +93,7 @@ func (aticker *AlarmTicker) SaveAttributes() error {
 		return err
 	}
 	err = file.Close()
-	log.Debug().Msg("Alarm saved loaded")
+	log.Debug().Msg("Alarm attributes saved")
 	return err
 }
 
@@ -150,17 +150,17 @@ func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, revie
 }
 
 func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixTime int64) {
-	for _, limit := range entry.limits {
+	for _, limit := range entry.Limits {
 		if unixTime%int64(limit.ReqCheckingIntervalSecs) == 0 {
-			for userID, numReq := range entry.clientRequests {
+			for userID, numReq := range entry.ClientRequests {
 				if numReq > limit.ReqPerTimeThreshold {
 					newReport := NewAlarmReport(
 						RequestInfo{
-							Service:     entry.service,
+							Service:     entry.Service,
 							NumRequests: numReq,
 							UserID:      userID,
 						},
-						entry.conf,
+						entry.Conf,
 						limit,
 						aticker.location,
 					)
@@ -197,7 +197,7 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							return
 						}
 
-						for _, recipient := range entry.conf.Recipients {
+						for _, recipient := range entry.Conf.Recipients {
 							log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
 							page := aticker.createConfirmationPageURL(newReport, recipient)
 							err := mail.SendNotification(
@@ -207,12 +207,12 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 								[]string{recipient},
 								fmt.Sprintf(
 									"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
-									newReport.ExceedPercent(), entry.service,
+									newReport.ExceedPercent(), entry.Service,
 								),
 								fmt.Sprintf(
 									"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
 										"Max. povolený limit pro tuto službu je %d dotazů za %d sekund.",
-									entry.service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
+									entry.Service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
 									newReport.Rules.ReqPerTimeThreshold,
 									newReport.Rules.ReqCheckingIntervalSecs,
 								),
@@ -228,8 +228,8 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							}
 						}
 					}()
-					entry.clientRequests[userID] = 0
-					log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)
+					entry.ClientRequests[userID] = 0
+					log.Warn().Msgf("detected high activity for service %s and user %d", entry.Service, userID)
 				}
 			}
 		}
@@ -240,7 +240,7 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 	go func() {
 		for item := range aticker.counter {
 			if entry, ok := aticker.clients[item.Service]; ok {
-				entry.clientRequests[item.UserID] += item.NumRequests
+				entry.ClientRequests[item.UserID] += item.NumRequests
 				aticker.clients[item.Service] = entry
 			}
 		}
@@ -262,10 +262,10 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- RequestInfo {
 	aticker.servicesLock.Lock()
 	aticker.clients[service] = &serviceEntry{
-		service:        service,
-		conf:           conf,
-		limits:         limits,
-		clientRequests: make(map[int]int),
+		Service:        service,
+		Conf:           conf,
+		Limits:         limits,
+		ClientRequests: make(map[int]int),
 	}
 	aticker.servicesLock.Unlock()
 	log.Info().Msgf("Registered alarm for %s", service)

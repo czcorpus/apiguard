@@ -12,6 +12,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
+	"apiguard/services/backend"
 	"apiguard/services/defaults"
 	"database/sql"
 	"errors"
@@ -105,7 +106,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
 	passedHeaders := req.Header
 	if kp.conf.UseHeaderXApiKey {
-		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
+		passedHeaders[backend.HeaderAPIKey] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
 	}
 
 	serviceResp := kp.makeRequest(req, reqProps)

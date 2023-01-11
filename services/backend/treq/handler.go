@@ -12,6 +12,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
+	"apiguard/services/backend"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -41,25 +42,25 @@ type TreqProxy struct {
 	reqCounter chan<- alarms.RequestInfo
 }
 
-func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var cached bool
 	var userID int
-	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
+	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID *int) {
-		if kp.reqCounter != nil {
-			kp.reqCounter <- alarms.RequestInfo{
+		if tp.reqCounter != nil {
+			tp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      *currUserID,
 			}
 		}
-		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, &userID)
+		tp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, &userID)
 	}(&userID)
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.analyzer.UserInducedResponseStatus(req)
+	reqProps := tp.analyzer.UserInducedResponseStatus(req)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
@@ -74,13 +75,19 @@ func (kp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
-	passedHeaders := req.Header
-	if kp.conf.UseHeaderXApiKey {
-		passedHeaders["X-Api-Key"] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
+	services.RestrictResponseTime(w, req, tp.readTimeoutSecs, tp.analyzer)
+	xApiKey := req.Header.Get(backend.HeaderAPIKey)
+	if xApiKey != "" {
+		cookies := req.Cookies()
+		delete(req.Header, "Cookie")
+		for _, cookie := range cookies {
+			if cookie.Name == tp.analyzer.CNCSessionCookieName {
+				cookie.Value = xApiKey
+			}
+			req.AddCookie(cookie)
+		}
 	}
-
-	serviceResp := kp.makeRequest(req)
+	serviceResp := tp.makeRequest(req)
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)

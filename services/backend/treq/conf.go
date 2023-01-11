@@ -23,8 +23,6 @@ type Conf struct {
 	// The URL should not end with the slash character
 	ExternalURL string `json:"externalUrl"`
 
-	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
-
 	Limits []alarms.Limit `json:"limits"`
 
 	Alarm alarms.AlarmConf `json:"alarm"`

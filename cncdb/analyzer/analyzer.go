@@ -40,6 +40,8 @@ func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
 	return strings.SplitN(cookieValue, "-", 2)[0]
 }
 
+// UserInducedResponseStatus produces a HTTP response status
+// proposal based on user activity.
 func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
 	if kua.db == nil {
 		return services.ReqProperties{

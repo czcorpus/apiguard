@@ -117,19 +117,22 @@ func UnbanUser(db *sql.DB, loc *time.Location, userID int) (int64, error) {
 	return numBans, err
 }
 
-func FindBanBySession(db *sql.DB, loc *time.Location, sessionID string) (bool, int, error) {
+func FindBanBySession(db *sql.DB, loc *time.Location, sessionID string, serviceName string) (bool, int, error) {
 	now := time.Now().In(loc)
 	row := db.QueryRow(
-		"SELECT kb.active, us.user_id "+
+		"SELECT kb.active, us.user_id, NOT ISNULL(ka.service_name) as in_allowlist "+
 			"FROM user_session AS us "+
 			"LEFT JOIN api_user_ban AS kb ON us.user_id = kb.user_id "+
 			"  AND kb.start_dt <= ? AND kb.end_dt > ? AND kb.active = 1 "+
+			"LEFT JOIN api_user_allowlist AS ka ON us.user_id = ka.user_id "+
+			"  AND ka.service_name = ? "+
 			"WHERE us.selector = ?",
-		now, now, sessionID)
+		now, now, serviceName, sessionID)
 	banned := sql.NullInt16{}
 	var userID int
-	err := row.Scan(&banned, &userID)
-	if banned.Valid && banned.Int16 == 1 {
+	var inAllowlist bool
+	err := row.Scan(&banned, &userID, &inAllowlist)
+	if !inAllowlist && banned.Valid && banned.Int16 == 1 {
 		return true, userID, err
 	}
 	return false, userID, err

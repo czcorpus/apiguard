@@ -42,7 +42,7 @@ func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
 
 // UserInducedResponseStatus produces a HTTP response status
 // proposal based on user activity.
-func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
+func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
 	if kua.db == nil {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusOK,
@@ -61,7 +61,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request) service
 		}
 	}
 	sessionID := kua.GetSessionID(req)
-	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID)
+	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID, serviceName)
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,

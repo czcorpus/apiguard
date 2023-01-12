@@ -74,7 +74,7 @@ type ReqProperties struct {
 type ReqAnalyzer interface {
 	CalcDelay(req *http.Request) (time.Duration, error)
 	RegisterDelayLog(respDelay time.Duration) error
-	UserInducedResponseStatus(req *http.Request) ReqProperties
+	UserInducedResponseStatus(req *http.Request, serviceName string) ReqProperties
 }
 
 func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer ReqAnalyzer) error {

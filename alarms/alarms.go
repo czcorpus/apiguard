@@ -22,11 +22,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+type perLimitCounter map[int]int // userID -> num requests
+
 type serviceEntry struct {
 	conf           AlarmConf
-	limits         []Limit
+	limits         map[int]int // ReqCheckingIntervalSecs -> max req. limit
 	service        string
-	clientRequests map[int]int // userID -> num requests
+	clientRequests map[int]perLimitCounter // ReqCheckingIntervalSecs -> user requests counts
 }
 
 type RequestInfo struct {
@@ -73,10 +75,10 @@ func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, revie
 }
 
 func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixTime int64) {
-	for _, limit := range entry.limits {
-		if unixTime%int64(limit.ReqCheckingIntervalSecs) == 0 {
-			for userID, numReq := range entry.clientRequests {
-				if numReq > limit.ReqPerTimeThreshold {
+	for checkIntervalSecs, plCounter := range entry.clientRequests {
+		if unixTime%int64(checkIntervalSecs) == 0 {
+			for userID, numReq := range plCounter {
+				if plCounter[checkIntervalSecs] > entry.limits[checkIntervalSecs] {
 					newReport := NewAlarmReport(
 						RequestInfo{
 							Service:     entry.service,
@@ -84,7 +86,10 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							UserID:      userID,
 						},
 						entry.conf,
-						limit,
+						Limit{
+							ReqCheckingIntervalSecs: checkIntervalSecs,
+							ReqPerTimeThreshold:     entry.limits[checkIntervalSecs],
+						},
 						aticker.location,
 					)
 					err := newReport.AttachUserInfo(cncdb.NewUsersTable(
@@ -151,7 +156,7 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							}
 						}
 					}()
-					entry.clientRequests[userID] = 0
+					entry.clientRequests[checkIntervalSecs][userID] = 0
 					log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)
 				}
 			}
@@ -163,8 +168,9 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 	go func() {
 		for item := range aticker.counter {
 			if entry, ok := aticker.clients[item.Service]; ok {
-				entry.clientRequests[item.UserID] += item.NumRequests
-				aticker.clients[item.Service] = entry
+				for _, counter := range entry.clientRequests {
+					counter[item.UserID] += item.NumRequests
+				}
 			}
 		}
 	}()
@@ -184,12 +190,17 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 
 func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- RequestInfo {
 	aticker.servicesLock.Lock()
-	aticker.clients[service] = &serviceEntry{
+	sEntry := &serviceEntry{
 		service:        service,
 		conf:           conf,
-		limits:         limits,
-		clientRequests: make(map[int]int),
+		limits:         make(map[int]int),
+		clientRequests: make(map[int]perLimitCounter),
 	}
+	for _, limit := range limits {
+		sEntry.limits[limit.ReqCheckingIntervalSecs] = limit.ReqPerTimeThreshold
+		sEntry.clientRequests[limit.ReqCheckingIntervalSecs] = make(map[int]int)
+	}
+	aticker.clients[service] = sEntry
 	aticker.servicesLock.Unlock()
 	log.Info().Msgf("Registered alarm for %s", service)
 	return aticker.counter

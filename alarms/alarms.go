@@ -24,13 +24,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	clientsDataFile = "clients.gob"
+	reportsDataFile = "reports.gob"
+)
+
 type perLimitCounter map[int]int // userID -> num requests
 
 type serviceEntry struct {
-	conf           AlarmConf
+	Conf           AlarmConf
 	limits         map[int]int // ReqCheckingIntervalSecs -> max req. limit
-	service        string
-	clientRequests map[int]perLimitCounter // ReqCheckingIntervalSecs -> user requests counts
+	Service        string
+	ClientRequests map[int]perLimitCounter // ReqCheckingIntervalSecs -> user requests counts
 }
 
 type RequestInfo struct {
@@ -68,10 +73,11 @@ type AlarmTicker struct {
 	reports        []*AlarmReport //save
 	location       *time.Location
 	userTableProps cncdb.UserTableProps
+	statusDataDir  string
 }
 
 func (aticker *AlarmTicker) SaveAttributes() error {
-	file, err := os.Create(path.Join(aticker.alarmConf.StatusDataDir, "clients"))
+	file, err := os.Create(path.Join(aticker.statusDataDir, clientsDataFile))
 	if err != nil {
 		return err
 	}
@@ -85,7 +91,7 @@ func (aticker *AlarmTicker) SaveAttributes() error {
 		return err
 	}
 
-	file, err = os.Create(path.Join(aticker.alarmConf.StatusDataDir, "reports"))
+	file, err = os.Create(path.Join(aticker.statusDataDir, reportsDataFile))
 	if err != nil {
 		return err
 	}
@@ -100,7 +106,7 @@ func (aticker *AlarmTicker) SaveAttributes() error {
 }
 
 func (aticker *AlarmTicker) LoadAttributes() error {
-	file_path := path.Join(aticker.alarmConf.StatusDataDir, "clients")
+	file_path := path.Join(aticker.statusDataDir, clientsDataFile)
 	if fileExists(file_path) {
 		file, err := os.Open(file_path)
 		if err != nil {
@@ -117,7 +123,7 @@ func (aticker *AlarmTicker) LoadAttributes() error {
 		}
 	}
 
-	file_path = path.Join(aticker.alarmConf.StatusDataDir, "reports")
+	file_path = path.Join(aticker.statusDataDir, reportsDataFile)
 	if fileExists(file_path) {
 		file, err := os.Open(file_path)
 		if err != nil {
@@ -152,17 +158,17 @@ func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, revie
 }
 
 func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixTime int64) {
-	for checkIntervalSecs, plCounter := range entry.clientRequests {
+	for checkIntervalSecs, plCounter := range entry.ClientRequests {
 		if unixTime%int64(checkIntervalSecs) == 0 {
 			for userID, numReq := range plCounter {
 				if plCounter[checkIntervalSecs] > entry.limits[checkIntervalSecs] {
 					newReport := NewAlarmReport(
 						RequestInfo{
-							Service:     entry.service,
+							Service:     entry.Service,
 							NumRequests: numReq,
 							UserID:      userID,
 						},
-						entry.conf,
+						entry.Conf,
 						Limit{
 							ReqCheckingIntervalSecs: checkIntervalSecs,
 							ReqPerTimeThreshold:     entry.limits[checkIntervalSecs],
@@ -202,7 +208,7 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							return
 						}
 
-						for _, recipient := range entry.conf.Recipients {
+						for _, recipient := range entry.Conf.Recipients {
 							log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
 							page := aticker.createConfirmationPageURL(newReport, recipient)
 							err := mail.SendNotification(
@@ -212,12 +218,12 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 								[]string{recipient},
 								fmt.Sprintf(
 									"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
-									newReport.ExceedPercent(), entry.service,
+									newReport.ExceedPercent(), entry.Service,
 								),
 								fmt.Sprintf(
 									"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
 										"Max. povolený limit pro tuto službu je %d dotazů za %d sekund.",
-									entry.service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
+									entry.Service, userID, numReq, newReport.Rules.ReqCheckingIntervalSecs,
 									newReport.Rules.ReqPerTimeThreshold,
 									newReport.Rules.ReqCheckingIntervalSecs,
 								),
@@ -233,8 +239,8 @@ func (aticker *AlarmTicker) checkService(entry *serviceEntry, name string, unixT
 							}
 						}
 					}()
-					entry.clientRequests[checkIntervalSecs][userID] = 0
-					log.Warn().Msgf("detected high activity for service %s and user %d", entry.service, userID)
+					entry.ClientRequests[checkIntervalSecs][userID] = 0
+					log.Warn().Msgf("detected high activity for service %s and user %d", entry.Service, userID)
 				}
 			}
 		}
@@ -245,7 +251,7 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 	go func() {
 		for item := range aticker.counter {
 			if entry, ok := aticker.clients[item.Service]; ok {
-				for _, counter := range entry.clientRequests {
+				for _, counter := range entry.ClientRequests {
 					counter[item.UserID] += item.NumRequests
 				}
 			}
@@ -268,14 +274,14 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- RequestInfo {
 	aticker.servicesLock.Lock()
 	sEntry := &serviceEntry{
-		service:        service,
-		conf:           conf,
+		Service:        service,
+		Conf:           conf,
 		limits:         make(map[int]int),
-		clientRequests: make(map[int]perLimitCounter),
+		ClientRequests: make(map[int]perLimitCounter),
 	}
 	for _, limit := range limits {
 		sEntry.limits[limit.ReqCheckingIntervalSecs] = limit.ReqPerTimeThreshold
-		sEntry.clientRequests[limit.ReqCheckingIntervalSecs] = make(map[int]int)
+		sEntry.ClientRequests[limit.ReqCheckingIntervalSecs] = make(map[int]int)
 	}
 	aticker.clients[service] = sEntry
 	aticker.servicesLock.Unlock()
@@ -370,6 +376,7 @@ func NewAlarmTicker(
 	loc *time.Location,
 	alarmConf MailConf,
 	userTableProps cncdb.UserTableProps,
+	statusDataDir string,
 ) *AlarmTicker {
 	return &AlarmTicker{
 		db:             db,
@@ -378,5 +385,6 @@ func NewAlarmTicker(
 		location:       loc,
 		alarmConf:      alarmConf,
 		userTableProps: userTableProps,
+		statusDataDir:  statusDataDir,
 	}
 }

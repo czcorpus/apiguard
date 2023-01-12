@@ -134,4 +134,9 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		)
 		origConf.IPBanTTLSecs = config.DfltBanSecs
 	}
+	if cmdConf.IgnoreStoredState {
+		log.Warn().Msg("Based on a request, stored alarm/counter state will not be loaded")
+		origConf.IgnoreStoredState = cmdConf.IgnoreStoredState
+	}
+
 }

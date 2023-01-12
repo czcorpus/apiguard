@@ -21,5 +21,4 @@ type MailConf struct {
 	SmtpUsername        string `json:"smtpUsername"`
 	SmtpPassword        string `json:"smtpPassword"`
 	ConfirmationBaseURL string `json:"confirmationBaseURL"`
-	StatusDataDir       string `json:"statusDataDir"`
 }

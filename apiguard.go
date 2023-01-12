@@ -71,14 +71,15 @@ var (
 )
 
 type CmdOptions struct {
-	Host             string
-	Port             int
-	ReadTimeoutSecs  int
-	WriteTimeoutSecs int
-	LogPath          string
-	LogLevel         string
-	MaxAgeDays       int
-	BanSecs          int
+	Host              string
+	Port              int
+	ReadTimeoutSecs   int
+	WriteTimeoutSecs  int
+	LogPath           string
+	LogLevel          string
+	MaxAgeDays        int
+	BanSecs           int
+	IgnoreStoredState bool
 }
 
 func coreMiddleware(next http.Handler) http.Handler {
@@ -165,10 +166,11 @@ func runService(
 		conf.TimezoneLocation(),
 		conf.Mail,
 		userTableProps,
+		conf.StatusDataDir,
 	)
 	err := alarm.LoadAttributes()
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to load alarm attributes")
+		log.Fatal().Err(err).Msg("Failed to load alarm status from disk. Please use -no-stored-state to skip the action.")
 	}
 
 	router.HandleFunc(
@@ -560,6 +562,8 @@ func main() {
 	flag.StringVar(&cmdOpts.LogLevel, "log-level", "", "A log level (debug, info, warn/warning, error)")
 	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 0, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
 	flag.IntVar(&cmdOpts.BanSecs, "ban-secs", 0, "Number of seconds to ban an IP address")
+	flag.BoolVar(&cmdOpts.IgnoreStoredState, "ignore-stored-state", false, "If used then no alarm state will be loaded from a configured location. This is usefull e.g. in case of an application configuration change.")
+
 	flag.Usage = func() {
 		fmt.Fprintf(
 			os.Stderr,

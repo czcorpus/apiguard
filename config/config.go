@@ -10,6 +10,7 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
+	"apiguard/fsops"
 	"apiguard/monitoring/influx"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
@@ -23,6 +24,7 @@ import (
 	"apiguard/services/backend/treq"
 	"apiguard/services/telemetry"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"time"
 
@@ -101,6 +103,8 @@ type Configuration struct {
 	CNCDB                  cncdb.Conf            `json:"cncDb"`
 	Mail                   alarms.MailConf       `json:"mail"`
 	CNCAuth                CNCAuthConf           `json:"cncAuth"`
+	StatusDataDir          string                `json:"statusDataDir"`
+	IgnoreStoredState      bool                  `json:"-"`
 }
 
 func (c *Configuration) Validate() error {
@@ -119,6 +123,9 @@ func (c *Configuration) Validate() error {
 	}
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {
 		return err
+	}
+	if c.StatusDataDir == "" || !fsops.IsDir(c.StatusDataDir) {
+		return fmt.Errorf("invalid statusDataDir: %s", c.StatusDataDir)
 	}
 	return nil
 }

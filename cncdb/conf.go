@@ -48,6 +48,15 @@ CREATE TABLE apiguard_session_conf (
 	FOREIGN KEY (session_id) REFERENCES user_session(id)
 ) ENGINE=InnoDB;
 
+CREATE TABLE api_user_allowlist (
+	id int(11) NOT NULL AUTO_INCREMENT,
+	service_name varchar(25) NOT NULL,
+	user_id INTEGER NOT NULL,
+	PRIMARY KEY (id),
+	UNIQUE KEY uc_user_app (service_name, user_id),
+	FOREIGN KEY (user_id) REFERENCES kontext_user(id)
+) ENGINE=InnoDB;
+
 -- privileges:
 
 create user 'apiguard'@'192.168.1.%' identified by '******';

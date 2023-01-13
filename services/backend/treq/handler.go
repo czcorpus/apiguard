@@ -60,7 +60,7 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.analyzer.UserInducedResponseStatus(req)
+	reqProps := tp.analyzer.UserInducedResponseStatus(req, ServiceName)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO

@@ -88,7 +88,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.analyzer.UserInducedResponseStatus(req)
+	reqProps := kp.analyzer.UserInducedResponseStatus(req, ServiceName)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO

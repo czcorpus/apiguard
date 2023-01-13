@@ -77,7 +77,7 @@ func (a *Analyzer) Learn() error {
 	return a.backend.Learn()
 }
 
-func (a *Analyzer) UserInducedResponseStatus(req *http.Request) services.ReqProperties {
+func (a *Analyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
 	return services.ReqProperties{
 		UserID:         -1,
 		SessionID:      "",

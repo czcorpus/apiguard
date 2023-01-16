@@ -7,6 +7,7 @@
 package cncdb
 
 import (
+	"apiguard/common"
 	"database/sql"
 	"fmt"
 	"time"
@@ -87,15 +88,15 @@ type UserTableProps struct {
 }
 
 type Conf struct {
-	Name                     string `json:"name"`
-	Host                     string `json:"host"`
-	User                     string `json:"user"`
-	Password                 string `json:"password"`
-	OverrideUserTableName    string `json:"overrideUserTableName"`
-	OverrideUsernameColName  string `json:"overrideUsernameColName"`
-	OverrideFirstnameColName string `json:"overrideFirstnameColName"`
-	OverrideLastnameColName  string `json:"overrideLastnameColName"`
-	AnonymousUserID          int    `json:"anonymousUserId"`
+	Name                     string        `json:"name"`
+	Host                     string        `json:"host"`
+	User                     string        `json:"user"`
+	Password                 string        `json:"password"`
+	OverrideUserTableName    string        `json:"overrideUserTableName"`
+	OverrideUsernameColName  string        `json:"overrideUsernameColName"`
+	OverrideFirstnameColName string        `json:"overrideFirstnameColName"`
+	OverrideLastnameColName  string        `json:"overrideLastnameColName"`
+	AnonymousUserID          common.UserID `json:"anonymousUserId"`
 }
 
 func (conf *Conf) Validate(context string) error {

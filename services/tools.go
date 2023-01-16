@@ -7,6 +7,7 @@
 package services
 
 import (
+	"apiguard/common"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -65,7 +66,7 @@ func WriteJSONErrorResponse(w http.ResponseWriter, aerr ActionError, status int,
 }
 
 type ReqProperties struct {
-	UserID         int
+	UserID         common.UserID
 	SessionID      string
 	ProposedStatus int
 	Error          error

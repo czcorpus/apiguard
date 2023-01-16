@@ -7,6 +7,7 @@
 package ctx
 
 import (
+	"apiguard/common"
 	"apiguard/monitoring"
 	"apiguard/monitoring/influx"
 	"apiguard/services/logging"
@@ -18,7 +19,7 @@ type BackendLogger struct {
 	timezoneLocation *time.Location
 }
 
-func (b *BackendLogger) Log(service string, procTime time.Duration, cached *bool, userId *int) {
+func (b *BackendLogger) Log(service string, procTime time.Duration, cached *bool, userId *common.UserID) {
 	b.stream <- &monitoring.BackendRequest{
 		Created:  time.Now().In(b.timezoneLocation),
 		Service:  service,

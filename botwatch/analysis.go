@@ -9,6 +9,7 @@ package botwatch
 import (
 	"apiguard/monitoring/influx"
 	"apiguard/services"
+
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"apiguard/services/telemetry/backend"

@@ -7,17 +7,18 @@
 package cncdb
 
 import (
+	"apiguard/common"
 	"database/sql"
 	"fmt"
 )
 
 type User struct {
-	ID          int    `json:"id"`
-	Username    string `json:"username"`
-	FirstName   string `json:"firstName"`
-	LastName    string `json:"lastName"`
-	Email       string `json:"email"`
-	Affiliation string `json:"affiliation"`
+	ID          common.UserID `json:"id"`
+	Username    string        `json:"username"`
+	FirstName   string        `json:"firstName"`
+	LastName    string        `json:"lastName"`
+	Email       string        `json:"email"`
+	Affiliation string        `json:"affiliation"`
 }
 
 type UsersTable struct {
@@ -25,7 +26,7 @@ type UsersTable struct {
 	tableProps UserTableProps
 }
 
-func (users *UsersTable) UserInfo(id int) (*User, error) {
+func (users *UsersTable) UserInfo(id common.UserID) (*User, error) {
 	row := users.db.QueryRow(
 		fmt.Sprintf(
 			"SELECT id, %s, %s, %s, email, affiliation FROM %s WHERE id = ?",

@@ -7,6 +7,7 @@
 package cncdb
 
 import (
+	"apiguard/common"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -48,7 +49,7 @@ func MostRecentActiveBan(db *sql.DB, loc *time.Location, userID int) (UserBan, e
 func BanUser(
 	db *sql.DB,
 	loc *time.Location,
-	userID int,
+	userID common.UserID,
 	reportID *string,
 	startDate, endDate time.Time,
 ) (int64, error) {
@@ -117,7 +118,12 @@ func UnbanUser(db *sql.DB, loc *time.Location, userID int) (int64, error) {
 	return numBans, err
 }
 
-func FindBanBySession(db *sql.DB, loc *time.Location, sessionID string, serviceName string) (bool, int, error) {
+func FindBanBySession(
+	db *sql.DB,
+	loc *time.Location,
+	sessionID string,
+	serviceName string,
+) (bool, common.UserID, error) {
 	now := time.Now().In(loc)
 	row := db.QueryRow(
 		"SELECT kb.active, us.user_id, NOT ISNULL(ka.service_name) as in_allowlist "+
@@ -129,7 +135,7 @@ func FindBanBySession(db *sql.DB, loc *time.Location, sessionID string, serviceN
 			"WHERE us.selector = ?",
 		now, now, serviceName, sessionID)
 	banned := sql.NullInt16{}
-	var userID int
+	var userID common.UserID
 	var inAllowlist bool
 	err := row.Scan(&banned, &userID, &inAllowlist)
 	if !inAllowlist && banned.Valid && banned.Int16 == 1 {

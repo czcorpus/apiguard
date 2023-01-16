@@ -8,6 +8,7 @@ package analyzer
 
 import (
 	"apiguard/cncdb"
+	"apiguard/common"
 	"apiguard/services"
 	"database/sql"
 	"fmt"
@@ -21,7 +22,7 @@ type CNCUserAnalyzer struct {
 	location             *time.Location
 	userTableProps       cncdb.UserTableProps
 	CNCSessionCookieName string
-	AnonymousUserID      int
+	AnonymousUserID      common.UserID
 }
 
 func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
@@ -40,9 +41,18 @@ func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
 	return strings.SplitN(cookieValue, "-", 2)[0]
 }
 
+func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
+	return services.ReqProperties{
+		ProposedStatus: http.StatusOK,
+		UserID:         4,
+		SessionID:      "",
+		Error:          nil,
+	}
+}
+
 // UserInducedResponseStatus produces a HTTP response status
 // proposal based on user activity.
-func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
+func (kua *CNCUserAnalyzer) UserInducedResponseStatus2(req *http.Request, serviceName string) services.ReqProperties {
 	if kua.db == nil {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusOK,
@@ -87,7 +97,7 @@ func NewCNCUserAnalyzer(
 	locaction *time.Location,
 	userTableProps cncdb.UserTableProps,
 	cncSessionCookieName string,
-	anonymousUserID int,
+	anonymousUserID common.UserID,
 
 ) *CNCUserAnalyzer {
 	return &CNCUserAnalyzer{

@@ -27,6 +27,7 @@ import (
 	"apiguard/botwatch"
 	"apiguard/cncdb"
 	"apiguard/cncdb/analyzer"
+	"apiguard/common"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/monitoring/influx"
@@ -168,9 +169,12 @@ func runService(
 		userTableProps,
 		conf.StatusDataDir,
 	)
-	err := alarm.LoadAttributes()
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to load alarm status from disk. Please use -no-stored-state to skip the action.")
+
+	if !conf.IgnoreStoredState {
+		err := alarm.LoadAttributes()
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to load alarm status from disk. Please use -ignore-stored-state to skip the action.")
+		}
 	}
 
 	router.HandleFunc(
@@ -625,7 +629,7 @@ func main() {
 		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		now := time.Now().In(conf.TimezoneLocation())
-		userID, err := strconv.Atoi(flag.Arg(1))
+		userID, err := common.Str2UserID(flag.Arg(1))
 		if err != nil {
 			log.Fatal().Err(err).Send()
 		}

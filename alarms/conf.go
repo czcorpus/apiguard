@@ -6,13 +6,21 @@
 
 package alarms
 
+import "time"
+
 type Limit struct {
 	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
 	ReqCheckingIntervalSecs int `json:"reqCheckingIntervalSecs"`
 }
 
+func (m Limit) ReqCheckingInterval() time.Duration {
+	return time.Duration(m.ReqCheckingIntervalSecs) * time.Second
+}
+
+// AlarmConf describes alarm setup for a concrete service
 type AlarmConf struct {
-	Recipients []string `json:"recipients"`
+	Recipients                   []string `json:"recipients"`
+	RecCounterCleanupProbability float64  `json:"recCounterCleanupProbability"`
 }
 
 type MailConf struct {

@@ -9,6 +9,7 @@ package kontext
 import (
 	"apiguard/alarms"
 	"apiguard/cncdb/analyzer"
+	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
@@ -71,10 +72,10 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
-	var userID int
+	var userID common.UserID
 	var cached bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	defer func(currUserID *int) {
+	defer func(currUserID *common.UserID) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,

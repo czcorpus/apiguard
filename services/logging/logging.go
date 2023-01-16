@@ -7,19 +7,20 @@
 package logging
 
 import (
+	"apiguard/common"
 	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-func LogServiceRequest(service string, procTime time.Duration, cached *bool, userId *int) {
+func LogServiceRequest(service string, procTime time.Duration, cached *bool, userId *common.UserID) {
 	event := log.Info().
 		Str("type", "apiguard").
 		Str("service", service).
 		Float64("procTime", procTime.Seconds()).
 		Bool("isCached", *cached)
 	if userId != nil {
-		event.Int("userId", *userId)
+		event.Int("userId", int(*userId))
 	}
 	event.Send()
 }

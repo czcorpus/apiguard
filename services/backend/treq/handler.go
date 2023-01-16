@@ -9,6 +9,7 @@ package treq
 import (
 	"apiguard/alarms"
 	"apiguard/cncdb/analyzer"
+	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
@@ -44,9 +45,9 @@ type TreqProxy struct {
 
 func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var cached bool
-	var userID int
+	var userID common.UserID
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
-	defer func(currUserID *int) {
+	defer func(currUserID *common.UserID) {
 		if tp.reqCounter != nil {
 			tp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,

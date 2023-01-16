@@ -8,6 +8,7 @@ package users
 
 import (
 	"apiguard/cncdb"
+	"apiguard/common"
 	"database/sql"
 	"net/http"
 	"strconv"
@@ -48,7 +49,7 @@ func (a *Actions) BanInfo(w http.ResponseWriter, req *http.Request) {
 
 func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	userID, err := strconv.Atoi(vars["userID"])
+	userID, err := common.Str2UserID(vars["userID"])
 	days := req.URL.Query().Get("days")
 	hours := req.URL.Query().Get("hours")
 	var banLen time.Duration

@@ -24,6 +24,7 @@ import (
 	"apiguard/services/backend/treq"
 	"apiguard/services/telemetry"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"time"
@@ -58,29 +59,15 @@ type CNCAuthConf struct {
 }
 
 func (services *servicesSection) validate() error {
-	if services.ASSC.BaseURL != "" {
-		log.Info().Msgf("Service ASSC enabled")
-	}
-	if services.SSJC.BaseURL != "" {
-		log.Info().Msgf("Service SSJC enabled")
-	}
-	if services.PSJC.BaseURL != "" {
-		log.Info().Msgf("Service PSJC enabled")
-	}
-	if services.KLA.BaseURL != "" {
-		log.Info().Msgf("Service KLA enabled")
-	}
-	if services.Neomat.BaseURL != "" {
-		log.Info().Msgf("Service Neomat enabled")
-	}
-	if services.CJA.BaseURL != "" {
-		log.Info().Msgf("Service CJA enabled")
-	}
 	if services.Kontext.InternalURL != "" {
-		log.Info().Msgf("Service Kontext enabled")
+		if services.Kontext.ExternalURL == "" {
+			return errors.New("missing externalUrl configuration for KonText")
+		}
 	}
 	if services.Treq.InternalURL != "" {
-		log.Info().Msgf("Service Treq enabled")
+		if services.Treq.ExternalURL == "" {
+			return errors.New("missing externalUrl configuration for Treq")
+		}
 	}
 	return nil
 }

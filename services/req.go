@@ -13,6 +13,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+
+	"github.com/rs/zerolog"
 )
 
 func GetSessionKey(req *http.Request, cookieName string) string {
@@ -24,6 +26,18 @@ func GetSessionKey(req *http.Request, cookieName string) string {
 		}
 	}
 	return cookieValue
+}
+
+// LogCookies logs all the cookies found in provided request
+// using zerolog's Str() function. The names of cookies have
+// added 'cookie_' prefixes for easier distinction.
+// The function returns the same target as the provided one
+// for convenient function chaining.
+func LogCookies(req *http.Request, target *zerolog.Event) *zerolog.Event {
+	for _, cookie := range req.Cookies() {
+		target.Str(fmt.Sprintf("cookie_%s", cookie.Name), cookie.Value)
+	}
+	return target
 }
 
 func GetRequest(url, userAgent string) *SimpleResponse {

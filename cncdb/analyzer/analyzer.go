@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog/log"
 )
 
 type CNCUserAnalyzer struct {
@@ -54,6 +56,8 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 	}
 	cookieValue := services.GetSessionKey(req, kua.CNCSessionCookieName)
 	if cookieValue == "" {
+		services.LogCookies(req, log.Debug()).
+			Msgf("failed to find cookie %s", kua.CNCSessionCookieName)
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         -1,
@@ -64,6 +68,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 	sessionID := kua.GetSessionID(req)
 	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID, serviceName)
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
+		log.Debug().Msgf("failed to find session %s in database", sessionID)
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         -1,

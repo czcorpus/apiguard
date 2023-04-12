@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/czcorpus/uniresp"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 )
 

@@ -10,7 +10,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/czcorpus/uniresp"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 )
 

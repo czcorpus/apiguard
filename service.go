@@ -37,7 +37,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/czcorpus/uniresp"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )

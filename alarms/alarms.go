@@ -7,7 +7,6 @@
 package alarms
 
 import (
-	"apiguard/alarms/mail"
 	"apiguard/cncdb"
 	"apiguard/common"
 	"database/sql"
@@ -21,7 +20,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/czcorpus/uniresp"
+	"github.com/czcorpus/cnc-gokit/mail"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
 	"github.com/rs/zerolog/log"
 )
@@ -169,44 +169,33 @@ func (aticker *AlarmTicker) sendReport(
 	userID common.UserID,
 	numReq int,
 ) {
-	client, err := uniresp.DialSmtpServer(
-		aticker.alarmConf.SMTPServer,
-		aticker.alarmConf.SmtpUsername,
-		aticker.alarmConf.SmtpPassword,
-	)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to send alarm e-mail")
-		return
-	}
-	defer client.Close()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to send alarm e-mail")
-		return
-	}
-
 	for _, recipient := range service.Conf.Recipients {
 		log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
 		page := aticker.createConfirmationPageURL(report, recipient)
-		err := mail.SendNotification(
-			client,
-			aticker.location,
-			aticker.alarmConf.Sender,
-			[]string{recipient},
-			fmt.Sprintf(
+		msg := mail.Notification{
+			Subject: fmt.Sprintf(
 				"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
 				report.ExceedPercent(), service.Service,
 			),
-			fmt.Sprintf(
-				"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
-					"Limit, který byl překročen, je: %d dotazů za %s.",
-				service.Service, userID, numReq, report.Rules.ReqCheckingIntervalSecs,
-				report.Rules.ReqPerTimeThreshold,
-				common.Dur2Hms(report.Rules.ReqCheckingInterval()),
-			),
-			fmt.Sprintf(
-				"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
-				page, page,
-			),
+			Paragraphs: []string{
+				fmt.Sprintf(
+					"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
+						"Limit, který byl překročen, je: %d dotazů za %s.",
+					service.Service, userID, numReq, report.Rules.ReqCheckingIntervalSecs,
+					report.Rules.ReqPerTimeThreshold,
+					common.Dur2Hms(report.Rules.ReqCheckingInterval()),
+				),
+				fmt.Sprintf(
+					"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
+					page, page,
+				),
+			},
+		}
+		msgCnf := aticker.alarmConf.WithRecipients(recipient)
+		err := mail.SendNotification(
+			&msgCnf,
+			aticker.location,
+			msg,
 		)
 		if err != nil {
 			log.Error().

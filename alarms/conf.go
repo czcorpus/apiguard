@@ -6,7 +6,11 @@
 
 package alarms
 
-import "time"
+import (
+	"time"
+
+	"github.com/czcorpus/cnc-gokit/mail"
+)
 
 type Limit struct {
 	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
@@ -24,9 +28,6 @@ type AlarmConf struct {
 }
 
 type MailConf struct {
-	Sender              string `json:"sender"`
-	SMTPServer          string `json:"smtpServer"`
-	SmtpUsername        string `json:"smtpUsername"`
-	SmtpPassword        string `json:"smtpPassword"`
+	mail.NotificationConf
 	ConfirmationBaseURL string `json:"confirmationBaseURL"`
 }

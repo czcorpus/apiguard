@@ -4,14 +4,14 @@ go 1.18
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
-	github.com/czcorpus/uniresp v0.0.3
+	github.com/czcorpus/cnc-gokit v0.0.6
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/mux v1.8.0
 	github.com/influxdata/influxdb-client-go/v2 v2.8.2
 	github.com/patrikeh/go-deep v0.0.0-20220129152125-82b8db494fe5
-	github.com/rs/zerolog v1.28.0
+	github.com/rs/zerolog v1.29.0
 	github.com/stretchr/testify v1.7.1
 	golang.org/x/net v0.2.0
 )

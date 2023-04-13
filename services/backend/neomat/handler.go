@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 const (
@@ -43,17 +45,17 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	query := req.URL.Query().Get("q")
 	if query == "" {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	maxItems := req.URL.Query().Get("maxItems")
 	if maxItems == "" {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty maxItems"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty maxItems"), 422)
 		return
 	}
 	maxItemsCount, err := strconv.Atoi(maxItems)
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
@@ -66,17 +68,17 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 		req,
 	)
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
 	entries, err := parseData(string(resp.GetBody()), maxItemsCount)
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
-	services.WriteJSONResponse(w, Response{Entries: entries})
+	uniresp.WriteJSONResponse(w, Response{Entries: entries})
 }
 
 func (aa *NeomatActions) createMainRequest(url string, req *http.Request) services.BackendResponse {

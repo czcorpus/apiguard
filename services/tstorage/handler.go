@@ -8,7 +8,6 @@ package tstorage
 
 import (
 	"apiguard/cncdb"
-	"apiguard/services"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"encoding/json"
@@ -16,6 +15,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -38,14 +38,14 @@ type Actions struct {
 func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
 	rawPayload, err := ioutil.ReadAll(req.Body)
 	if err != nil {
-		services.WriteJSONErrorResponse(
-			w, services.NewActionError(err.Error()), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
 	var payloadTmp payload
 	err = json.Unmarshal(rawPayload, &payloadTmp)
 	if err != nil {
-		services.WriteJSONErrorResponse(
-			w, services.NewActionError(err.Error()), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	payload := telemetry.Payload{

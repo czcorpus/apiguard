@@ -8,9 +8,10 @@ package requests
 
 import (
 	"apiguard/cncdb"
-	"apiguard/services"
 	"net/http"
 	"strconv"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 type Actions struct {
@@ -24,7 +25,7 @@ func (a *Actions) List(w http.ResponseWriter, req *http.Request) {
 		var err error
 		limit, err = strconv.Atoi(limitArg)
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 422)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 422)
 			return
 		}
 	}
@@ -35,16 +36,16 @@ func (a *Actions) List(w http.ResponseWriter, req *http.Request) {
 		var err error
 		maxAge, err = strconv.Atoi(maxAgeArg)
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 422)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 422)
 			return
 		}
 	}
 
 	items, err := a.db.LoadStatsList(limit, maxAge)
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 	}
-	services.WriteJSONResponse(w, items)
+	uniresp.WriteJSONResponse(w, items)
 }
 
 func NewActions(db *cncdb.DelayStats) *Actions {

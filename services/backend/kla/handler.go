@@ -16,6 +16,8 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 const (
@@ -44,21 +46,21 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
-		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("too many queries"), 422)
 		return
 	}
 	maxImages := req.URL.Query().Get("maxImages")
 	if maxImages == "" {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty maxImages"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty maxImages"), 422)
 		return
 	}
 	maxImageCount, err := strconv.Atoi(maxImages)
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
@@ -76,13 +78,13 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 		)
 		cached = cached || resp.IsCached()
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 
 		images, err = parseData(string(resp.GetBody()), maxImageCount, aa.conf.BaseURL)
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		if len(images) > 0 {
@@ -90,7 +92,7 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	services.WriteJSONResponse(w, Response{
+	uniresp.WriteJSONResponse(w, Response{
 		Images: images,
 		Query:  query,
 	})

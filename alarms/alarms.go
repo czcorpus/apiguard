@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/mail"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
@@ -183,7 +184,7 @@ func (aticker *AlarmTicker) sendReport(
 						"Limit, který byl překročen, je: %d dotazů za %s.",
 					service.Service, userID, numReq, report.Rules.ReqCheckingIntervalSecs,
 					report.Rules.ReqPerTimeThreshold,
-					common.Dur2Hms(report.Rules.ReqCheckingInterval()),
+					datetime.DurationToHMS(report.Rules.ReqCheckingInterval()),
 				),
 				fmt.Sprintf(
 					"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",

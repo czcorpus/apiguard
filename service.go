@@ -306,7 +306,7 @@ func runService(
 		if queryValue != "" {
 			binWidth, err = strconv.ParseFloat(queryValue, 64)
 			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
 				return
 			}
 		}
@@ -315,17 +315,17 @@ func runService(
 		if queryValue != "" {
 			otherLimit, err = strconv.ParseFloat(queryValue, 64)
 			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
 				return
 			}
 		}
 
 		ans, err := delayStats.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
-			services.WriteJSONErrorResponse(
-				w, services.NewActionError(err.Error()), http.StatusInternalServerError)
+			uniresp.WriteJSONErrorResponse(
+				w, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
 		} else {
-			services.WriteJSONResponse(w, ans)
+			uniresp.WriteJSONResponse(w, ans)
 		}
 	})
 

@@ -7,7 +7,6 @@
 package reqcache
 
 import (
-	"apiguard/fsops"
 	"apiguard/services"
 	"encoding/gob"
 	"fmt"
@@ -15,6 +14,8 @@ import (
 	"os"
 	"path"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/fs"
 )
 
 type FileReqCache struct {
@@ -29,15 +30,19 @@ func (frc *FileReqCache) createItemPath(req *http.Request, resp services.Backend
 
 func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (services.BackendResponse, error) {
 	filePath := rc.createItemPath(req, nil, respectCookies)
-	isFile, err := fsops.IsFile(filePath)
+	isFile, err := fs.IsFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 	if !isFile {
 		return nil, ErrCacheMiss
 	}
-	if time.Since(fsops.GetFileMtime(filePath)) > time.Duration(rc.conf.TTLSecs)*time.Second {
-		err := fsops.DeleteFile(filePath)
+	mtime, err := fs.GetFileMtime(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to obtain file mtime: %w", err)
+	}
+	if time.Since(mtime) > time.Duration(rc.conf.TTLSecs)*time.Second {
+		err := fs.DeleteFile(filePath)
 		if err != nil {
 			return nil, err
 		}

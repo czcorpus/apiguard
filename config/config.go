@@ -10,7 +10,6 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
-	"apiguard/fsops"
 	"apiguard/monitoring/influx"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
@@ -29,6 +28,7 @@ import (
 	"io/ioutil"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
@@ -111,7 +111,14 @@ func (c *Configuration) Validate() error {
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {
 		return err
 	}
-	if c.StatusDataDir == "" || !fsops.IsDir(c.StatusDataDir) {
+	if c.StatusDataDir == "" {
+		return fmt.Errorf("statusDataDir not configured")
+	}
+	isDir, err := fs.IsDir(c.StatusDataDir)
+	if err != nil {
+		return fmt.Errorf("failed to test statusDataDir: %w", err)
+	}
+	if !isDir {
 		return fmt.Errorf("invalid statusDataDir: %s", c.StatusDataDir)
 	}
 	return nil

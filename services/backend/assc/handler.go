@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 /*
@@ -47,11 +49,11 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
-		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("too many queries"), 422)
 		return
 	}
 
@@ -68,12 +70,12 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 		)
 		cached = cached || response.IsCached()
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		data, err = parseData(string(response.GetBody()))
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		// check if result is not empty and contains query key
@@ -82,7 +84,7 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 			break
 		}
 	}
-	services.WriteJSONResponse(w, data)
+	uniresp.WriteJSONResponse(w, data)
 }
 
 func (aa *ASSCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {

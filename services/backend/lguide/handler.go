@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -119,7 +120,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 
 	query := req.URL.Query().Get("q")
 	if query == "" {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 
@@ -143,7 +144,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	}
 
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 	parsed := Parse(string(resp.GetBody()))
@@ -155,7 +156,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		)
 
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		parsed = Parse(string(resp.GetBody()))
@@ -166,10 +167,10 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		log.Info().Msgf("More data available for `%s` in `items`: %v", query, parsed.items)
 	}
 	if parsed.Error != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionErrorFrom(err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 	}
 	lga.triggerDummyRequests(query, parsed)
-	services.WriteJSONResponse(w, parsed)
+	uniresp.WriteJSONResponse(w, parsed)
 }
 
 func NewLanguageGuideActions(

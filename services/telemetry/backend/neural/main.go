@@ -7,7 +7,6 @@
 package neural
 
 import (
-	"apiguard/fsops"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"apiguard/services/telemetry/backend"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/patrikeh/go-deep"
 	"github.com/patrikeh/go-deep/training"
 )
@@ -143,7 +143,7 @@ func NewAnalyzer(
 ) (*Analyzer, error) {
 	currDump := mkDumpPath(conf.InternalDataPath)
 	var network *deep.Neural
-	currDumpIsFile, err := fsops.IsFile(currDump)
+	currDumpIsFile, err := fs.IsFile(currDump)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create analyzer: %w", err)
 	}

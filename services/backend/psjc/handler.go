@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 const (
@@ -43,11 +45,11 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
-		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("too many queries"), 422)
 		return
 	}
 
@@ -65,13 +67,13 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		)
 		cached = cached || resp.IsCached()
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 
 		entries, err = parseData(string(resp.GetBody()))
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 
@@ -80,7 +82,7 @@ func (aa *PSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	services.WriteJSONResponse(w, Response{
+	uniresp.WriteJSONResponse(w, Response{
 		Entries: entries,
 		Query:   query,
 	})

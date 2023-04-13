@@ -8,11 +8,11 @@ package main
 
 import (
 	"apiguard/config"
-	"apiguard/fsops"
 	"path"
 	"runtime"
 	"strings"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
@@ -30,7 +30,15 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 			"/usr/local/etc/apiguard.json",
 		}
 		for _, path := range srchPaths {
-			if isFile, _ := fsops.IsFile(path); isFile {
+			isFile, err := fs.IsFile(path)
+			if err != nil {
+				log.Fatal().Msgf(
+					"error when searching for asuitable configuration file (searched in: %s): %s",
+					strings.Join(srchPaths, ", "),
+					err,
+				)
+			}
+			if isFile {
 				conf = config.LoadConfig(path)
 				break
 			}

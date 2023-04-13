@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 const (
@@ -45,7 +47,7 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	query := req.URL.Query().Get("q")
 	if query == "" {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 
@@ -59,18 +61,18 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 		req,
 	)
 	if resp.GetError() != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
 	response, err := parseData(string(resp.GetBody()), aa.conf.BaseURL)
 	if err != nil {
-		services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 	// TODO !!!! response.Backlink = backlink
 
-	services.WriteJSONResponse(w, response)
+	uniresp.WriteJSONResponse(w, response)
 }
 
 func (aa *CJAActions) createSubRequest(url string, req *http.Request) services.BackendResponse {

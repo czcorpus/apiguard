@@ -7,8 +7,9 @@
 package telemetry
 
 import (
-	"apiguard/fsops"
 	"fmt"
+
+	"github.com/czcorpus/cnc-gokit/fs"
 )
 
 type Conf struct {
@@ -37,7 +38,11 @@ func (bdc *Conf) Validate(context string) error {
 	if bdc.MaxAgeSecsRelevant == 0 {
 		return fmt.Errorf("%s.maxAgeSecsRelevant cannot be 0", context)
 	}
-	if !fsops.IsDir(bdc.InternalDataPath) {
+	isDir, err := fs.IsDir(bdc.InternalDataPath)
+	if err != nil {
+		return fmt.Errorf("failed to test %s.internalDataPath: %w", context, err)
+	}
+	if !isDir {
 		return fmt.Errorf("%s.internalDataPath does not specify a valid directory", context)
 	}
 	return nil

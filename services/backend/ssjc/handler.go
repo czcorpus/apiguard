@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/uniresp"
 )
 
 const (
@@ -48,11 +50,11 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 
 	queries, ok := req.URL.Query()["q"]
 	if !ok {
-		services.WriteJSONErrorResponse(w, services.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
-		services.WriteJSONErrorResponse(w, services.NewActionError("too many queries"), 422)
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("too many queries"), 422)
 		return
 	}
 
@@ -70,14 +72,14 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		)
 		cached = cached || resp.IsCached()
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 
 		// check if there are multiple results
 		STIs, err := lookForSTI(string(resp.GetBody()))
 		if err != nil {
-			services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 
@@ -89,12 +91,12 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 				)
 				cached = cached || resp.IsCached()
 				if err != nil {
-					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+					uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 					return
 				}
 				payload, err := parseData(string(resp.GetBody()))
 				if err != nil {
-					services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+					uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 					return
 				}
 				response.Entries = append(
@@ -107,7 +109,7 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		} else {
 			payload, err := parseData(string(resp.GetBody()))
 			if err != nil {
-				services.WriteJSONErrorResponse(w, services.NewActionError(err.Error()), 500)
+				uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
 				return
 			}
 			if len(payload) > 0 {
@@ -121,7 +123,7 @@ func (aa *SSJCActions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	services.WriteJSONResponse(w, response)
+	uniresp.WriteJSONResponse(w, response)
 }
 
 func (aa *SSJCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {

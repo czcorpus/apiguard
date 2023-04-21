@@ -249,6 +249,8 @@ func runService(
 			kontextReqCounter,
 			cache,
 		)
+
+		router.HandleFunc("/service/kontext/preflight", kontextActions.Preflight)
 		router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 		servicesDefaults["kontext"] = kontextActions
 		log.Info().Msg("Service Kontext enabled")

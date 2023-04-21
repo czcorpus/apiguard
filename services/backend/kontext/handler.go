@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/czcorpus/uniresp"
 	"github.com/rs/zerolog/log"
 )
 
@@ -69,6 +70,24 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 		return map[string][]string{}, errors.New("session not found")
 	}
 	return kp.defaults[sessionID], nil
+}
+
+func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
+	reqProps := kp.analyzer.UserInducedResponseStatus(req, ServiceName)
+	if reqProps.Error != nil {
+		http.Error(
+			w,
+			fmt.Sprintf("Failed to process preflight request: %s", reqProps.Error),
+			reqProps.ProposedStatus,
+		)
+		return
+
+	} else if reqProps.ProposedStatus > 400 && reqProps.ProposedStatus < 500 {
+		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+	uniresp.WriteJSONResponse(w, map[string]any{})
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {

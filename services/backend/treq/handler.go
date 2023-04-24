@@ -77,17 +77,26 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	services.RestrictResponseTime(w, req, tp.readTimeoutSecs, tp.analyzer)
+
+	// first, remap cookie names
+	err := backend.MapCookies(req, tp.conf.CookieMapping)
+	if err != nil {
+		http.Error(
+			w,
+			err.Error(),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	// then update auth cookie by x-api-key (if applicable)
 	xApiKey := req.Header.Get(backend.HeaderAPIKey)
 	if xApiKey != "" {
-		cookies := req.Cookies()
-		delete(req.Header, "Cookie")
-		for _, cookie := range cookies {
-			if cookie.Name == tp.analyzer.CNCSessionCookieName {
-				cookie.Value = xApiKey
-			}
-			req.AddCookie(cookie)
+		cookie, err := req.Cookie(tp.analyzer.CNCSessionCookieName)
+		if err == nil {
+			cookie.Value = xApiKey
 		}
 	}
+
 	serviceResp := tp.makeRequest(req)
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {

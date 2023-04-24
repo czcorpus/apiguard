@@ -18,8 +18,8 @@ const (
 func MapCookies(req *http.Request, mapping map[string]string) error {
 	for srcCookie, dstCookie := range mapping {
 		c, err := req.Cookie(srcCookie)
-		if err != nil {
-			return fmt.Errorf("expected mapping cookie %s", srcCookie)
+		if err != nil && err != http.ErrNoCookie {
+			return fmt.Errorf("failed to map cookie %s", srcCookie)
 		}
 		c2 := *c
 		c2.Name = dstCookie

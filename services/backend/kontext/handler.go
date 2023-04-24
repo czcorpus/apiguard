@@ -128,6 +128,15 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	if kp.conf.UseHeaderXApiKey {
 		passedHeaders[backend.HeaderAPIKey] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
 	}
+	err := backend.MapCookies(req, kp.conf.CookieMapping)
+	if err != nil {
+		http.Error(
+			w,
+			err.Error(),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 
 	serviceResp := kp.makeRequest(req, reqProps)
 	cached = serviceResp.IsCached()
@@ -201,8 +210,9 @@ func NewKontextProxy(
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
 		apiProxy: services.APIProxy{
-			InternalURL: conf.InternalURL,
-			ExternalURL: conf.ExternalURL,
+			InternalURL:   conf.InternalURL,
+			ExternalURL:   conf.ExternalURL,
+			CookieMapping: conf.CookieMapping,
 		},
 		reqCounter: reqCounter,
 		cache:      cache,

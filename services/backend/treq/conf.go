@@ -23,6 +23,10 @@ type Conf struct {
 	// The URL should not end with the slash character
 	ExternalURL string `json:"externalUrl"`
 
+	// CookieMapping - please see [kontext.Conf]
+	// for more info
+	CookieMapping map[string]string
+
 	Limits []alarms.Limit `json:"limits"`
 
 	Alarm alarms.AlarmConf `json:"alarm"`

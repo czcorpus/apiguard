@@ -75,8 +75,9 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 }
 
 type APIProxy struct {
-	InternalURL string
-	ExternalURL string
+	InternalURL   string
+	ExternalURL   string
+	CookieMapping map[string]string
 }
 
 func (proxy *APIProxy) transformRedirect(headers http.Header) error {

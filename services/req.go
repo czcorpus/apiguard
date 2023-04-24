@@ -15,6 +15,7 @@ import (
 	"net/url"
 
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
 
 func GetSessionKey(req *http.Request, cookieName string) string {
@@ -117,7 +118,8 @@ func (proxy *APIProxy) Request(urlPath, method string, headers http.Header, rbod
 			return http.ErrUseLastResponse
 		},
 	}
-	req, err := http.NewRequest(method, fmt.Sprintf("%s%s", proxy.InternalURL, urlPath), rbody)
+	targetURL := fmt.Sprintf("%s%s", proxy.InternalURL, urlPath)
+	req, err := http.NewRequest(method, targetURL, rbody)
 	if err != nil {
 		return &ProxiedResponse{
 			Body:       []byte{},
@@ -138,6 +140,12 @@ func (proxy *APIProxy) Request(urlPath, method string, headers http.Header, rbod
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
+	log.Debug().
+		Str("url", targetURL).
+		Err(err).
+		Int("status", resp.StatusCode).
+		Msgf(">>> Proxy request >>>")
+
 	if err != nil {
 		return &ProxiedResponse{
 			Body:       []byte{},

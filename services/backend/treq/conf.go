@@ -25,7 +25,7 @@ type Conf struct {
 
 	// CookieMapping - please see [kontext.Conf]
 	// for more info
-	CookieMapping map[string]string
+	CookieMapping map[string]string `json:"cookieMapping"`
 
 	Limits []alarms.Limit `json:"limits"`
 

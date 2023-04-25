@@ -15,7 +15,18 @@ const (
 	HeaderAPIKey = "X-Api-Key"
 )
 
-func MapCookies(req *http.Request, mapping map[string]string) error {
+type CookieMapping map[string]string
+
+func (m CookieMapping) KeyOfValue(value string) (string, bool) {
+	for k, v := range m {
+		if v == value {
+			return k, true
+		}
+	}
+	return "", false
+}
+
+func MapCookies(req *http.Request, mapping CookieMapping) error {
 	for srcCookie, dstCookie := range mapping {
 		c, err := req.Cookie(srcCookie)
 		if err == http.ErrNoCookie {

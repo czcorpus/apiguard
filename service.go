@@ -250,6 +250,7 @@ func runService(
 			cache,
 		)
 
+		router.HandleFunc("/service/kontext/login", kontextActions.Login).Methods(http.MethodPost)
 		router.HandleFunc("/service/kontext/preflight", kontextActions.Preflight)
 		router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 		servicesDefaults["kontext"] = kontextActions

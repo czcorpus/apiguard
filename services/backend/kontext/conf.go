@@ -8,6 +8,7 @@ package kontext
 
 import (
 	"apiguard/alarms"
+	"apiguard/services/backend"
 	"fmt"
 )
 
@@ -42,7 +43,7 @@ type Conf struct {
 	// only it and APIGuard will understand and APIGuard will replace
 	// the cookie name using this mapping to make sure (KonText) API
 	// understands it (as it requires cnc_toolbar_sid).
-	CookieMapping map[string]string `json:"cookieMapping"`
+	CookieMapping backend.CookieMapping `json:"cookieMapping"`
 
 	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
 

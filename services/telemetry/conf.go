@@ -40,7 +40,7 @@ func (bdc *Conf) Validate(context string) error {
 	}
 	isDir, err := fs.IsDir(bdc.InternalDataPath)
 	if err != nil {
-		return fmt.Errorf("failed to test %s.internalDataPath: %w", context, err)
+		return fmt.Errorf("failed to test %s.internalDataPath (= %s): %w", context, bdc.InternalDataPath, err)
 	}
 	if !isDir {
 		return fmt.Errorf("%s.internalDataPath does not specify a valid directory", context)

@@ -7,6 +7,7 @@
 package services
 
 import (
+	"apiguard/services/backend"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -78,7 +79,7 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 type APIProxy struct {
 	InternalURL   string
 	ExternalURL   string
-	CookieMapping map[string]string
+	CookieMapping backend.CookieMapping
 }
 
 func (proxy *APIProxy) transformRedirect(headers http.Header) error {

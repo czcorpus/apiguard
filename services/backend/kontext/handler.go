@@ -15,20 +15,26 @@ import (
 	"apiguard/services"
 	"apiguard/services/backend"
 	"apiguard/services/defaults"
+	"crypto/tls"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
-	"github.com/czcorpus/uniresp"
+	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
 
 const (
-	ServicePath = "/service/kontext"
-	ServiceName = "kontext"
+	AuthTokenEntry    = "personal_access_token"
+	ServicePath       = "/service/kontext"
+	ServiceName       = "kontext"
+	CNCPortalLoginURL = "https://www.korpus.cz/login"
 )
 
 type KontextProxy struct {
@@ -88,6 +94,71 @@ func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 	uniresp.WriteJSONResponse(w, map[string]any{})
+}
+
+// Login is a custom Proxy for CNC portals' central login action.
+// We use it in situations where we need a "hidden" API login using
+// a special user account for unauthorized users. In such case,
+// the CNC login will still return standard cookies which would
+// make the hidden user visible. So our proxy action will rename
+// a respective cookie and will allow a custom web application (e.g. WaG)
+// to use this special cookie.
+func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
+
+	postData := url.Values{}
+	postData.Set(AuthTokenEntry, req.FormValue(AuthTokenEntry))
+	req2, err := http.NewRequest(
+		http.MethodPost,
+		CNCPortalLoginURL,
+		strings.NewReader(postData.Encode()),
+	)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: true, // only for internal network communication
+		},
+	}
+	client := &http.Client{Transport: transport}
+
+	resp, err := client.Do(req2)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
+		return
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	respMsg := make([]string, 0, 1)
+	err = json.Unmarshal(body, &respMsg)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
+		return
+	}
+
+	if respMsg[0] == "Invalid credentials" {
+		uniresp.WriteCustomJSONErrorResponse(w, respMsg, http.StatusUnauthorized)
+		return
+	}
+
+	cookies := resp.Cookies()
+	for _, cookie := range cookies {
+		mappedCookie, ok := kp.conf.CookieMapping.KeyOfValue(cookie.Name)
+		cCopy := *cookie
+		if ok {
+			log.Debug().Msgf("setting mapped cookie %s => %s", cCopy.Name, mappedCookie)
+			cCopy.Name = mappedCookie
+		}
+		http.SetCookie(w, &cCopy)
+	}
+	uniresp.WriteJSONResponse(w, respMsg)
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {

@@ -607,7 +607,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) RegisterDelayLog(delay time.Duration) error {
+func (c *DelayStats) LogAppliedDelay(delay time.Duration) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err

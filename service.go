@@ -15,6 +15,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
+	"apiguard/services/backend"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
@@ -219,23 +220,21 @@ func runService(
 
 	// common for KonText & Treq
 
-	var cnca *analyzer.CNCUserAnalyzer
 	servicesDefaults := make(map[string]defaults.DefaultsProvider)
 	sessActions := defaults.NewActions(servicesDefaults)
-
-	if conf.Services.Kontext.ExternalURL != "" || conf.Services.Treq.ExternalURL != "" {
-		cnca = analyzer.NewCNCUserAnalyzer(
-			globalCtx.CNCDB,
-			conf.TimezoneLocation(),
-			userTableProps,
-			conf.CNCAuth.SessionCookieName,
-			conf.CNCDB.AnonymousUserID,
-		)
-	}
 
 	// KonText (API) proxy
 
 	if conf.Services.Kontext.ExternalURL != "" {
+		cnca := analyzer.NewCNCUserAnalyzer(
+			globalCtx.CNCDB,
+			conf.TimezoneLocation(),
+			userTableProps,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Kontext.CookieMapping,
+			conf.CNCDB.AnonymousUserID,
+		)
+
 		var kontextReqCounter chan<- alarms.RequestInfo
 		if len(conf.Services.Kontext.Limits) > 0 {
 			kontextReqCounter = alarm.Register(kontext.ServiceName, conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
@@ -260,6 +259,14 @@ func runService(
 	// Treq (API) proxy
 
 	if conf.Services.Treq.ExternalURL != "" {
+		cnca := analyzer.NewCNCUserAnalyzer(
+			globalCtx.CNCDB,
+			conf.TimezoneLocation(),
+			userTableProps,
+			conf.CNCAuth.SessionCookieName,
+			backend.CookieMapping{},
+			conf.CNCDB.AnonymousUserID,
+		)
 		var treqReqCounter chan<- alarms.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
 			treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)

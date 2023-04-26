@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"internal/itoa"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -211,7 +212,12 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
+
 	passedHeaders := req.Header
+
+	// here we reveal actual human user ID to the API (i.e. not a special fallback user)
+	passedHeaders[backend.HeaderAPIUserID] = []string{itoa.Itoa(int(userID))}
+
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(req) {
 			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(req, kp.conf.ExternalSessionCookieName)}

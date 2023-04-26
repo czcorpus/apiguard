@@ -229,10 +229,8 @@ func runService(
 			globalCtx.CNCDB,
 			conf.TimezoneLocation(),
 			userTableProps,
-			[]string{
-				conf.Services.Kontext.ExternalSessionCookieName,
-				conf.CNCAuth.SessionCookieName,
-			},
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Kontext.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
 		)
 
@@ -265,10 +263,8 @@ func runService(
 			globalCtx.CNCDB,
 			conf.TimezoneLocation(),
 			userTableProps,
-			[]string{
-				conf.Services.Treq.ExternalSessionCookieName,
-				conf.CNCAuth.SessionCookieName,
-			},
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Treq.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
 		)
 		var treqReqCounter chan<- alarms.RequestInfo

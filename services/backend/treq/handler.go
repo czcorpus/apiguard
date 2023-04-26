@@ -31,6 +31,7 @@ const (
 type TreqProxy struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
+	cncAuthCookie   string
 	readTimeoutSecs int
 	cache           services.Cache
 	analyzer        *analyzer.CNCUserAnalyzer
@@ -41,6 +42,14 @@ type TreqProxy struct {
 	// to an alarm service. Please note that this value can be nil
 	// (in such case, nothing is sent)
 	reqCounter chan<- alarms.RequestInfo
+}
+
+func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
+	if tp.conf.ExternalSessionCookieName == "" {
+		return false
+	}
+	_, err := req.Cookie(tp.conf.ExternalSessionCookieName)
+	return err == nil
 }
 
 func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
@@ -79,19 +88,25 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	services.RestrictResponseTime(w, req, tp.readTimeoutSecs, tp.analyzer)
 
 	// first, remap cookie names
-	err := backend.MapCookies(req, tp.conf.CookieMapping)
-	if err != nil {
-		http.Error(
-			w,
-			err.Error(),
-			http.StatusInternalServerError,
+	if tp.reqUsesMappedSession(req) {
+		err := backend.MapSessionCookie(
+			req,
+			tp.conf.ExternalSessionCookieName,
+			tp.cncAuthCookie,
 		)
-		return
+		if err != nil {
+			http.Error(
+				w,
+				err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
 	}
 	// then update auth cookie by x-api-key (if applicable)
 	xApiKey := req.Header.Get(backend.HeaderAPIKey)
 	if xApiKey != "" {
-		cookie, err := req.Cookie(tp.analyzer.CNCSessionCookieName)
+		cookie, err := req.Cookie(tp.cncAuthCookie)
 		if err == nil {
 			cookie.Value = xApiKey
 		}
@@ -117,7 +132,8 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 }
 
 func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
-	resp, err := tp.cache.Get(req, []string{tp.analyzer.CNCSessionCookieName})
+	cacheApplCookies := []string{tp.conf.ExternalSessionCookieName, tp.cncAuthCookie}
+	resp, err := tp.cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 		urlArgs := req.URL.Query()
@@ -128,7 +144,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 			req.Header,
 			req.Body,
 		)
-		err := tp.cache.Set(req, resp, []string{tp.analyzer.CNCSessionCookieName})
+		err := tp.cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
 			return &services.ProxiedResponse{Err: err}
 		}

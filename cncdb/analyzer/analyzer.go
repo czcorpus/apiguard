@@ -10,7 +10,6 @@ import (
 	"apiguard/cncdb"
 	"apiguard/common"
 	"apiguard/services"
-	"apiguard/services/backend"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -22,18 +21,16 @@ import (
 
 // CNCUserAnalyzer provides access to user request and is able
 // too access CNC session database to evaluate user permissions.
-//
-// It supports CookieMapping for cases where APIguard client
-// (e.g. WaG, KonText) needs a different cookie than the API itself.
-// E.g. WaG --- [cookie1] --> APIGuard --> [cookie2] --> API with
-// the values of cookie1 and cookie2 being the same.
+// Because of possible cookie mapping for some of services, the
+// analyzer may look into more than one cookie. But it is up
+// to a consumer to configure proper order of cookie lookup
+// (SessionCookieNames)
 type CNCUserAnalyzer struct {
-	db                   *sql.DB
-	location             *time.Location
-	userTableProps       cncdb.UserTableProps
-	CNCSessionCookieName string
-	CookieMapping        backend.CookieMapping
-	AnonymousUserID      common.UserID
+	db                 *sql.DB
+	location           *time.Location
+	userTableProps     cncdb.UserTableProps
+	SessionCookieNames []string
+	AnonymousUserID    common.UserID
 }
 
 // CalcDelay calculates a delay user deserves. CNCUserAnalyzer
@@ -46,26 +43,23 @@ func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay time.Duration) error {
 	return nil // TODO
 }
 
-// GetSessionID extracts relevant user session ID from the provided Request.
-func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
-	mappedSessionCookieName := kua.getTrueSessionCookieName(kua.CNCSessionCookieName)
-	cookieValue := services.GetSessionKey(req, mappedSessionCookieName)
-	if cookieValue == "" {
-		return ""
+func (kua *CNCUserAnalyzer) GetSessionValue(req *http.Request) string {
+	for _, sessKey := range kua.SessionCookieNames {
+		cookieValue := services.GetCookieValue(req, sessKey)
+		if cookieValue != "" {
+			return cookieValue
+		}
 	}
-	return strings.SplitN(cookieValue, "-", 2)[0]
+	return ""
 }
 
-// getTrueSessionCookieName for a required cookie name obtain a "true" name
-// based on possible cookie mapping. I.e. we ask for an "external" cookie
-// (the name used by the API) but we return the name used by us and our web
-// application (e.g. WaG).
-func (kua *CNCUserAnalyzer) getTrueSessionCookieName(declaredName string) string {
-	mapped, ok := kua.CookieMapping.KeyOfValue(declaredName)
-	if ok {
-		return mapped
+// GetSessionID extracts relevant user session ID from the provided Request.
+func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
+	v := kua.GetSessionValue(req)
+	if v != "" {
+		return strings.SplitN(v, "-", 2)[0]
 	}
-	return declaredName
+	return ""
 }
 
 // UserInducedResponseStatus produces a HTTP response status
@@ -79,11 +73,10 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 			Error:          nil,
 		}
 	}
-	mappedSessionCookieName := kua.getTrueSessionCookieName(kua.CNCSessionCookieName)
-	cookieValue := services.GetSessionKey(req, mappedSessionCookieName)
+	cookieValue := kua.GetSessionValue(req)
 	if cookieValue == "" {
 		services.LogCookies(req, log.Debug()).
-			Msgf("failed to find cookie %s", mappedSessionCookieName)
+			Msgf("failed to find any of cookies %s", strings.Join(kua.SessionCookieNames, ", "))
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         -1,
@@ -118,17 +111,15 @@ func NewCNCUserAnalyzer(
 	db *sql.DB,
 	locaction *time.Location,
 	userTableProps cncdb.UserTableProps,
-	cncSessionCookieName string,
-	cookieMapping backend.CookieMapping,
+	sessionCookieNames []string,
 	anonymousUserID common.UserID,
 
 ) *CNCUserAnalyzer {
 	return &CNCUserAnalyzer{
-		db:                   db,
-		location:             locaction,
-		userTableProps:       userTableProps,
-		CNCSessionCookieName: cncSessionCookieName,
-		CookieMapping:        cookieMapping,
-		AnonymousUserID:      anonymousUserID,
+		db:                 db,
+		location:           locaction,
+		userTableProps:     userTableProps,
+		SessionCookieNames: sessionCookieNames,
+		AnonymousUserID:    anonymousUserID,
 	}
 }

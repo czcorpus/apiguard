@@ -8,7 +8,6 @@ package kontext
 
 import (
 	"apiguard/alarms"
-	"apiguard/services/backend"
 	"fmt"
 )
 
@@ -24,26 +23,11 @@ type Conf struct {
 	// The URL should not end with the slash character
 	ExternalURL string `json:"externalUrl"`
 
-	// CookieMapping enables management of anonymous users
-	// by employing a fallback user (i.e., a user recognized
-	// by the CNC portal and capable of authenticating with APIs
-	// registered on the portal) while concealing this fallback
-	// user. This is essential because, if the original cookie
-	// were used, the portal logic (which is a component of the
-	// client page) would display the user information - which is
-	// a thing we do not want.
-	//
-	// To put this in different words - we have an API instance
-	// e.g. KonText which prefers CNC cnc_toolbar_sid cookie.
-	// Our web client has integrated CNC toolbar which provides
-	// a way to authenticate and display logged in user info.
-	// But at the same time we want anonymous users to be
-	// authenticated via the fallback users without toolbar knowing
-	// this. So our web client app will create an additional cookie
-	// only it and APIGuard will understand and APIGuard will replace
-	// the cookie name using this mapping to make sure (KonText) API
-	// understands it (as it requires cnc_toolbar_sid).
-	CookieMapping backend.CookieMapping `json:"cookieMapping"`
+	// ExternalSessionCookieName provides a name of the session cookie
+	// used between APIGuard clients (e.g. WaG) and APIGuard.
+	// If defined, APIGuard will remap this cookie to the one used
+	// in the CNCAuth section where a central auth cookie is defined.
+	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
 	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
 

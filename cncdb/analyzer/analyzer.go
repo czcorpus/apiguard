@@ -26,11 +26,12 @@ import (
 // to a consumer to configure proper order of cookie lookup
 // (SessionCookieNames)
 type CNCUserAnalyzer struct {
-	db                 *sql.DB
-	location           *time.Location
-	userTableProps     cncdb.UserTableProps
-	SessionCookieNames []string
-	AnonymousUserID    common.UserID
+	db                    *sql.DB
+	location              *time.Location
+	userTableProps        cncdb.UserTableProps
+	internalSessionCookie string
+	externalSessionCookie string
+	AnonymousUserID       common.UserID
 }
 
 // CalcDelay calculates a delay user deserves. CNCUserAnalyzer
@@ -43,23 +44,30 @@ func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay time.Duration) error {
 	return nil // TODO
 }
 
-func (kua *CNCUserAnalyzer) GetSessionValue(req *http.Request) string {
-	for _, sessKey := range kua.SessionCookieNames {
-		cookieValue := services.GetCookieValue(req, sessKey)
-		if cookieValue != "" {
-			return cookieValue
-		}
+func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {
+	cookieValue := services.GetCookieValue(req, kua.externalSessionCookie)
+	if cookieValue != "" {
+		return cookieValue
 	}
-	return ""
+	cookieValue = services.GetCookieValue(req, kua.internalSessionCookie)
+	return cookieValue
 }
 
 // GetSessionID extracts relevant user session ID from the provided Request.
 func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
-	v := kua.GetSessionValue(req)
+	v := kua.getSessionValue(req)
 	if v != "" {
 		return strings.SplitN(v, "-", 2)[0]
 	}
 	return ""
+}
+
+func (kua *CNCUserAnalyzer) GetInternalSessionID(req *http.Request) string {
+	v := services.GetCookieValue(req, kua.internalSessionCookie)
+	if v != "" {
+		return strings.SplitN(v, "-", 2)[0]
+	}
+	return v
 }
 
 // UserInducedResponseStatus produces a HTTP response status
@@ -73,10 +81,12 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 			Error:          nil,
 		}
 	}
-	cookieValue := kua.GetSessionValue(req)
+	cookieValue := kua.getSessionValue(req)
 	if cookieValue == "" {
 		services.LogCookies(req, log.Debug()).
-			Msgf("failed to find any of cookies %s", strings.Join(kua.SessionCookieNames, ", "))
+			Str("internalCookie", kua.internalSessionCookie).
+			Str("externalCookie", kua.externalSessionCookie).
+			Msgf("failed to find authentication cookies")
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         -1,
@@ -85,7 +95,8 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 		}
 	}
 	sessionID := kua.GetSessionID(req)
-	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID, serviceName)
+	internalSessionID := kua.GetInternalSessionID(req) // session used by internal service/API
+	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, internalSessionID, serviceName)
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
 		log.Debug().Msgf("failed to find session %s in database", sessionID)
 		return services.ReqProperties{
@@ -111,15 +122,17 @@ func NewCNCUserAnalyzer(
 	db *sql.DB,
 	locaction *time.Location,
 	userTableProps cncdb.UserTableProps,
-	sessionCookieNames []string,
+	internalSessionCookie string,
+	externalSessionCookie string,
 	anonymousUserID common.UserID,
 
 ) *CNCUserAnalyzer {
 	return &CNCUserAnalyzer{
-		db:                 db,
-		location:           locaction,
-		userTableProps:     userTableProps,
-		SessionCookieNames: sessionCookieNames,
-		AnonymousUserID:    anonymousUserID,
+		db:                    db,
+		location:              locaction,
+		userTableProps:        userTableProps,
+		internalSessionCookie: internalSessionCookie,
+		externalSessionCookie: externalSessionCookie,
+		AnonymousUserID:       anonymousUserID,
 	}
 }

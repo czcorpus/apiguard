@@ -12,7 +12,8 @@ import (
 )
 
 const (
-	HeaderAPIKey = "X-Api-Key"
+	HeaderAPIKey    = "X-Api-Key"
+	HeaderAPIUserID = "X-Api-User"
 )
 
 func MapSessionCookie(req *http.Request, externalCookie, internalCookie string) error {

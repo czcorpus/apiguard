@@ -252,7 +252,7 @@ func runService(
 		)
 
 		router.HandleFunc("/service/kontext/login", kontextActions.Login).Methods(http.MethodPost)
-		router.HandleFunc("/service/kontext/preflight", kontextActions.Preflight)
+		router.HandleFunc("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
 		router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
 		servicesDefaults["kontext"] = kontextActions
 		log.Info().Msg("Service Kontext enabled")

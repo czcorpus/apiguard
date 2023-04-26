@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -47,6 +48,7 @@ type KontextProxy struct {
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
 	apiProxy        services.APIProxy
+	mutex           sync.Mutex
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -59,7 +61,9 @@ func (kp *KontextProxy) SetDefault(req *http.Request, key, value string) error {
 	if sessionID == "" {
 		return errors.New("session not found")
 	}
+	kp.mutex.Lock()
 	kp.defaults[sessionID].Set(key, value)
+	kp.mutex.Unlock()
 	return nil
 }
 
@@ -165,6 +169,7 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 			log.Debug().
 				Str("internalCookie", kp.cncAuthCookie).
 				Str("externalCookie", kp.conf.ExternalSessionCookieName).
+				Str("value", cCopy.Value).
 				Msg("login action - mapping back internal cookie")
 		}
 		http.SetCookie(w, &cCopy)
@@ -264,7 +269,9 @@ func (kp *KontextProxy) makeRequest(
 		if !ok {
 			dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
 			dfltArgs.Set("format", "json")
+			kp.mutex.Lock()
 			kp.defaults[reqProps.SessionID] = dfltArgs
+			kp.mutex.Unlock()
 		}
 		urlArgs := req.URL.Query()
 		dfltArgs.ApplyTo(urlArgs)

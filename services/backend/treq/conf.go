@@ -23,9 +23,11 @@ type Conf struct {
 	// The URL should not end with the slash character
 	ExternalURL string `json:"externalUrl"`
 
-	// CookieMapping - please see [kontext.Conf]
-	// for more info
-	CookieMapping map[string]string `json:"cookieMapping"`
+	// ExternalSessionCookieName provides a name of the session cookie
+	// used between APIGuard clients (e.g. WaG) and APIGuard.
+	// If defined, APIGuard will remap this cookie to the one used
+	// in the CNCAuth section where a central auth cookie is defined.
+	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
 	Limits []alarms.Limit `json:"limits"`
 

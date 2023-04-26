@@ -40,6 +40,7 @@ const (
 type KontextProxy struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
+	cncAuthCookie   string
 	readTimeoutSecs int
 	cache           services.Cache
 	defaults        map[string]defaults.Args
@@ -96,6 +97,14 @@ func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
 	uniresp.WriteJSONResponse(w, map[string]any{})
 }
 
+func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
+	if kp.conf.ExternalSessionCookieName == "" {
+		return false
+	}
+	_, err := req.Cookie(kp.conf.ExternalSessionCookieName)
+	return err == nil
+}
+
 // Login is a custom Proxy for CNC portals' central login action.
 // We use it in situations where we need a "hidden" API login using
 // a special user account for unauthorized users. In such case,
@@ -150,11 +159,13 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 
 	cookies := resp.Cookies()
 	for _, cookie := range cookies {
-		mappedCookie, ok := kp.conf.CookieMapping.KeyOfValue(cookie.Name)
 		cCopy := *cookie
-		if ok {
-			log.Debug().Msgf("setting mapped cookie %s => %s", cCopy.Name, mappedCookie)
-			cCopy.Name = mappedCookie
+		if cCopy.Name == kp.cncAuthCookie && kp.conf.ExternalSessionCookieName != "" {
+			cCopy.Name = kp.conf.ExternalSessionCookieName
+			log.Debug().
+				Str("internalCookie", kp.cncAuthCookie).
+				Str("externalCookie", kp.conf.ExternalSessionCookieName).
+				Msg("login action - mapping back internal cookie")
 		}
 		http.SetCookie(w, &cCopy)
 	}
@@ -197,16 +208,28 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
 	passedHeaders := req.Header
 	if kp.conf.UseHeaderXApiKey {
-		passedHeaders[backend.HeaderAPIKey] = []string{services.GetSessionKey(req, kp.analyzer.CNCSessionCookieName)}
-	}
-	err := backend.MapCookies(req, kp.conf.CookieMapping)
-	if err != nil {
-		http.Error(
-			w,
-			err.Error(),
-			http.StatusInternalServerError,
+		if kp.reqUsesMappedSession(req) {
+			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(req, kp.conf.ExternalSessionCookieName)}
+
+		} else {
+			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(req, kp.cncAuthCookie)}
+		}
+
+	} else if kp.reqUsesMappedSession(req) {
+
+		err := backend.MapSessionCookie(
+			req,
+			kp.conf.ExternalSessionCookieName,
+			kp.cncAuthCookie,
 		)
-		return
+		if err != nil {
+			http.Error(
+				w,
+				err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
 	}
 
 	serviceResp := kp.makeRequest(req, reqProps)
@@ -232,8 +255,8 @@ func (kp *KontextProxy) makeRequest(
 	req *http.Request,
 	reqProps services.ReqProperties,
 ) services.BackendResponse {
-
-	resp, err := kp.cache.Get(req, []string{kp.analyzer.CNCSessionCookieName})
+	cacheApplCookies := []string{kp.cncAuthCookie, kp.conf.ExternalSessionCookieName}
+	resp, err := kp.cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 
@@ -252,7 +275,7 @@ func (kp *KontextProxy) makeRequest(
 			req.Header,
 			req.Body,
 		)
-		err = kp.cache.Set(req, resp, []string{kp.analyzer.CNCSessionCookieName})
+		err = kp.cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
 			resp = &services.ProxiedResponse{Err: err}
 		}
@@ -267,6 +290,7 @@ func (kp *KontextProxy) makeRequest(
 func NewKontextProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
+	cncAuthCookie string,
 	analyzer *analyzer.CNCUserAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
@@ -276,14 +300,14 @@ func NewKontextProxy(
 	return &KontextProxy{
 		globalCtx:       globalCtx,
 		conf:            conf,
+		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
 		defaults:        make(map[string]defaults.Args),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
 		apiProxy: services.APIProxy{
-			InternalURL:   conf.InternalURL,
-			ExternalURL:   conf.ExternalURL,
-			CookieMapping: conf.CookieMapping,
+			InternalURL: conf.InternalURL,
+			ExternalURL: conf.ExternalURL,
 		},
 		reqCounter: reqCounter,
 		cache:      cache,

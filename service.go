@@ -15,7 +15,6 @@ import (
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
-	"apiguard/services/backend"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
@@ -230,8 +229,10 @@ func runService(
 			globalCtx.CNCDB,
 			conf.TimezoneLocation(),
 			userTableProps,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.Kontext.CookieMapping,
+			[]string{
+				conf.Services.Kontext.ExternalSessionCookieName,
+				conf.CNCAuth.SessionCookieName,
+			},
 			conf.CNCDB.AnonymousUserID,
 		)
 
@@ -242,6 +243,7 @@ func runService(
 		kontextActions := kontext.NewKontextProxy(
 			globalCtx,
 			&conf.Services.Kontext,
+			conf.CNCAuth.SessionCookieName,
 			cnca,
 			conf.ServerReadTimeoutSecs,
 			globalCtx.CNCDB,
@@ -263,8 +265,10 @@ func runService(
 			globalCtx.CNCDB,
 			conf.TimezoneLocation(),
 			userTableProps,
-			conf.CNCAuth.SessionCookieName,
-			backend.CookieMapping{},
+			[]string{
+				conf.Services.Treq.ExternalSessionCookieName,
+				conf.CNCAuth.SessionCookieName,
+			},
 			conf.CNCDB.AnonymousUserID,
 		)
 		var treqReqCounter chan<- alarms.RequestInfo

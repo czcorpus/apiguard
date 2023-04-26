@@ -7,7 +7,6 @@
 package services
 
 import (
-	"apiguard/services/backend"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -19,7 +18,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func GetSessionKey(req *http.Request, cookieName string) string {
+func GetCookieValue(req *http.Request, cookieName string) string {
 	var cookieValue string
 	for _, cookie := range req.Cookies() {
 		if cookie.Name == cookieName {
@@ -77,9 +76,8 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 }
 
 type APIProxy struct {
-	InternalURL   string
-	ExternalURL   string
-	CookieMapping backend.CookieMapping
+	InternalURL string
+	ExternalURL string
 }
 
 func (proxy *APIProxy) transformRedirect(headers http.Header) error {

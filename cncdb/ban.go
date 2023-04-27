@@ -118,6 +118,23 @@ func UnbanUser(db *sql.DB, loc *time.Location, userID int) (int64, error) {
 	return numBans, err
 }
 
+// FindUserBySession searches for user session in CNC database.
+// In case nothing is found, -1 is returned
+func FindUserBySession(db *sql.DB, sessionID string) (userID common.UserID, err error) {
+	row := db.QueryRow("SELECT user_id FROM user_session WHERE selector = ?", sessionID)
+	err = row.Scan(&userID)
+	if err == sql.ErrNoRows {
+		userID = -1
+		err = nil
+
+	} else if err != nil {
+		userID = -1
+	}
+	return
+}
+
+// FindBanBySession finds both userID and ban status for a defined session.
+// Returned values are: (is_banned, user_id, error)
 func FindBanBySession(
 	db *sql.DB,
 	loc *time.Location,

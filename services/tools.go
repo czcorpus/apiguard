@@ -22,6 +22,10 @@ type ReqProperties struct {
 	Error          error
 }
 
+func (rp ReqProperties) ForbidsAccess() bool {
+	return rp.ProposedStatus >= 400 && rp.ProposedStatus < 500
+}
+
 type ReqAnalyzer interface {
 	CalcDelay(req *http.Request) (time.Duration, error)
 	LogAppliedDelay(respDelay time.Duration) error

@@ -7,12 +7,21 @@
 package common
 
 import (
+	"fmt"
 	"math"
 	"strconv"
 	"time"
 )
 
 type UserID int
+
+func (u UserID) IsValid() bool {
+	return u > -1
+}
+
+func (u UserID) String() string {
+	return fmt.Sprintf("%d", u)
+}
 
 type CheckInterval time.Duration
 

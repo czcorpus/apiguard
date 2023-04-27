@@ -120,17 +120,20 @@ func UnbanUser(db *sql.DB, loc *time.Location, userID int) (int64, error) {
 
 // FindUserBySession searches for user session in CNC database.
 // In case nothing is found, -1 is returned
-func FindUserBySession(db *sql.DB, sessionID string) (userID common.UserID, err error) {
+func FindUserBySession(db *sql.DB, sessionID string) (common.UserID, error) {
 	row := db.QueryRow("SELECT user_id FROM user_session WHERE selector = ?", sessionID)
-	err = row.Scan(&userID)
+	var nUserID sql.NullInt64
+	err := row.Scan(&nUserID)
 	if err == sql.ErrNoRows {
-		userID = -1
-		err = nil
+		return -1, nil
 
 	} else if err != nil {
-		userID = -1
+		return -1, err
+
+	} else if nUserID.Valid {
+		return common.UserID(nUserID.Int64), nil
 	}
-	return
+	return -1, nil
 }
 
 // FindBanBySession finds both userID and ban status for a defined session.
@@ -151,10 +154,14 @@ func FindBanBySession(
 			"  AND ka.service_name = ? "+
 			"WHERE us.selector = ?",
 		now, now, serviceName, sessionID)
-	banned := sql.NullInt16{}
-	var userID common.UserID
+	var banned sql.NullInt16
+	var nUserID sql.NullInt64
+	userID := common.UserID(-1)
 	var inAllowlist bool
-	err := row.Scan(&banned, &userID, &inAllowlist)
+	err := row.Scan(&banned, &nUserID, &inAllowlist)
+	if err == nil && nUserID.Valid {
+		userID = common.UserID(nUserID.Int64)
+	}
 	if !inAllowlist && banned.Valid && banned.Int16 == 1 {
 		return true, userID, err
 	}

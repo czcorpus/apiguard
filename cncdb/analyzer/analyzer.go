@@ -26,10 +26,29 @@ import (
 // to a consumer to configure proper order of cookie lookup
 // (SessionCookieNames)
 type CNCUserAnalyzer struct {
-	db                    *sql.DB
-	location              *time.Location
-	userTableProps        cncdb.UserTableProps
+	db             *sql.DB
+	location       *time.Location
+	userTableProps cncdb.UserTableProps
+
+	// internalSessionCookie is a cookie used between APIGuard and API (e.g. KonText-API)
+	// Please note that CNC central authentication cookie is typically the same
+	// as internalSessionCookie in which sense the term "internal" may sound weird.
+	// It typically looks like this:
+	// [CNC user] ---- cookie1 ---> [CNC website (e.g. KonText, Treq)]
+	// [CNC user] ---- cookie2 --> [WaG] --- cookie2 ---> [APIGuard] --> cookie(2->1) --> [KonText API]
+	// where cookie1 is internal, cookie2 is external, cookie(2->1) is cookie2 renamed to cookie1
+	// But the user may also have both cookies:
+	// [CNC user] ---- c1, c2 --> [WaG] --- c1, c2 ---> [APIGuard] --> cookie(2->1) --> [KonText API]
+	// Here by default, APIGuard will ignore c1 (it again used c2 and renames it to c1 for KonText API)
+	//
+	// We also use the fact that the both cookies are the same and in case we need
+	// to check whether an external authentication (user logged via CNC login page)
+	// provides valid user, we refer to this internalSessionCookie - so don't be confused
+	// by this.
 	internalSessionCookie string
+
+	// externalSessionCookie is a cookie used between APIGuard client (e.g. WaG) and
+	// APIGuard
 	externalSessionCookie string
 	AnonymousUserID       common.UserID
 }
@@ -62,7 +81,15 @@ func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
 	return ""
 }
 
-func (kua *CNCUserAnalyzer) GetInternalSessionID(req *http.Request) string {
+func (kua *CNCUserAnalyzer) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
+	cookie, err := req.Cookie(kua.internalSessionCookie)
+	if err == http.ErrNoCookie {
+		return nil
+	}
+	return cookie
+}
+
+func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) string {
 	v := services.GetCookieValue(req, kua.internalSessionCookie)
 	if v != "" {
 		return strings.SplitN(v, "-", 2)[0]
@@ -70,8 +97,28 @@ func (kua *CNCUserAnalyzer) GetInternalSessionID(req *http.Request) string {
 	return v
 }
 
+// UserInternalCookieStatus tests whether CNC authentication
+// cookie (internal cookie in our terms) provides a valid
+// non-anonymous user
+func (kua *CNCUserAnalyzer) UserInternalCookieStatus(req *http.Request, serviceName string) (common.UserID, error) {
+	cookie := kua.getUserCNCSessionCookie(req)
+	if kua.db == nil || cookie == nil {
+		return -1, nil
+	}
+	internalSessionID := kua.getUserCNCSessionID(req)
+	userID, err := cncdb.FindUserBySession(kua.db, internalSessionID)
+	if err != nil {
+		return -1, err
+	}
+	return userID, nil
+}
+
 // UserInducedResponseStatus produces a HTTP response status
 // proposal based on user activity.
+// The function prefers external cookie. I.e. if a client (e.g. WaG)
+// sends custom auth cookie, then the user identified by that cookie
+// will be detected here - not the one indetified by CNC common autentication
+// cookie.
 func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
 	if kua.db == nil {
 		return services.ReqProperties{
@@ -95,7 +142,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 		}
 	}
 	sessionID := kua.GetSessionID(req)
-	internalSessionID := kua.GetInternalSessionID(req) // session used by internal service/API
+	internalSessionID := kua.getUserCNCSessionID(req) // session used by internal service/API
 	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, internalSessionID, serviceName)
 	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
 		log.Debug().Msgf("failed to find session %s in database", sessionID)

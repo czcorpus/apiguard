@@ -13,14 +13,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func LogServiceRequest(service string, procTime time.Duration, cached *bool, userId *common.UserID) {
+func LogServiceRequest(
+	service string,
+	procTime time.Duration,
+	cached *bool,
+	userID *common.UserID,
+) {
 	event := log.Info().
 		Str("type", "apiguard").
 		Str("service", service).
 		Float64("procTime", procTime.Seconds()).
 		Bool("isCached", *cached)
-	if userId != nil {
-		event.Int("userId", int(*userId))
+	if userID != nil {
+		event.Int("userId", int(*userID))
 	}
 	event.Send()
 }

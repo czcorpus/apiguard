@@ -19,14 +19,20 @@ type BackendLogger struct {
 	timezoneLocation *time.Location
 }
 
-func (b *BackendLogger) Log(service string, procTime time.Duration, cached *bool, userId *common.UserID) {
+func (b *BackendLogger) Log(
+	service string,
+	procTime time.Duration,
+	cached *bool,
+	userID *common.UserID,
+) {
 	b.stream <- &monitoring.BackendRequest{
 		Created:  time.Now().In(b.timezoneLocation),
 		Service:  service,
 		ProcTime: procTime.Seconds(),
 		IsCached: *cached,
+		UserID:   int(*userID),
 	}
-	logging.LogServiceRequest(service, procTime, cached, userId)
+	logging.LogServiceRequest(service, procTime, cached, userID)
 }
 
 func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {

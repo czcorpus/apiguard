@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"internal/itoa"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -84,6 +83,11 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 	return kp.defaults[sessionID], nil
 }
 
+// Preflight is used by APIGuard client (e.g. WaG) to find out whether
+// the user using the client is logged in or not.
+// To be able to recognize users logged in via CNC cookie (which is the
+// one e.g. WaG does not use intentionally) we must actually make two
+// tests - 1. external cookie, 2. internal cookie
 func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
 	reqProps := kp.analyzer.UserInducedResponseStatus(req, ServiceName)
 	if reqProps.Error != nil {
@@ -118,7 +122,6 @@ func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
 // a respective cookie and will allow a custom web application (e.g. WaG)
 // to use this special cookie.
 func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
-
 	postData := url.Values{}
 	postData.Set(AuthTokenEntry, req.FormValue(AuthTokenEntry))
 	req2, err := http.NewRequest(
@@ -179,10 +182,10 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 }
 
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
-	var userID common.UserID
+	var userID, humanID common.UserID
 	var cached bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	defer func(currUserID *common.UserID) {
+	defer func(currUserID *common.UserID, currHumanID *common.UserID) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
@@ -190,8 +193,12 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      *currUserID,
 			}
 		}
-		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, &userID)
-	}(&userID)
+		loggedUserID := currUserID
+		if *currHumanID != kp.analyzer.AnonymousUserID {
+			loggedUserID = currHumanID
+		}
+		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, loggedUserID)
+	}(&userID, &humanID)
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
@@ -207,7 +214,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		)
 		return
 
-	} else if reqProps.ProposedStatus > 400 && reqProps.ProposedStatus < 500 {
+	} else if reqProps.ForbidsAccess() {
 		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
@@ -215,8 +222,18 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 
 	passedHeaders := req.Header
 
-	// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-	passedHeaders[backend.HeaderAPIUserID] = []string{itoa.Itoa(int(userID))}
+	if kp.cncAuthCookie != kp.conf.ExternalSessionCookieName {
+		var err error
+		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
+		humanID, err = kp.analyzer.UserInternalCookieStatus(req, ServiceName)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
+		}
+		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
+
+	} else {
+		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
+	}
 
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(req) {

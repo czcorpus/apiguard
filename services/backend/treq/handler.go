@@ -54,9 +54,9 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 
 func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var cached bool
-	var userID common.UserID
+	var userID, humanID common.UserID
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
-	defer func(currUserID *common.UserID) {
+	defer func(currUserID, currHumanID *common.UserID) {
 		if tp.reqCounter != nil {
 			tp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
@@ -64,8 +64,12 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 				UserID:      *currUserID,
 			}
 		}
-		tp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, &userID)
-	}(&userID)
+		loggedUserID := currUserID
+		if *currHumanID != tp.analyzer.AnonymousUserID {
+			loggedUserID = currHumanID
+		}
+		tp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, loggedUserID)
+	}(&userID, &humanID)
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
@@ -81,11 +85,25 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		)
 		return
 
-	} else if reqProps.ProposedStatus > 400 && reqProps.ProposedStatus < 500 {
+	} else if reqProps.ForbidsAccess() {
 		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
 	services.RestrictResponseTime(w, req, tp.readTimeoutSecs, tp.analyzer)
+
+	passedHeaders := req.Header
+	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
+		var err error
+		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
+		humanID, err = tp.analyzer.UserInternalCookieStatus(req, ServiceName)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
+		}
+		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
+
+	} else {
+		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
+	}
 
 	// first, remap cookie names
 	if tp.reqUsesMappedSession(req) {

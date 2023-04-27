@@ -274,6 +274,7 @@ func runService(
 		treqActions := treq.NewTreqProxy(
 			globalCtx,
 			&conf.Services.Treq,
+			conf.CNCAuth.SessionCookieName,
 			cnca,
 			conf.ServerReadTimeoutSecs,
 			globalCtx.CNCDB,

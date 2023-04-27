@@ -177,6 +177,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 func NewTreqProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
+	cncAuthCookie string,
 	analyzer *analyzer.CNCUserAnalyzer,
 	readTimeoutSecs int,
 	cncDB *sql.DB,
@@ -186,6 +187,7 @@ func NewTreqProxy(
 	return &TreqProxy{
 		globalCtx:       globalCtx,
 		conf:            conf,
+		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,

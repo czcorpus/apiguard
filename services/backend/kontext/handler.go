@@ -194,7 +194,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 		loggedUserID := currUserID
-		if *currHumanID != kp.analyzer.AnonymousUserID {
+		if currHumanID.IsValid() && *currHumanID != kp.analyzer.AnonymousUserID {
 			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, loggedUserID)

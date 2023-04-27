@@ -65,7 +65,7 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			}
 		}
 		loggedUserID := currUserID
-		if *currHumanID != tp.analyzer.AnonymousUserID {
+		if currHumanID.IsValid() && *currHumanID != tp.analyzer.AnonymousUserID {
 			loggedUserID = currHumanID
 		}
 		tp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, loggedUserID)

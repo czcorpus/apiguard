@@ -17,16 +17,34 @@ const (
 )
 
 func MapSessionCookie(req *http.Request, externalCookie, internalCookie string) error {
-	c, err := req.Cookie(externalCookie)
+	ec, err := req.Cookie(externalCookie)
 	if err == http.ErrNoCookie {
 		return nil
 
 	} else if err != nil {
 		return fmt.Errorf("failed to map cookie %s", externalCookie)
 	}
-	c2 := *c
-	c2.Name = internalCookie
-	req.AddCookie(&c2)
-	c.MaxAge = -1
+
+	_, err = req.Cookie(internalCookie)
+	if err == nil {
+		allCookies := req.Cookies()
+		req.Header.Del("cookie")
+		for _, c := range allCookies {
+			if c.Name == internalCookie {
+				c.Value = ec.Value
+			}
+			req.AddCookie(c)
+		}
+
+	} else {
+		allCookies := req.Cookies()
+		req.Header.Del("cookie")
+		for _, c := range allCookies {
+			if c.Name == externalCookie {
+				c.Name = internalCookie
+			}
+			req.AddCookie(c)
+		}
+	}
 	return nil
 }

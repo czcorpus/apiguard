@@ -100,15 +100,19 @@ func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) string {
 // UserInternalCookieStatus tests whether CNC authentication
 // cookie (internal cookie in our terms) provides a valid
 // non-anonymous user
-func (kua *CNCUserAnalyzer) UserInternalCookieStatus(req *http.Request, serviceName string) (common.UserID, error) {
+func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
+	req *http.Request,
+	serviceName string,
+) (common.UserID, error) {
+
 	cookie := kua.getUserCNCSessionCookie(req)
 	if kua.db == nil || cookie == nil {
-		return -1, nil
+		return common.InvalidUserID, nil
 	}
 	internalSessionID := kua.getUserCNCSessionID(req)
 	userID, err := cncdb.FindUserBySession(kua.db, internalSessionID)
 	if err != nil {
-		return -1, err
+		return common.InvalidUserID, err
 	}
 	return userID, nil
 }
@@ -123,7 +127,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 	if kua.db == nil {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusOK,
-			UserID:         -1,
+			UserID:         common.InvalidUserID,
 			SessionID:      "",
 			Error:          nil,
 		}
@@ -136,7 +140,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 			Msgf("failed to find authentication cookies")
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
-			UserID:         -1,
+			UserID:         common.InvalidUserID,
 			SessionID:      "",
 			Error:          fmt.Errorf("session cookie not found"),
 		}
@@ -147,7 +151,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 		log.Debug().Msgf("failed to find session %s in database", sessionID)
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
-			UserID:         -1,
+			UserID:         common.InvalidUserID,
 			SessionID:      "",
 			Error:          nil,
 		}

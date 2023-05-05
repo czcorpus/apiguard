@@ -13,10 +13,18 @@ import (
 	"time"
 )
 
+const (
+	// InvalidUserID represents an unknown/undefined user.
+	// Please note that this is different than "anonymous user"
+	// which is typically an existing database ID (available via
+	// APIGuard configuration).
+	InvalidUserID UserID = -1
+)
+
 type UserID int
 
 func (u UserID) IsValid() bool {
-	return u > -1
+	return u > InvalidUserID
 }
 
 func (u UserID) String() string {
@@ -32,7 +40,7 @@ func (ci CheckInterval) ToSeconds() int {
 func Str2UserID(v string) (UserID, error) {
 	tmp, err := strconv.Atoi(v)
 	if err != nil {
-		return -1, err
+		return InvalidUserID, err
 	}
 	return UserID(tmp), nil
 }

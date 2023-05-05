@@ -125,15 +125,15 @@ func FindUserBySession(db *sql.DB, sessionID string) (common.UserID, error) {
 	var nUserID sql.NullInt64
 	err := row.Scan(&nUserID)
 	if err == sql.ErrNoRows {
-		return -1, nil
+		return common.InvalidUserID, nil
 
 	} else if err != nil {
-		return -1, err
+		return common.InvalidUserID, err
 
 	} else if nUserID.Valid {
 		return common.UserID(nUserID.Int64), nil
 	}
-	return -1, nil
+	return common.InvalidUserID, nil
 }
 
 // FindBanBySession finds both userID and ban status for a defined session.
@@ -156,7 +156,7 @@ func FindBanBySession(
 		now, now, serviceName, sessionID)
 	var banned sql.NullInt16
 	var nUserID sql.NullInt64
-	userID := common.UserID(-1)
+	userID := common.InvalidUserID
 	var inAllowlist bool
 	err := row.Scan(&banned, &nUserID, &inAllowlist)
 	if err == nil && nUserID.Valid {

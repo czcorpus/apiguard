@@ -229,7 +229,7 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 				aticker.db, aticker.userTableProps))
 			if err != nil {
 				newReport.UserInfo = &cncdb.User{
-					ID:          -1,
+					ID:          common.InvalidUserID,
 					Username:    "invalid",
 					FirstName:   "-",
 					LastName:    "-",

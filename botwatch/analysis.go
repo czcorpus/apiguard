@@ -7,6 +7,7 @@
 package botwatch
 
 import (
+	"apiguard/common"
 	"apiguard/monitoring/influx"
 	"apiguard/services"
 
@@ -80,7 +81,7 @@ func (a *Analyzer) Learn() error {
 
 func (a *Analyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
 	return services.ReqProperties{
-		UserID:         -1,
+		UserID:         common.InvalidUserID,
 		SessionID:      "",
 		ProposedStatus: http.StatusOK,
 		Error:          nil,

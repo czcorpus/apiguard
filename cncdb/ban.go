@@ -136,6 +136,28 @@ func FindUserBySession(db *sql.DB, sessionID string) (common.UserID, error) {
 	return common.InvalidUserID, nil
 }
 
+// GetAllowlistUsers returns a list of user IDs excluded from
+// counting requests and limit checking.
+func GetAllowlistUsers(db *sql.DB, service string) ([]common.UserID, error) {
+	ans := make([]common.UserID, 0, 50)
+	rows, err := db.Query(
+		"SELECT user_id FROM api_user_allowlist WHERE service_name = ?",
+		service,
+	)
+	if err != nil {
+		return []common.UserID{}, err
+	}
+	for rows.Next() {
+		var userID common.UserID
+		err := rows.Scan(&userID)
+		if err != nil {
+			return []common.UserID{}, err
+		}
+		ans = append(ans, userID)
+	}
+	return ans, nil
+}
+
 // FindBanBySession finds both userID and ban status for a defined session.
 // Returned values are: (is_banned, user_id, error)
 func FindBanBySession(

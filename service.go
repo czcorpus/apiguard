@@ -54,6 +54,8 @@ func runService(
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
 	signal.Notify(syscallChan, syscall.SIGTERM)
+	signal.Notify(syscallChan, syscall.SIGINT)
+	signal.Notify(syscallChan, syscall.SIGHUP)
 	exitEvent := make(chan os.Signal)
 
 	router := mux.NewRouter()
@@ -340,14 +342,21 @@ func runService(
 		}
 	})
 
+	alarmSyscallChan := make(chan os.Signal, 1)
+
 	go func() {
-		evt := <-syscallChan
-		preExit(alarm)
-		exitEvent <- evt
+		for evt := range syscallChan {
+			log.Warn().Str("signalName", evt.String()).Msg("received OS signal")
+			if evt == syscall.SIGTERM || evt == syscall.SIGINT {
+				preExit(alarm)
+				exitEvent <- evt
+			}
+			alarmSyscallChan <- evt
+		}
 		close(exitEvent)
 	}()
 
-	go alarm.Run(syscallChan)
+	go alarm.Run(alarmSyscallChan)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 	srv := &http.Server{

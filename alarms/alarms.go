@@ -9,6 +9,7 @@ package alarms
 import (
 	"apiguard/cncdb"
 	"apiguard/common"
+	"bytes"
 	"database/sql"
 	"encoding/gob"
 	"encoding/json"
@@ -17,9 +18,10 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"sync"
+	"syscall"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/mail"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -37,13 +39,11 @@ type reqCounterItem struct {
 	created time.Time
 }
 
-type userCounters map[common.UserID]*userLimitInfo
-
 type serviceEntry struct {
 	Conf           AlarmConf
 	limits         map[common.CheckInterval]int
 	Service        string
-	ClientRequests userCounters
+	ClientRequests *collections.ConcurrentMap[common.UserID, *userLimitInfo]
 }
 
 type RequestInfo struct {
@@ -71,16 +71,53 @@ func fileExists(filename string) bool {
 	return !info.IsDir()
 }
 
+// AlarmTicker monitors the 'counter' channel for incoming
+// RequestInfo values, accumulating the request count
+// for each user. Periodically, it checks these request
+// counts against preset limits. If a user's request count
+// surpasses the set limit, AlarmTicker notifies administrators
+// and suggests a ban (via an e-mail sent to the administrators).
+//
+// It also listens for os signals and in case of exit it
+// serializes runtime values (e.g. the current counts).
 type AlarmTicker struct {
 	db             *sql.DB
 	alarmConf      MailConf
-	clients        map[string]*serviceEntry //save
-	servicesLock   sync.Mutex
+	clients        *collections.ConcurrentMap[string, *serviceEntry] //save
 	counter        chan RequestInfo
 	reports        []*AlarmReport //save
 	location       *time.Location
 	userTableProps cncdb.UserTableProps
 	statusDataDir  string
+	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
+}
+
+func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	clients := aticker.clients.AsMap()
+	err := encoder.Encode(&clients)
+	if err != nil {
+		return []byte{}, err
+	}
+	err = encoder.Encode(&aticker.reports)
+	if err != nil {
+		return []byte{}, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (aticker *AlarmTicker) GobDecode(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(buf)
+	var clients map[string]*serviceEntry
+	err := decoder.Decode(&clients)
+	if err != nil {
+		return err
+	}
+	aticker.clients = collections.NewConcurrentMapFrom(clients)
+	err = decoder.Decode(&aticker.reports)
+	return err
 }
 
 func (aticker *AlarmTicker) SaveAttributes() error {
@@ -207,7 +244,7 @@ func (aticker *AlarmTicker) sendReport(
 }
 
 func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID common.UserID) {
-	counts := service.ClientRequests[userID]
+	counts := service.ClientRequests.Get(userID)
 	for checkInterval, limit := range service.limits {
 		numReq := counts.NumReqSince(time.Duration(checkInterval), aticker.location)
 		log.Debug().Msgf("num requests since %s: %d", time.Duration(time.Duration(checkInterval)), numReq)
@@ -250,6 +287,26 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 	}
 }
 
+func (aticker *AlarmTicker) loadAllowList() {
+	aticker.allowListUsers = collections.NewConcurrentMap[string, []common.UserID]()
+	var total int
+	aticker.clients.ForEach(func(serviceID string, se *serviceEntry) {
+		v, err := cncdb.GetAllowlistUsers(aticker.db, serviceID)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Str("service", serviceID).
+				Msg("Failed to reload user allow list")
+			return
+		}
+		aticker.allowListUsers.Set(serviceID, v)
+		total += len(v)
+	})
+	log.Info().
+		Int("itemsLoaded", total).
+		Msg("Reloaded user allow lists for all services.")
+}
+
 func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
 	// find longest check interval:
 	var maxInterval common.CheckInterval
@@ -260,7 +317,7 @@ func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
 	}
 	oldestDate := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
 	var oldNumReq, newNumReq int
-	for _, data := range service.ClientRequests {
+	service.ClientRequests.ForEach(func(k common.UserID, data *userLimitInfo) {
 		oldNumReq += len(data.Requests)
 		keep := make([]reqCounterItem, 0, 1000)
 		for _, req := range data.Requests {
@@ -270,7 +327,7 @@ func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
 		}
 		data.Requests = keep
 		newNumReq += len(keep)
-	}
+	})
 	cleanupSummary := "Data size unchanged"
 	if newNumReq < oldNumReq {
 		cleanupSummary = fmt.Sprintf("Reduced number of records from %d to %d", oldNumReq, newNumReq)
@@ -281,38 +338,54 @@ func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
 		Msgf("Performed old requests cleanup. %s", cleanupSummary)
 }
 
+func (aticker *AlarmTicker) reqIsIgnorable(reqInfo RequestInfo) bool {
+	alist := aticker.allowListUsers.Get(reqInfo.Service)
+	return collections.SliceContains(alist, reqInfo.UserID) || !reqInfo.UserID.IsValid()
+}
+
 func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
-	for item := range aticker.counter {
-		if entry, ok := aticker.clients[item.Service]; ok {
-			_, ok := entry.ClientRequests[item.UserID]
-			if !ok {
-				entry.ClientRequests[item.UserID] = &userLimitInfo{
-					Requests: make([]reqCounterItem, 0, 1000),
-					Reported: make(map[common.CheckInterval]bool),
-				}
+	for {
+		select {
+		case signal := <-quitChan:
+			if signal == syscall.SIGHUP {
+				aticker.loadAllowList()
 			}
-			entry.ClientRequests[item.UserID].Requests = append(
-				entry.ClientRequests[item.UserID].Requests,
-				reqCounterItem{
-					created: time.Now().In(aticker.location),
-				},
-			)
-		}
-		go func(item RequestInfo) {
-			aticker.checkServiceUsage(
-				aticker.clients[item.Service],
-				item.UserID,
-			)
-		}(item)
-		// from time to time, remove older records
-		if rand.Float64() < aticker.clients[item.Service].Conf.RecCounterCleanupProbability {
-			go aticker.clearOldRecords(aticker.clients[item.Service])
+		case reqInfo := <-aticker.counter:
+			if aticker.reqIsIgnorable(reqInfo) {
+				break
+			}
+			if entry, ok := aticker.clients.GetWithTest(reqInfo.Service); ok {
+				if !entry.ClientRequests.HasKey(reqInfo.UserID) {
+					entry.ClientRequests.Set(
+						reqInfo.UserID,
+						&userLimitInfo{
+							Requests: make([]reqCounterItem, 0, 1000),
+							Reported: make(map[common.CheckInterval]bool),
+						},
+					)
+				}
+				entry.ClientRequests.Get(reqInfo.UserID).Requests = append(
+					entry.ClientRequests.Get(reqInfo.UserID).Requests,
+					reqCounterItem{
+						created: time.Now().In(aticker.location),
+					},
+				)
+			}
+			go func(item RequestInfo) {
+				aticker.checkServiceUsage(
+					aticker.clients.Get(item.Service),
+					item.UserID,
+				)
+			}(reqInfo)
+			// from time to time, remove older records
+			if rand.Float64() < aticker.clients.Get(reqInfo.Service).Conf.RecCounterCleanupProbability {
+				go aticker.clearOldRecords(aticker.clients.Get(reqInfo.Service))
+			}
 		}
 	}
 }
 
 func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- RequestInfo {
-	aticker.servicesLock.Lock()
 	if conf.RecCounterCleanupProbability == 0 {
 		log.Warn().Msgf(
 			"Service's recCounterCleanupProbability not set. Using default %0.2f",
@@ -324,14 +397,12 @@ func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Li
 		Service:        service,
 		Conf:           conf,
 		limits:         make(map[common.CheckInterval]int),
-		ClientRequests: make(userCounters),
+		ClientRequests: collections.NewConcurrentMap[common.UserID, *userLimitInfo](),
 	}
 	for _, limit := range limits {
 		sEntry.limits[common.CheckInterval(limit.ReqCheckingInterval())] = limit.ReqPerTimeThreshold
-		sEntry.ClientRequests = make(userCounters)
 	}
-	aticker.clients[service] = sEntry
-	aticker.servicesLock.Unlock()
+	aticker.clients.Set(service, sEntry)
 	log.Info().Msgf("Registered alarm for %s", service)
 	return aticker.counter
 }
@@ -427,11 +498,12 @@ func NewAlarmTicker(
 ) *AlarmTicker {
 	return &AlarmTicker{
 		db:             db,
-		clients:        make(map[string]*serviceEntry),
+		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:        make(chan RequestInfo, 1000),
 		location:       loc,
 		alarmConf:      alarmConf,
 		userTableProps: userTableProps,
 		statusDataDir:  statusDataDir,
+		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
 	}
 }

@@ -48,7 +48,7 @@ type KontextProxy struct {
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
 	apiProxy        services.APIProxy
-	mutex           sync.Mutex
+	mutex           sync.RWMutex
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -72,6 +72,8 @@ func (kp *KontextProxy) GetDefault(req *http.Request, key string) (string, error
 	if sessionID == "" {
 		return "", errors.New("session not found")
 	}
+	kp.mutex.RLock()
+	defer kp.mutex.RUnlock()
 	return kp.defaults[sessionID].Get(key), nil
 }
 
@@ -80,6 +82,8 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 	if sessionID == "" {
 		return map[string][]string{}, errors.New("session not found")
 	}
+	kp.mutex.RLock()
+	defer kp.mutex.RUnlock()
 	return kp.defaults[sessionID], nil
 }
 
@@ -288,7 +292,9 @@ func (kp *KontextProxy) makeRequest(
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 
+		kp.mutex.RLock()
 		dfltArgs, ok := kp.defaults[reqProps.SessionID]
+		kp.mutex.RUnlock()
 		if !ok {
 			dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
 			dfltArgs.Set("format", "json")

@@ -9,9 +9,9 @@ package botwatch
 import (
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/rs/zerolog/log"
 
 	"apiguard/services/logging"
@@ -27,25 +27,24 @@ type StoreHandler interface {
 }
 
 type Watchdog[T logging.AnyRequestRecord] struct {
-	statistics     map[string]*IPProcData
-	suspicions     map[string]IPProcData
+	statistics     *collections.ConcurrentMap[string, *IPProcData]
+	suspicions     *collections.ConcurrentMap[string, IPProcData]
 	conf           *Conf
 	telemetryConf  *telemetry.Conf
 	onlineAnalysis chan T
-	mutex          sync.Mutex
 	db             StoreHandler
 }
 
 func (wd *Watchdog[T]) PrintStatistics() string {
 	buff := strings.Builder{}
-	for ip, stats := range wd.statistics {
+	wd.statistics.ForEach(func(ip string, stats *IPProcData) {
 		buff.WriteString(fmt.Sprintf("%v:\n", ip))
 		buff.WriteString(fmt.Sprintf("\tcount: %d\n", stats.Count))
 		buff.WriteString(fmt.Sprintf("\tmean: %01.2f\n", stats.Mean))
 		buff.WriteString(fmt.Sprintf("\tstdev: %01.2f\n", stats.Stdev()))
 		buff.WriteString(fmt.Sprintf("\trds: %01.2f\n", stats.Stdev()/stats.Mean))
 		buff.WriteString("\n")
-	}
+	})
 	return buff.String()
 }
 
@@ -62,16 +61,12 @@ func (wd *Watchdog[T]) Close() {
 }
 
 func (wd *Watchdog[T]) ResetAll() {
-	wd.mutex.Lock()
-	wd.statistics = make(map[string]*IPProcData)
-	wd.suspicions = make(map[string]IPProcData)
-	wd.mutex.Unlock()
+	wd.statistics = collections.NewConcurrentMap[string, *IPProcData]()
+	wd.suspicions = collections.NewConcurrentMap[string, IPProcData]()
 }
 
 func (wd *Watchdog[T]) ResetBotCandidates() {
-	wd.mutex.Lock()
-	wd.suspicions = make(map[string]IPProcData)
-	wd.mutex.Unlock()
+	wd.suspicions = collections.NewConcurrentMap[string, IPProcData]()
 }
 
 func (wd *Watchdog[T]) Conf() *Conf {
@@ -79,7 +74,7 @@ func (wd *Watchdog[T]) Conf() *Conf {
 }
 
 func (wd *Watchdog[T]) analyze(rec T) error {
-	srec, ok := wd.statistics[rec.GetClientID()]
+	srec, ok := wd.statistics.GetWithTest(rec.GetClientID())
 	if !ok {
 		var err error
 		srec, err = wd.db.LoadStats(
@@ -91,7 +86,7 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 		if err != nil {
 			return err
 		}
-		wd.statistics[rec.GetClientID()] = srec
+		wd.statistics.Set(rec.GetClientID(), srec)
 	}
 	// here we use Welford algorithm for online variance calculation
 	// more info: (https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm)
@@ -110,9 +105,9 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 	}
 	if srec.IsSuspicious(wd.conf) {
 		log.Warn().Msgf("detected suspicious statistics for %v", srec)
-		prev, ok := wd.suspicions[rec.GetClientID()]
+		prev, ok := wd.suspicions.GetWithTest(rec.GetClientID())
 		if !ok || srec.ReqPerSecod() > prev.ReqPerSecod() {
-			wd.suspicions[rec.GetClientID()] = *srec
+			wd.suspicions.Set(rec.GetClientID(), *srec)
 		}
 	}
 	// TODO IsSuspicious should not reset stats HERE !!!!
@@ -131,12 +126,10 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 }
 
 func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
-	wd.mutex.Lock()
-	defer wd.mutex.Unlock()
-	ans := make([]IPStats, 0, len(wd.suspicions))
-	for ip, rec := range wd.suspicions {
+	ans := make([]IPStats, 0, wd.suspicions.Len())
+	wd.suspicions.ForEach(func(ip string, rec IPProcData) {
 		ans = append(ans, rec.ToIPStats(ip))
-	}
+	})
 	return ans
 }
 
@@ -166,8 +159,8 @@ func NewLGWatchdog(
 ) *Watchdog[*logging.LGRequestRecord] {
 	analysis := make(chan *logging.LGRequestRecord)
 	wd := &Watchdog[*logging.LGRequestRecord]{
-		statistics:     make(map[string]*IPProcData),
-		suspicions:     make(map[string]IPProcData),
+		statistics:     collections.NewConcurrentMap[string, *IPProcData](),
+		suspicions:     collections.NewConcurrentMap[string, IPProcData](),
 		conf:           conf,
 		telemetryConf:  telemetryConf,
 		onlineAnalysis: analysis,

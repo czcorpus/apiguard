@@ -24,9 +24,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
@@ -44,11 +44,10 @@ type KontextProxy struct {
 	cncAuthCookie   string
 	readTimeoutSecs int
 	cache           services.Cache
-	defaults        map[string]defaults.Args
+	defaults        *collections.ConcurrentMap[string, defaults.Args]
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
 	apiProxy        services.APIProxy
-	mutex           sync.RWMutex
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -61,9 +60,7 @@ func (kp *KontextProxy) SetDefault(req *http.Request, key, value string) error {
 	if sessionID == "" {
 		return errors.New("session not found")
 	}
-	kp.mutex.Lock()
-	kp.defaults[sessionID].Set(key, value)
-	kp.mutex.Unlock()
+	kp.defaults.Get(sessionID).Set(key, value)
 	return nil
 }
 
@@ -72,9 +69,7 @@ func (kp *KontextProxy) GetDefault(req *http.Request, key string) (string, error
 	if sessionID == "" {
 		return "", errors.New("session not found")
 	}
-	kp.mutex.RLock()
-	defer kp.mutex.RUnlock()
-	return kp.defaults[sessionID].Get(key), nil
+	return kp.defaults.Get(sessionID).Get(key), nil
 }
 
 func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
@@ -82,9 +77,7 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 	if sessionID == "" {
 		return map[string][]string{}, errors.New("session not found")
 	}
-	kp.mutex.RLock()
-	defer kp.mutex.RUnlock()
-	return kp.defaults[sessionID], nil
+	return kp.defaults.Get(sessionID), nil
 }
 
 // Preflight is used by APIGuard client (e.g. WaG) to find out whether
@@ -291,16 +284,11 @@ func (kp *KontextProxy) makeRequest(
 	resp, err := kp.cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
-
-		kp.mutex.RLock()
-		dfltArgs, ok := kp.defaults[reqProps.SessionID]
-		kp.mutex.RUnlock()
+		dfltArgs, ok := kp.defaults.GetWithTest(reqProps.SessionID)
 		if !ok {
 			dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
 			dfltArgs.Set("format", "json")
-			kp.mutex.Lock()
-			kp.defaults[reqProps.SessionID] = dfltArgs
-			kp.mutex.Unlock()
+			kp.defaults.Set(reqProps.SessionID, dfltArgs)
 		}
 		urlArgs := req.URL.Query()
 		dfltArgs.ApplyTo(urlArgs)
@@ -338,7 +326,7 @@ func NewKontextProxy(
 		conf:            conf,
 		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
-		defaults:        make(map[string]defaults.Args),
+		defaults:        collections.NewConcurrentMap[string, defaults.Args](),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
 		apiProxy: services.APIProxy{

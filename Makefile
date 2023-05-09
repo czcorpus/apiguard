@@ -19,4 +19,7 @@ clean:
 test:
 	go test ./...
 
+rtest:
+	go test -race ./...
+
 .PHONY: clean install test

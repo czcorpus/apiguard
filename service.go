@@ -73,7 +73,7 @@ func runService(
 	)
 
 	if !conf.IgnoreStoredState {
-		err := alarm.LoadAttributes()
+		err := alarms.LoadState(alarm)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to load alarm status from disk. Please use -ignore-stored-state to skip the action.")
 		}

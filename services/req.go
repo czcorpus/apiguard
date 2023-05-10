@@ -13,6 +13,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -78,6 +79,7 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 type APIProxy struct {
 	InternalURL string
 	ExternalURL string
+	client      *http.Client
 }
 
 func (proxy *APIProxy) transformRedirect(headers http.Header) error {
@@ -111,12 +113,13 @@ func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 	return nil
 }
 
-func (proxy *APIProxy) Request(urlPath, method string, headers http.Header, rbody io.Reader) *ProxiedResponse {
-	client := &http.Client{
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
-		},
-	}
+func (proxy *APIProxy) Request(
+	urlPath,
+	method string,
+	headers http.Header,
+	rbody io.Reader,
+) *ProxiedResponse {
+
 	targetURL := fmt.Sprintf("%s%s", proxy.InternalURL, urlPath)
 	req, err := http.NewRequest(method, targetURL, rbody)
 	if err != nil {
@@ -128,7 +131,7 @@ func (proxy *APIProxy) Request(urlPath, method string, headers http.Header, rbod
 		}
 	}
 	req.Header = headers
-	resp, err := client.Do(req)
+	resp, err := proxy.client.Do(req)
 	if err != nil {
 		return &ProxiedResponse{
 			Body:       []byte{},
@@ -160,5 +163,27 @@ func (proxy *APIProxy) Request(urlPath, method string, headers http.Header, rbod
 		Headers:    ansHeaders,
 		StatusCode: resp.StatusCode,
 		Err:        nil,
+	}
+}
+
+func NewAPIProxy(
+	internalURL string,
+	externalURL string,
+	timeout time.Duration,
+) *APIProxy {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.MaxIdleConns = 100
+	transport.MaxConnsPerHost = 100
+	transport.MaxIdleConnsPerHost = 100
+	return &APIProxy{
+		InternalURL: internalURL,
+		ExternalURL: externalURL,
+		client: &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+			Timeout:   timeout,
+			Transport: transport,
+		},
 	}
 }

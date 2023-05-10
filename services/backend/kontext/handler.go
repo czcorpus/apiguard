@@ -47,7 +47,7 @@ type KontextProxy struct {
 	defaults        *collections.ConcurrentMap[string, defaults.Args]
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
-	apiProxy        services.APIProxy
+	apiProxy        *services.APIProxy
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -178,6 +178,7 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 	uniresp.WriteJSONResponse(w, respMsg)
 }
 
+// AnyPath is the main handler for KonText API actions.
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID, humanID common.UserID
 	var cached bool
@@ -329,10 +330,11 @@ func NewKontextProxy(
 		defaults:        collections.NewConcurrentMap[string, defaults.Args](),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
-		apiProxy: services.APIProxy{
-			InternalURL: conf.InternalURL,
-			ExternalURL: conf.ExternalURL,
-		},
+		apiProxy: services.NewAPIProxy(
+			conf.InternalURL,
+			conf.ExternalURL,
+			time.Duration(conf.ReqTimeoutSecs)*time.Second,
+		),
 		reqCounter: reqCounter,
 		cache:      cache,
 	}

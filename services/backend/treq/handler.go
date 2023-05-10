@@ -191,10 +191,11 @@ func NewTreqProxy(
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
-		apiProxy: services.APIProxy{
-			InternalURL: conf.InternalURL,
-			ExternalURL: conf.ExternalURL,
-		},
+		apiProxy: *services.NewAPIProxy(
+			conf.InternalURL,
+			conf.ExternalURL,
+			time.Duration(conf.ReqTimeoutSecs)*time.Second,
+		),
 		reqCounter: reqCounter,
 		cache:      cache,
 	}

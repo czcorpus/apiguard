@@ -40,6 +40,7 @@ const (
 	DfltCleanupMaxAgeDays      = 7
 	DfltBanSecs                = 3600
 	DfltTimeZone               = "Europe/Prague"
+	DfltProxyReqTimeoutSecs    = 60
 )
 
 type servicesSection struct {
@@ -64,10 +65,18 @@ func (services *servicesSection) validate() error {
 			return errors.New("missing externalUrl configuration for KonText")
 		}
 	}
+	if services.Kontext.ReqTimeoutSecs == 0 {
+		services.Kontext.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
+		log.Warn().Msgf("missing services.kontext.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
+	}
 	if services.Treq.InternalURL != "" {
 		if services.Treq.ExternalURL == "" {
 			return errors.New("missing externalUrl configuration for Treq")
 		}
+	}
+	if services.Treq.ReqTimeoutSecs == 0 {
+		services.Treq.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
+		log.Warn().Msgf("missing services.treq.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
 	}
 	return nil
 }

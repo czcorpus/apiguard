@@ -34,6 +34,8 @@ type Conf struct {
 	Limits []alarms.Limit `json:"limits"`
 
 	Alarm alarms.AlarmConf `json:"alarm"`
+
+	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
 }
 
 func (c *Conf) Validate(context string) error {

@@ -20,7 +20,7 @@ func (ulm *userLimitInfo) NumReqSince(interval time.Duration, loc *time.Location
 	limit := time.Now().In(loc).Add(-interval)
 	var ans int
 	for _, v := range ulm.Requests {
-		if v.created.After(limit) {
+		if v.Created.After(limit) {
 			ans++
 		}
 	}

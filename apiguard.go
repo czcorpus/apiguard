@@ -120,7 +120,7 @@ func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
 }
 
 func preExit(alarm *alarms.AlarmTicker) {
-	err := alarm.SaveAttributes()
+	err := alarms.SaveState(alarm)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to save alarm attributes")
 	}

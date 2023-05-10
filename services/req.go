@@ -19,6 +19,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	TransportMaxIdleConns        = 100
+	TransportMaxConnsPerHost     = 100
+	TransportMaxIdleConnsPerHost = 80
+	TransportIdleConnTimeout     = 10 * time.Minute
+)
+
 func GetCookieValue(req *http.Request, cookieName string) string {
 	var cookieValue string
 	for _, cookie := range req.Cookies() {
@@ -172,9 +179,10 @@ func NewAPIProxy(
 	timeout time.Duration,
 ) *APIProxy {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.MaxIdleConns = 100
-	transport.MaxConnsPerHost = 100
-	transport.MaxIdleConnsPerHost = 100
+	transport.MaxIdleConns = TransportMaxIdleConns
+	transport.MaxConnsPerHost = TransportMaxConnsPerHost
+	transport.MaxIdleConnsPerHost = TransportMaxIdleConnsPerHost
+	transport.IdleConnTimeout = TransportIdleConnTimeout
 	return &APIProxy{
 		InternalURL: internalURL,
 		ExternalURL: externalURL,

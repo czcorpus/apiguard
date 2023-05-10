@@ -30,13 +30,12 @@ import (
 )
 
 const (
-	clientsDataFile                = "clients.gob"
-	reportsDataFile                = "reports.gob"
+	alarmStatusFile                = "alarm-status.gob"
 	dfltRecCountCleanupProbability = 0.5
 )
 
 type reqCounterItem struct {
-	created time.Time
+	Created time.Time
 }
 
 type serviceEntry struct {
@@ -44,6 +43,59 @@ type serviceEntry struct {
 	limits         map[common.CheckInterval]int
 	Service        string
 	ClientRequests *collections.ConcurrentMap[common.UserID, *userLimitInfo]
+}
+
+func (se *serviceEntry) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	enc := gob.NewEncoder(&buf)
+
+	err := enc.Encode(se.Conf)
+	if err != nil {
+		return nil, err
+	}
+	err = enc.Encode(se.limits)
+	if err != nil {
+		return nil, err
+	}
+	err = enc.Encode(se.Service)
+	if err != nil {
+		return nil, err
+	}
+	cr := se.ClientRequests.AsMap()
+	err = enc.Encode(&cr)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (se *serviceEntry) GobDecode(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	dec := gob.NewDecoder(buf)
+
+	err := dec.Decode(&se.Conf)
+	if err != nil {
+		return err
+	}
+	err = dec.Decode(&se.limits)
+	if err != nil {
+		return err
+	}
+	err = dec.Decode(&se.Service)
+	if err != nil {
+		return err
+	}
+	cr := make(map[common.UserID]*userLimitInfo)
+	err = dec.Decode(&cr)
+	if err != nil {
+		return err
+	}
+	log.Debug().
+		Str("service", se.Service).
+		Int("numItems", len(cr)).
+		Msg("Loaded ClientRequest for serviceEntry")
+	se.ClientRequests = collections.NewConcurrentMapFrom(cr)
+	return nil
 }
 
 type RequestInfo struct {
@@ -96,7 +148,12 @@ func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
 	clients := aticker.clients.AsMap()
-	err := encoder.Encode(&clients)
+	clients2 := make(map[string]*serviceEntry)
+	for k, v := range clients {
+		v2 := *v
+		clients2[k] = &v2
+	}
+	err := encoder.Encode(&clients2)
 	if err != nil {
 		return []byte{}, err
 	}
@@ -118,73 +175,6 @@ func (aticker *AlarmTicker) GobDecode(data []byte) error {
 	aticker.clients = collections.NewConcurrentMapFrom(clients)
 	err = decoder.Decode(&aticker.reports)
 	return err
-}
-
-func (aticker *AlarmTicker) SaveAttributes() error {
-	file, err := os.Create(path.Join(aticker.statusDataDir, clientsDataFile))
-	if err != nil {
-		return err
-	}
-	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(aticker.clients)
-	if err != nil {
-		return err
-	}
-	err = file.Close()
-	if err != nil {
-		return err
-	}
-
-	file, err = os.Create(path.Join(aticker.statusDataDir, reportsDataFile))
-	if err != nil {
-		return err
-	}
-	encoder = gob.NewEncoder(file)
-	err = encoder.Encode(aticker.reports)
-	if err != nil {
-		return err
-	}
-	err = file.Close()
-	log.Debug().Msg("Alarm attributes saved")
-	return err
-}
-
-func (aticker *AlarmTicker) LoadAttributes() error {
-	file_path := path.Join(aticker.statusDataDir, clientsDataFile)
-	if fileExists(file_path) {
-		file, err := os.Open(file_path)
-		if err != nil {
-			return err
-		}
-		decoder := gob.NewDecoder(file)
-		err = decoder.Decode(&aticker.clients)
-		if err != nil {
-			return err
-		}
-		err = file.Close()
-		if err != nil {
-			return err
-		}
-	}
-
-	file_path = path.Join(aticker.statusDataDir, reportsDataFile)
-	if fileExists(file_path) {
-		file, err := os.Open(file_path)
-		if err != nil {
-			return err
-		}
-		decoder := gob.NewDecoder(file)
-		err = decoder.Decode(&aticker.reports)
-		if err != nil {
-			return err
-		}
-		err = file.Close()
-		if err != nil {
-			return err
-		}
-	}
-	log.Debug().Msg("Alarm attributes loaded")
-	return nil
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
@@ -321,7 +311,7 @@ func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
 		oldNumReq += len(data.Requests)
 		keep := make([]reqCounterItem, 0, 1000)
 		for _, req := range data.Requests {
-			if req.created.After(oldestDate) {
+			if req.Created.After(oldestDate) {
 				keep = append(keep, req)
 			}
 		}
@@ -367,7 +357,7 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 				entry.ClientRequests.Get(reqInfo.UserID).Requests = append(
 					entry.ClientRequests.Get(reqInfo.UserID).Requests,
 					reqCounterItem{
-						created: time.Now().In(aticker.location),
+						Created: time.Now().In(aticker.location),
 					},
 				)
 			}
@@ -496,7 +486,7 @@ func NewAlarmTicker(
 	userTableProps cncdb.UserTableProps,
 	statusDataDir string,
 ) *AlarmTicker {
-	return &AlarmTicker{
+	ans := &AlarmTicker{
 		db:             db,
 		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:        make(chan RequestInfo, 1000),
@@ -506,4 +496,44 @@ func NewAlarmTicker(
 		statusDataDir:  statusDataDir,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
 	}
+	ans.loadAllowList()
+	return ans
+}
+
+func SaveState(aticker *AlarmTicker) error {
+	file, err := os.Create(path.Join(aticker.statusDataDir, alarmStatusFile))
+	if err != nil {
+		return err
+	}
+	encoder := gob.NewEncoder(file)
+	err = encoder.Encode(aticker)
+	if err != nil {
+		return err
+	}
+	err = file.Close()
+	if err == nil {
+		log.Debug().Msg("Alarm attributes saved")
+	}
+	return err
+}
+
+func LoadState(aticker *AlarmTicker) error {
+	file_path := path.Join(aticker.statusDataDir, alarmStatusFile)
+	if fileExists(file_path) {
+		file, err := os.Open(file_path)
+		if err != nil {
+			return err
+		}
+		decoder := gob.NewDecoder(file)
+		err = decoder.Decode(aticker)
+		if err != nil {
+			return err
+		}
+		err = file.Close()
+		if err != nil {
+			return err
+		}
+		log.Debug().Msg("Alarm attributes loaded")
+	}
+	return nil
 }

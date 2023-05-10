@@ -334,6 +334,7 @@ func (aticker *AlarmTicker) reqIsIgnorable(reqInfo RequestInfo) bool {
 }
 
 func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
+	aticker.loadAllowList()
 	for {
 		select {
 		case signal := <-quitChan:
@@ -486,7 +487,7 @@ func NewAlarmTicker(
 	userTableProps cncdb.UserTableProps,
 	statusDataDir string,
 ) *AlarmTicker {
-	ans := &AlarmTicker{
+	return &AlarmTicker{
 		db:             db,
 		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:        make(chan RequestInfo, 1000),
@@ -496,8 +497,6 @@ func NewAlarmTicker(
 		statusDataDir:  statusDataDir,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
 	}
-	ans.loadAllowList()
-	return ans
 }
 
 func SaveState(aticker *AlarmTicker) error {

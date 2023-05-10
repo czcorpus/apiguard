@@ -127,6 +127,7 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 		strings.NewReader(postData.Encode()),
 	)
 	if err != nil {
+		log.Error().Err(err).Msgf("failed to perform login")
 		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
@@ -141,12 +142,14 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 
 	resp, err := client.Do(req2)
 	if err != nil {
+		log.Error().Err(err).Msgf("failed to perform login")
 		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
 		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
+		log.Error().Err(err).Msgf("failed to perform login")
 		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
@@ -158,6 +161,7 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if respMsg[0] == "Invalid credentials" {
+		log.Error().Err(err).Msgf("failed to perform login")
 		uniresp.WriteCustomJSONErrorResponse(w, respMsg, http.StatusUnauthorized)
 		return
 	}
@@ -198,6 +202,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, loggedUserID)
 	}(&userID, &humanID)
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
+		log.Error().Msgf("failed to proxy request - invalid path detected")
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
@@ -205,6 +210,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
+		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
 		http.Error(
 			w,
 			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
@@ -249,6 +255,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			kp.cncAuthCookie,
 		)
 		if err != nil {
+			log.Error().Err(reqProps.Error).Msgf("failed to proxy request - cookie mapping")
 			http.Error(
 				w,
 				err.Error(),

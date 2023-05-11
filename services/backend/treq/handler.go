@@ -11,6 +11,7 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -37,6 +38,7 @@ type TreqProxy struct {
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
 	apiProxy        services.APIProxy
+	reporting       chan<- services.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -130,7 +132,13 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(req)
+	tp.reporting <- services.ProxyProcReport{
+		ProcTime: float32(time.Since(rt0).Seconds()),
+		Status:   serviceResp.GetStatusCode(),
+		Service:  ServiceName,
+	}
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)
@@ -184,6 +192,10 @@ func NewTreqProxy(
 	reqCounter chan<- alarms.RequestInfo,
 	cache services.Cache,
 ) *TreqProxy {
+	reporting := make(chan services.ProxyProcReport)
+	go func() {
+		monitoring.RunWriteConsumerSync(globalCtx.InfluxDB, reporting)
+	}()
 	return &TreqProxy{
 		globalCtx:       globalCtx,
 		conf:            conf,
@@ -194,5 +206,6 @@ func NewTreqProxy(
 		apiProxy:        *services.NewAPIProxy(conf.GetProxyConf()),
 		reqCounter:      reqCounter,
 		cache:           cache,
+		reporting:       reporting,
 	}
 }

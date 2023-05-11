@@ -107,10 +107,13 @@ func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
 }
 
 func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
-	db := influx.ConnectAPI(conf)
-	db.OnError(func(err error) {
-		log.Err(err).Msg("Failed to write measurement to InfluxDB")
-	})
+	errListen := make(chan error)
+	db := influx.ConnectAPI(conf, errListen)
+	go func() {
+		for err := range errListen {
+			log.Err(err).Msg("Failed to write measurement to InfluxDB")
+		}
+	}()
 	log.Info().
 		Str("host", conf.Server).
 		Str("organization", conf.Organization).

@@ -37,9 +37,9 @@ type Influxable interface {
 }
 
 type InfluxDBAdapter struct {
-	api     influxdb2api.WriteAPI
-	errChan <-chan error
-	address string
+	api             influxdb2api.WriteAPI
+	address         string
+	onErrorHandlers []func(error)
 }
 
 func (db *InfluxDBAdapter) WritePoint(p *write.Point) {
@@ -50,18 +50,9 @@ func (db *InfluxDBAdapter) Address() string {
 	return db.address
 }
 
-func (db *InfluxDBAdapter) OnError(handler func(error)) {
-	if db != nil {
-		go func() {
-			for err := range db.errChan {
-				handler(err)
-			}
-		}()
-	}
-}
-
-func ConnectAPI(conf *ConnectionConf) *InfluxDBAdapter {
+func ConnectAPI(conf *ConnectionConf, errListen <-chan error) *InfluxDBAdapter {
 	ans := new(InfluxDBAdapter)
+	ans.onErrorHandlers = make([]func(error), 0, 10)
 	var influxClient influxdb2.Client
 	if conf.IsConfigured() {
 		ans.address = conf.Server
@@ -70,7 +61,13 @@ func ConnectAPI(conf *ConnectionConf) *InfluxDBAdapter {
 			conf.Organization,
 			conf.Bucket,
 		)
-		ans.errChan = ans.api.Errors()
+		go func() {
+			rt := make(chan error)
+			for err := range ans.api.Errors() {
+				rt <- err
+			}
+			close(rt)
+		}()
 		return ans
 	}
 	return nil

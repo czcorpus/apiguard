@@ -42,7 +42,7 @@ func RunWriteConsumerSync[T influx.Influxable](db *influx.InfluxDBAdapter, incom
 			client.AddRecord(rec)
 		}
 		if err != nil {
-			log.Error().Err(err).Send()
+			log.Error().Err(err).Msg("Failed to write influxDB record")
 		}
 
 	} else {

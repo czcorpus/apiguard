@@ -23,7 +23,6 @@ const (
 	TransportMaxIdleConns        = 100
 	TransportMaxConnsPerHost     = 100
 	TransportMaxIdleConnsPerHost = 80
-	TransportIdleConnTimeout     = 10 * time.Minute
 )
 
 func GetCookieValue(req *http.Request, cookieName string) string {
@@ -173,24 +172,20 @@ func (proxy *APIProxy) Request(
 	}
 }
 
-func NewAPIProxy(
-	internalURL string,
-	externalURL string,
-	timeout time.Duration,
-) *APIProxy {
+func NewAPIProxy(conf GeneralProxyConf) *APIProxy {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = TransportMaxIdleConns
 	transport.MaxConnsPerHost = TransportMaxConnsPerHost
 	transport.MaxIdleConnsPerHost = TransportMaxIdleConnsPerHost
-	transport.IdleConnTimeout = TransportIdleConnTimeout
+	transport.IdleConnTimeout = time.Duration(conf.IdleConnTimeoutSecs) * time.Second
 	return &APIProxy{
-		InternalURL: internalURL,
-		ExternalURL: externalURL,
+		InternalURL: conf.InternalURL,
+		ExternalURL: conf.ExternalURL,
 		client: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
-			Timeout:   timeout,
+			Timeout:   time.Duration(conf.ReqTimeoutSecs) * time.Second,
 			Transport: transport,
 		},
 	}

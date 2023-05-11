@@ -8,6 +8,7 @@ package treq
 
 import (
 	"apiguard/alarms"
+	"apiguard/services"
 	"fmt"
 )
 
@@ -34,6 +35,8 @@ type Conf struct {
 	Alarm alarms.AlarmConf `json:"alarm"`
 
 	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
+
+	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
 }
 
 func (c *Conf) Validate(context string) error {
@@ -41,4 +44,13 @@ func (c *Conf) Validate(context string) error {
 		return fmt.Errorf("%s.internalURL is missing/empty", context)
 	}
 	return nil
+}
+
+func (c *Conf) GetProxyConf() services.GeneralProxyConf {
+	return services.GeneralProxyConf{
+		InternalURL:         c.InternalURL,
+		ExternalURL:         c.ExternalURL,
+		ReqTimeoutSecs:      c.ReqTimeoutSecs,
+		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
+	}
 }

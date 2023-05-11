@@ -337,12 +337,8 @@ func NewKontextProxy(
 		defaults:        collections.NewConcurrentMap[string, defaults.Args](),
 		readTimeoutSecs: readTimeoutSecs,
 		cncDB:           cncDB,
-		apiProxy: services.NewAPIProxy(
-			conf.InternalURL,
-			conf.ExternalURL,
-			time.Duration(conf.ReqTimeoutSecs)*time.Second,
-		),
-		reqCounter: reqCounter,
-		cache:      cache,
+		apiProxy:        services.NewAPIProxy(conf.GetProxyConf()),
+		reqCounter:      reqCounter,
+		cache:           cache,
 	}
 }

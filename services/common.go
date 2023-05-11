@@ -11,6 +11,13 @@ import (
 	"time"
 )
 
+type GeneralProxyConf struct {
+	InternalURL         string
+	ExternalURL         string
+	ReqTimeoutSecs      int
+	IdleConnTimeoutSecs int
+}
+
 type BackendResponse interface {
 	GetBody() []byte
 	GetHeaders() http.Header

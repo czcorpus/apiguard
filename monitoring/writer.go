@@ -27,9 +27,9 @@ type RecordWriter[T influx.Influxable] struct {
 // it also stores the record to a configured database and
 // measurement. Please note that without calling Finish() at
 // the end of an operation, stale records may remain.
-func (c *RecordWriter[T]) AddRecord(rec T) {
+func (c *RecordWriter[T]) AddRecord(rec T, measurement string) {
 	tags, values := rec.ToInfluxDB()
-	p := influxdb2.NewPointWithMeasurement("state")
+	p := influxdb2.NewPointWithMeasurement(measurement)
 	p.SetTime(rec.GetTime())
 	for tn, tv := range tags {
 		p.AddTag(tn, tv)

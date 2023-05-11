@@ -102,7 +102,7 @@ func NewAnalyzer(
 	}
 	entropyMsr := make(chan *monitoring.TelemetryEntropy)
 	go func() {
-		monitoring.RunWriteConsumerSync(monitoringDB, entropyMsr)
+		monitoring.RunWriteConsumerSync(monitoringDB, "state", entropyMsr)
 	}()
 	return &Analyzer{
 		db:         db,

@@ -11,6 +11,7 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -48,6 +49,7 @@ type KontextProxy struct {
 	analyzer        *analyzer.CNCUserAnalyzer
 	cncDB           *sql.DB
 	apiProxy        *services.APIProxy
+	reporting       chan<- services.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -95,7 +97,7 @@ func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
 		)
 		return
 
-	} else if reqProps.ProposedStatus > 400 && reqProps.ProposedStatus < 500 {
+	} else if reqProps.ProposedStatus >= 400 && reqProps.ProposedStatus < 500 {
 		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
@@ -265,7 +267,13 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.makeRequest(req, reqProps)
+	kp.reporting <- services.ProxyProcReport{
+		ProcTime: float32(time.Since(rt0).Seconds()),
+		Status:   serviceResp.GetStatusCode(),
+		Service:  ServiceName,
+	}
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)
@@ -329,6 +337,10 @@ func NewKontextProxy(
 	reqCounter chan<- alarms.RequestInfo,
 	cache services.Cache,
 ) *KontextProxy {
+	reporting := make(chan services.ProxyProcReport)
+	go func() {
+		monitoring.RunWriteConsumerSync(globalCtx.InfluxDB, reporting)
+	}()
 	return &KontextProxy{
 		globalCtx:       globalCtx,
 		conf:            conf,
@@ -340,5 +352,6 @@ func NewKontextProxy(
 		apiProxy:        services.NewAPIProxy(conf.GetProxyConf()),
 		reqCounter:      reqCounter,
 		cache:           cache,
+		reporting:       reporting,
 	}
 }

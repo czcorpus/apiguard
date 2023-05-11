@@ -34,12 +34,16 @@ func (cm ConfirmMsg) String() string {
 // RunWriteConsumerSync reads from incomingData channel and stores the data
 // to via a provided InfluxDBAdapter ('db' arg.). In case 'db' is nil, the
 // function just listens to 'incomingData' and does nothing.
-func RunWriteConsumerSync[T influx.Influxable](db *influx.InfluxDBAdapter, incomingData <-chan T) {
+func RunWriteConsumerSync[T influx.Influxable](
+	db *influx.InfluxDBAdapter,
+	measurement string,
+	incomingData <-chan T,
+) {
 	if db != nil {
 		var err error
 		client := NewRecordWriter[T](db)
 		for rec := range incomingData {
-			client.AddRecord(rec)
+			client.AddRecord(rec, measurement)
 		}
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to write influxDB record")

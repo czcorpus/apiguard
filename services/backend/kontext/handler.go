@@ -339,7 +339,7 @@ func NewKontextProxy(
 ) *KontextProxy {
 	reporting := make(chan services.ProxyProcReport)
 	go func() {
-		monitoring.RunWriteConsumerSync(globalCtx.InfluxDB, reporting)
+		monitoring.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
 	return &KontextProxy{
 		globalCtx:       globalCtx,

@@ -38,7 +38,7 @@ func (b *BackendLogger) Log(
 func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {
 	blstream := make(chan *monitoring.BackendRequest)
 	go func() {
-		monitoring.RunWriteConsumerSync(db, blstream)
+		monitoring.RunWriteConsumerSync(db, "state", blstream)
 	}()
 	return &BackendLogger{
 		stream:           blstream,

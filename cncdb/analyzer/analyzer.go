@@ -147,7 +147,7 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 	}
 	sessionID := kua.GetSessionID(req)
 	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID, serviceName)
-	if err == sql.ErrNoRows || userID == kua.AnonymousUserID {
+	if err == sql.ErrNoRows || userID == kua.AnonymousUserID || !userID.IsValid() {
 		log.Debug().Msgf("failed to find session %s in database", sessionID)
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,

@@ -10,7 +10,6 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cncdb"
-	"apiguard/monitoring/influx"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -29,6 +28,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog/log"
 )
 

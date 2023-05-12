@@ -8,7 +8,6 @@ package entropy
 
 import (
 	"apiguard/monitoring"
-	"apiguard/monitoring/influx"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"apiguard/services/telemetry/backend"
@@ -20,6 +19,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog/log"
 )
 
@@ -102,7 +102,7 @@ func NewAnalyzer(
 	}
 	entropyMsr := make(chan *monitoring.TelemetryEntropy)
 	go func() {
-		monitoring.RunWriteConsumerSync(monitoringDB, "state", entropyMsr)
+		influx.RunWriteConsumerSync(monitoringDB, "state", entropyMsr)
 	}()
 	return &Analyzer{
 		db:         db,

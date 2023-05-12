@@ -7,9 +7,10 @@
 package ctx
 
 import (
-	"apiguard/monitoring/influx"
 	"database/sql"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/influx"
 )
 
 // GlobalContext provides access to shared resources and information needed by different

@@ -17,10 +17,7 @@
 package monitoring
 
 import (
-	"apiguard/monitoring/influx"
 	"fmt"
-
-	"github.com/rs/zerolog/log"
 )
 
 type ConfirmMsg struct {
@@ -29,28 +26,4 @@ type ConfirmMsg struct {
 
 func (cm ConfirmMsg) String() string {
 	return fmt.Sprintf("ConfirmMsg{Error: %v}", cm.Error)
-}
-
-// RunWriteConsumerSync reads from incomingData channel and stores the data
-// to via a provided InfluxDBAdapter ('db' arg.). In case 'db' is nil, the
-// function just listens to 'incomingData' and does nothing.
-func RunWriteConsumerSync[T influx.Influxable](
-	db *influx.InfluxDBAdapter,
-	measurement string,
-	incomingData <-chan T,
-) {
-	if db != nil {
-		var err error
-		client := NewRecordWriter[T](db)
-		for rec := range incomingData {
-			client.AddRecord(rec, measurement)
-		}
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to write influxDB record")
-		}
-
-	} else {
-		for range incomingData {
-		}
-	}
 }

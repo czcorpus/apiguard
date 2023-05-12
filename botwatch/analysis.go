@@ -8,7 +8,6 @@ package botwatch
 
 import (
 	"apiguard/common"
-	"apiguard/monitoring/influx"
 	"apiguard/services"
 
 	"apiguard/services/logging"
@@ -24,6 +23,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog/log"
 )
 

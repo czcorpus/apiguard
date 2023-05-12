@@ -11,7 +11,6 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/common"
 	"apiguard/ctx"
-	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -28,6 +27,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
@@ -339,7 +339,7 @@ func NewKontextProxy(
 ) *KontextProxy {
 	reporting := make(chan services.ProxyProcReport)
 	go func() {
-		monitoring.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
+		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
 	return &KontextProxy{
 		globalCtx:       globalCtx,

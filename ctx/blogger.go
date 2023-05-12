@@ -9,9 +9,10 @@ package ctx
 import (
 	"apiguard/common"
 	"apiguard/monitoring"
-	"apiguard/monitoring/influx"
 	"apiguard/services/logging"
 	"time"
+
+	"github.com/czcorpus/cnc-gokit/influx"
 )
 
 type BackendLogger struct {
@@ -38,7 +39,7 @@ func (b *BackendLogger) Log(
 func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {
 	blstream := make(chan *monitoring.BackendRequest)
 	go func() {
-		monitoring.RunWriteConsumerSync(db, "state", blstream)
+		influx.RunWriteConsumerSync(db, "state", blstream)
 	}()
 	return &BackendLogger{
 		stream:           blstream,

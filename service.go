@@ -65,12 +65,15 @@ func runService(
 
 	// alarm
 	alarm := alarms.NewAlarmTicker(
-		globalCtx.CNCDB,
+		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
 		userTableProps,
 		conf.StatusDataDir,
 	)
+	if conf.Monitoring.IsConfigured() {
+		alarm.GoStartMonitoring()
+	}
 
 	if !conf.IgnoreStoredState {
 		err := alarms.LoadState(alarm)

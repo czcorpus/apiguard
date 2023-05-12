@@ -24,9 +24,9 @@ import (
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/ctx"
-	"apiguard/monitoring/influx"
 	"apiguard/services"
 
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )

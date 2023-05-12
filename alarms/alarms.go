@@ -9,6 +9,7 @@ package alarms
 import (
 	"apiguard/cncdb"
 	"apiguard/common"
+	"apiguard/ctx"
 	"bytes"
 	"database/sql"
 	"encoding/gob"
@@ -17,12 +18,12 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"path"
 	"syscall"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/datetime"
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/mail"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gorilla/mux"
@@ -32,70 +33,11 @@ import (
 const (
 	alarmStatusFile                = "alarm-status.gob"
 	dfltRecCountCleanupProbability = 0.5
+	monitoringSendInterval         = time.Duration(30) * time.Second
 )
 
 type reqCounterItem struct {
 	Created time.Time
-}
-
-type serviceEntry struct {
-	Conf           AlarmConf
-	limits         map[common.CheckInterval]int
-	Service        string
-	ClientRequests *collections.ConcurrentMap[common.UserID, *userLimitInfo]
-}
-
-func (se *serviceEntry) GobEncode() ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-
-	err := enc.Encode(se.Conf)
-	if err != nil {
-		return nil, err
-	}
-	err = enc.Encode(se.limits)
-	if err != nil {
-		return nil, err
-	}
-	err = enc.Encode(se.Service)
-	if err != nil {
-		return nil, err
-	}
-	cr := se.ClientRequests.AsMap()
-	err = enc.Encode(&cr)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (se *serviceEntry) GobDecode(data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-
-	err := dec.Decode(&se.Conf)
-	if err != nil {
-		return err
-	}
-	err = dec.Decode(&se.limits)
-	if err != nil {
-		return err
-	}
-	err = dec.Decode(&se.Service)
-	if err != nil {
-		return err
-	}
-	cr := make(map[common.UserID]*userLimitInfo)
-	err = dec.Decode(&cr)
-	if err != nil {
-		return err
-	}
-	log.Debug().
-		Str("service", se.Service).
-		Int("numItems", len(cr)).
-		Msg("Loaded ClientRequest for serviceEntry")
-	se.ClientRequests = collections.NewConcurrentMapFrom(cr)
-	return nil
 }
 
 type RequestInfo struct {
@@ -113,14 +55,6 @@ type handleReviewResponse struct {
 	Confirmed bool         `json:"confirmed"`
 	Report    *AlarmReport `json:"report"`
 	BanID     int64        `json:"banId,omitempty"`
-}
-
-func fileExists(filename string) bool {
-	info, err := os.Stat(filename)
-	if os.IsNotExist(err) {
-		return false
-	}
-	return !info.IsDir()
 }
 
 // AlarmTicker monitors the 'counter' channel for incoming
@@ -142,6 +76,7 @@ type AlarmTicker struct {
 	userTableProps cncdb.UserTableProps
 	statusDataDir  string
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
+	monitoring     *influx.RecordWriter[alarmStatus]
 }
 
 func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
@@ -388,7 +323,7 @@ func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Li
 		Service:        service,
 		Conf:           conf,
 		limits:         make(map[common.CheckInterval]int),
-		ClientRequests: collections.NewConcurrentMap[common.UserID, *userLimitInfo](),
+		ClientRequests: NewClientRequests(),
 	}
 	for _, limit := range limits {
 		sEntry.limits[common.CheckInterval(limit.ReqCheckingInterval())] = limit.ReqPerTimeThreshold
@@ -481,14 +416,14 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 }
 
 func NewAlarmTicker(
-	db *sql.DB,
+	ctx *ctx.GlobalContext,
 	loc *time.Location,
 	alarmConf MailConf,
 	userTableProps cncdb.UserTableProps,
 	statusDataDir string,
 ) *AlarmTicker {
 	return &AlarmTicker{
-		db:             db,
+		db:             ctx.CNCDB,
 		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:        make(chan RequestInfo, 1000),
 		location:       loc,
@@ -496,43 +431,6 @@ func NewAlarmTicker(
 		userTableProps: userTableProps,
 		statusDataDir:  statusDataDir,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
+		monitoring:     influx.NewRecordWriter[alarmStatus](ctx.InfluxDB),
 	}
-}
-
-func SaveState(aticker *AlarmTicker) error {
-	file, err := os.Create(path.Join(aticker.statusDataDir, alarmStatusFile))
-	if err != nil {
-		return err
-	}
-	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(aticker)
-	if err != nil {
-		return err
-	}
-	err = file.Close()
-	if err == nil {
-		log.Debug().Msg("Alarm attributes saved")
-	}
-	return err
-}
-
-func LoadState(aticker *AlarmTicker) error {
-	file_path := path.Join(aticker.statusDataDir, alarmStatusFile)
-	if fileExists(file_path) {
-		file, err := os.Open(file_path)
-		if err != nil {
-			return err
-		}
-		decoder := gob.NewDecoder(file)
-		err = decoder.Decode(aticker)
-		if err != nil {
-			return err
-		}
-		err = file.Close()
-		if err != nil {
-			return err
-		}
-		log.Debug().Msg("Alarm attributes loaded")
-	}
-	return nil
 }

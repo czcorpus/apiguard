@@ -11,7 +11,6 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/common"
 	"apiguard/ctx"
-	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -21,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog/log"
 )
 
@@ -194,7 +194,7 @@ func NewTreqProxy(
 ) *TreqProxy {
 	reporting := make(chan services.ProxyProcReport)
 	go func() {
-		monitoring.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
+		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
 	return &TreqProxy{
 		globalCtx:       globalCtx,

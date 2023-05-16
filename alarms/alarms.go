@@ -187,6 +187,10 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 				},
 				aticker.location,
 			)
+			if !newReport.IsSignificantlyExceeding() {
+				continue
+			}
+
 			err := newReport.AttachUserInfo(cncdb.NewUsersTable(
 				aticker.db, aticker.userTableProps))
 			if err != nil {

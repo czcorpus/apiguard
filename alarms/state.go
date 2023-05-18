@@ -14,28 +14,69 @@ import (
 	"os"
 	"path"
 
+	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
+
+// this file contains GOB encoding/decoding routies for AlarmTicker and types in involves
+
+// aticker:
+
+func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+	encoder := gob.NewEncoder(&buf)
+	clients := aticker.clients.AsMap()
+	clients2 := make(map[string]*serviceEntry)
+	for k, v := range clients {
+		v2 := *v
+		clients2[k] = &v2
+	}
+	err := encoder.Encode(&clients2)
+	if err != nil {
+		return []byte{}, err
+	}
+	err = encoder.Encode(&aticker.reports)
+	if err != nil {
+		return []byte{}, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (aticker *AlarmTicker) GobDecode(data []byte) error {
+	buf := bytes.NewBuffer(data)
+	decoder := gob.NewDecoder(buf)
+	var clients map[string]*serviceEntry
+	err := decoder.Decode(&clients)
+	if err != nil {
+		return err
+	}
+	aticker.clients = collections.NewConcurrentMapFrom(clients)
+	aticker.clients.ForEach(func(service string, data *serviceEntry) {
+		log.Info().
+			Str("service", service).
+			Int("numItems", data.ClientRequests.Len()).
+			Msg("Loaded AlarmTicker.clients")
+	})
+
+	err = decoder.Decode(&aticker.reports)
+	for _, rep := range aticker.reports {
+		rep.location = aticker.location
+	}
+	log.Info().
+		Int("numItems", len(aticker.reports)).
+		Msg("loaded AlarmTicker.reports")
+	return err
+}
+
+// serviceEntry:
 
 func (se *serviceEntry) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := gob.NewEncoder(&buf)
 
-	err := enc.Encode(se.Conf)
-	if err != nil {
-		return nil, err
-	}
-	err = enc.Encode(se.limits)
-	if err != nil {
-		return nil, err
-	}
-	err = enc.Encode(se.Service)
-	if err != nil {
-		return nil, err
-	}
 	cr := se.ClientRequests.AsMap()
-	err = enc.Encode(&cr)
+	err := enc.Encode(&cr)
 	if err != nil {
 		return nil, err
 	}
@@ -46,27 +87,11 @@ func (se *serviceEntry) GobDecode(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 
-	err := dec.Decode(&se.Conf)
-	if err != nil {
-		return err
-	}
-	err = dec.Decode(&se.limits)
-	if err != nil {
-		return err
-	}
-	err = dec.Decode(&se.Service)
-	if err != nil {
-		return err
-	}
 	cr := make(map[common.UserID]*userLimitInfo)
-	err = dec.Decode(&cr)
+	err := dec.Decode(&cr)
 	if err != nil {
 		return err
 	}
-	log.Debug().
-		Str("service", se.Service).
-		Int("numItems", len(cr)).
-		Msg("Loaded ClientRequest for serviceEntry")
 	se.ClientRequests = NewClientRequestsFrom(cr)
 	return nil
 }
@@ -83,7 +108,9 @@ func SaveState(aticker *AlarmTicker) error {
 	}
 	err = file.Close()
 	if err == nil {
-		log.Debug().Msg("Alarm attributes saved")
+		log.Info().
+			Str("file", file.Name()).
+			Msg("AlarmTicker runtime data saved")
 	}
 	return err
 }
@@ -92,23 +119,23 @@ func LoadState(aticker *AlarmTicker) error {
 	file_path := path.Join(aticker.statusDataDir, alarmStatusFile)
 	is_file, err := fs.IsFile(file_path)
 	if err != nil {
-		return fmt.Errorf("failed to load state: %w", err)
+		return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 	}
 	if is_file {
 		file, err := os.Open(file_path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 		}
 		decoder := gob.NewDecoder(file)
 		err = decoder.Decode(aticker)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 		}
 		err = file.Close()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 		}
-		log.Debug().Msg("Alarm attributes loaded")
+		log.Info().Msg("Alarm attributes loaded")
 	}
 	return nil
 }

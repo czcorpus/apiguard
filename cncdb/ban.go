@@ -197,14 +197,8 @@ func FindBanByReport(db *sql.DB, loc *time.Location, reportID string) (*UserBan,
 			"FROM api_user_ban "+
 			"WHERE start_dt <= ? AND end_dt > ? AND active = 1 AND report_id = ?",
 		now, now, reportID)
-	fmt.Printf("SELECT active, user_id, start_dt, end_dt "+
-		"FROM api_user_ban "+
-		"WHERE start_dt <= '%v' AND end_dt > '%v' AND active = 1 AND report_id = '%s'",
-		now, now, reportID)
 	var ans UserBan
 	err := row.Scan(&ans.Active, &ans.UserID, &ans.StartDT, &ans.EndDT)
-	fmt.Println("ERR: ", err)
-	fmt.Println("ANS: ", ans)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

@@ -10,9 +10,7 @@ import (
 	"apiguard/cncdb"
 	"apiguard/common"
 	"apiguard/ctx"
-	"bytes"
 	"database/sql"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -77,39 +75,6 @@ type AlarmTicker struct {
 	statusDataDir  string
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
 	monitoring     *influx.RecordWriter[alarmStatus]
-}
-
-func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
-	var buf bytes.Buffer
-	encoder := gob.NewEncoder(&buf)
-	clients := aticker.clients.AsMap()
-	clients2 := make(map[string]*serviceEntry)
-	for k, v := range clients {
-		v2 := *v
-		clients2[k] = &v2
-	}
-	err := encoder.Encode(&clients2)
-	if err != nil {
-		return []byte{}, err
-	}
-	err = encoder.Encode(&aticker.reports)
-	if err != nil {
-		return []byte{}, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (aticker *AlarmTicker) GobDecode(data []byte) error {
-	buf := bytes.NewBuffer(data)
-	decoder := gob.NewDecoder(buf)
-	var clients map[string]*serviceEntry
-	err := decoder.Decode(&clients)
-	if err != nil {
-		return err
-	}
-	aticker.clients = collections.NewConcurrentMapFrom(clients)
-	err = decoder.Decode(&aticker.reports)
-	return err
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {

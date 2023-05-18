@@ -43,7 +43,7 @@ type AlarmReport struct {
 	Reviewed    time.Time
 	ReviewCode  string
 	UserInfo    *cncdb.User
-	reviews     []Reviewer
+	Reviews     []Reviewer
 	location    *time.Location
 }
 
@@ -56,8 +56,8 @@ func (report *AlarmReport) AttachUserInfo(table *cncdb.UsersTable) error {
 }
 
 func (report *AlarmReport) MarshalJSON() ([]byte, error) {
-	reviewers := make([]string, len(report.reviews))
-	for i, rev := range report.reviews {
+	reviewers := make([]string, len(report.Reviews))
+	for i, rev := range report.Reviews {
 		reviewers[i] = rev.Email
 		// TODO handle "no email but ID" cases
 	}
@@ -84,7 +84,7 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 }
 
 func (report *AlarmReport) IsReviewed() bool {
-	return len(report.reviews) > 0
+	return len(report.Reviews) > 0
 }
 
 func (report *AlarmReport) ConfirmReviewViaEmail(alarmID string, reviewerMail string) error {
@@ -94,14 +94,14 @@ func (report *AlarmReport) ConfirmReviewViaEmail(alarmID string, reviewerMail st
 	if reviewerMail == "" {
 		return ErrMissingReviewerIdentification
 	}
-	report.reviews = append(
-		report.reviews,
+	report.Reviews = append(
+		report.Reviews,
 		Reviewer{
 			Email:    reviewerMail,
 			Reviewed: time.Now().In(report.location),
 		},
 	)
-	if len(report.reviews) == 1 {
+	if len(report.Reviews) == 1 {
 		report.Reviewed = time.Now().In(report.location)
 	}
 	return nil
@@ -114,14 +114,14 @@ func (report *AlarmReport) ConfirmReviewViaID(alarmID string, reviewerID int) er
 	if reviewerID <= 0 {
 		return ErrMissingReviewerIdentification
 	}
-	report.reviews = append(
-		report.reviews,
+	report.Reviews = append(
+		report.Reviews,
 		Reviewer{
 			UserID:   reviewerID,
 			Reviewed: time.Now().In(report.location),
 		},
 	)
-	if len(report.reviews) == 1 {
+	if len(report.Reviews) == 1 {
 		report.Reviewed = time.Now().In(report.location)
 	}
 	return nil
@@ -143,7 +143,7 @@ func generateReviewCode() string {
 
 func NewAlarmReport(reqInfo RequestInfo, alarmConf AlarmConf, rules Limit, loc *time.Location) *AlarmReport {
 	return &AlarmReport{
-		reviews:     make([]Reviewer, 0, 5),
+		Reviews:     make([]Reviewer, 0, 5),
 		Created:     time.Now().In(loc),
 		RequestInfo: reqInfo,
 		ReviewCode:  generateReviewCode(),

@@ -36,14 +36,14 @@ type Reviewer struct {
 }
 
 type AlarmReport struct {
-	RequestInfo RequestInfo
-	Alarm       AlarmConf
-	Rules       Limit
-	Created     time.Time
-	Reviewed    time.Time
-	ReviewCode  string
-	UserInfo    *cncdb.User
-	Reviews     []Reviewer
+	RequestInfo RequestInfo `json:"requestInfo"`
+	Alarm       AlarmConf   `json:"-"`
+	Rules       Limit       `json:"rules"`
+	Created     time.Time   `json:"created"`
+	Reviewed    time.Time   `json:"reviewed"`
+	ReviewCode  string      `json:"reviewCode"`
+	UserInfo    *cncdb.User `json:"userInfo"`
+	Reviews     []Reviewer  `json:"reviews"`
 	location    *time.Location
 }
 
@@ -61,12 +61,16 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 		reviewers[i] = rev.Email
 		// TODO handle "no email but ID" cases
 	}
+	var reviewed2 *time.Time
+	if !report.Reviewed.IsZero() {
+		reviewed2 = &report.Reviewed
+	}
 	return json.Marshal(
 		struct {
 			RequestInfo RequestInfo `json:"requestInfo"`
 			Rules       AlarmConf   `json:"rules"`
 			Created     time.Time   `json:"created"`
-			Reviewed    time.Time   `json:"reviewed"`
+			Reviewed    *time.Time  `json:"reviewed"`
 			ReviewCode  string      `json:"reviewCode"`
 			UserInfo    *cncdb.User `json:"userInfo,omitempty"`
 			Reviewers   []string    `json:"reviewers"`
@@ -74,7 +78,7 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 			RequestInfo: report.RequestInfo,
 			Rules:       report.Alarm,
 			Created:     report.Created,
-			Reviewed:    report.Reviewed,
+			Reviewed:    reviewed2,
 			ReviewCode:  report.ReviewCode,
 			UserInfo:    report.UserInfo,
 			Reviewers:   reviewers,

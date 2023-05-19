@@ -94,6 +94,12 @@ func runService(
 	router.HandleFunc(
 		"/alarm", alarm.HandleReportListAction).Methods(http.MethodGet)
 
+	router.HandleFunc(
+		"/alarms/list", alarm.HandleListAction).Methods(http.MethodGet)
+
+	router.HandleFunc(
+		"/alarms/clean", alarm.HandleCleanAction).Methods(http.MethodPost)
+
 	// telemetry analyzer
 	delayStats := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(

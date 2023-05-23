@@ -113,7 +113,7 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
-		lga.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, nil)
+		lga.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), cached, nil, false)
 	}()
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))

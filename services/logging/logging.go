@@ -16,14 +16,14 @@ import (
 func LogServiceRequest(
 	service string,
 	procTime time.Duration,
-	cached *bool,
+	cached bool,
 	userID *common.UserID,
 ) {
 	event := log.Info().
 		Str("type", "apiguard").
 		Str("service", service).
 		Float64("procTime", procTime.Seconds()).
-		Bool("isCached", *cached)
+		Bool("isCached", cached)
 	if userID != nil {
 		event.Int("userId", int(*userID))
 	}

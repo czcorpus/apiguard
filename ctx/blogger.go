@@ -23,15 +23,17 @@ type BackendLogger struct {
 func (b *BackendLogger) Log(
 	service string,
 	procTime time.Duration,
-	cached *bool,
+	cached bool,
 	userID *common.UserID,
+	indirectCall bool,
 ) {
 	b.stream <- &monitoring.BackendRequest{
-		Created:  time.Now().In(b.timezoneLocation),
-		Service:  service,
-		ProcTime: procTime.Seconds(),
-		IsCached: *cached,
-		UserID:   int(*userID),
+		Created:      time.Now().In(b.timezoneLocation),
+		Service:      service,
+		ProcTime:     procTime.Seconds(),
+		IsCached:     cached,
+		UserID:       int(*userID),
+		IndirectCall: indirectCall,
 	}
 	logging.LogServiceRequest(service, procTime, cached, userID)
 }

@@ -40,7 +40,7 @@ func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, nil)
+		aa.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), cached, nil, false)
 	}()
 
 	query := req.URL.Query().Get("q")

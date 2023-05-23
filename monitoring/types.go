@@ -39,11 +39,12 @@ func (te *TelemetryEntropy) GetTime() time.Time {
 }
 
 type BackendRequest struct {
-	Created  time.Time
-	Service  string
-	ProcTime float64
-	IsCached bool
-	UserID   int
+	Created      time.Time
+	Service      string
+	ProcTime     float64
+	IsCached     bool
+	UserID       int
+	IndirectCall bool
 }
 
 func (br *BackendRequest) ToInfluxDB() (map[string]string, map[string]any) {
@@ -52,7 +53,8 @@ func (br *BackendRequest) ToInfluxDB() (map[string]string, map[string]any) {
 			"isCached": strconv.FormatBool(br.IsCached),
 		},
 		map[string]any{
-			"procTime": br.ProcTime,
+			"procTime":     br.ProcTime,
+			"indirectCall": br.IndirectCall,
 		}
 }
 

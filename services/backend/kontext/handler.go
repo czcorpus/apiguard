@@ -187,9 +187,10 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 // AnyPath is the main handler for KonText API actions.
 func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var userID, humanID common.UserID
-	var cached bool
+	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	defer func(currUserID *common.UserID, currHumanID *common.UserID) {
+
+	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect bool) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
@@ -201,8 +202,10 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		if currHumanID.IsValid() && *currHumanID != kp.analyzer.AnonymousUserID {
 			loggedUserID = currHumanID
 		}
-		kp.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), &cached, loggedUserID)
-	}(&userID, &humanID)
+		kp.globalCtx.BackendLogger.Log(
+			ServiceName, time.Since(t0), cached, loggedUserID, indirect)
+	}(&userID, &humanID, indirectAPICall)
+
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
@@ -239,6 +242,10 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 
 	} else {
 		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
+	}
+
+	if passedHeaders.Get(backend.HeaderIndirectCall) != "" {
+		indirectAPICall = true
 	}
 
 	if kp.conf.UseHeaderXApiKey {

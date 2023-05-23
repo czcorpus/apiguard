@@ -14,6 +14,15 @@ import (
 const (
 	HeaderAPIKey    = "X-Api-Key"
 	HeaderAPIUserID = "X-Api-User"
+
+	// HeaderIndirectCall indicates that the API query is not called
+	// directly by a user but rather by an application which is queried
+	// in its own way and which - based on its user query - produces
+	// an API call proxied by APIGuard.
+	// We are using this flag to distinguish direct API usage from
+	// indirect one which has its significance e.g. when reporting
+	// services usage.
+	HeaderIndirectCall = "X-Indirect-Call"
 )
 
 func MapSessionCookie(req *http.Request, externalCookie, internalCookie string) error {

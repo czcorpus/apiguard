@@ -35,7 +35,7 @@ func (b *BackendLogger) Log(
 		UserID:       int(*userID),
 		IndirectCall: indirectCall,
 	}
-	logging.LogServiceRequest(service, procTime, cached, userID)
+	logging.LogServiceRequest(service, procTime, cached, indirectCall, userID)
 }
 
 func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {

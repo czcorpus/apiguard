@@ -21,6 +21,7 @@ func LogServiceRequest(
 	userID *common.UserID,
 ) {
 	event := log.Info().
+		Bool("accessLog", true).
 		Str("type", "apiguard").
 		Str("service", service).
 		Float64("procTime", procTime.Seconds()).

@@ -12,7 +12,12 @@ import (
 )
 
 const (
-	HeaderAPIKey    = "X-Api-Key"
+	// HeaderAPIKey allows KonText to access API session ID
+	HeaderAPIKey = "X-Api-Key"
+
+	// HeaderAPIUserID allows for passing userId to a target API
+	// backend so it knows who is actually using the API even if
+	// the API itself does not have required authentication ability.
 	HeaderAPIUserID = "X-Api-User"
 
 	// HeaderIndirectCall indicates that the API query is not called

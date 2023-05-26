@@ -190,7 +190,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
-	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect bool) {
+	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
@@ -203,8 +203,8 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(
-			ServiceName, time.Since(t0), cached, loggedUserID, indirect)
-	}(&userID, &humanID, indirectAPICall)
+			ServiceName, time.Since(t0), cached, loggedUserID, *indirect)
+	}(&userID, &humanID, &indirectAPICall)
 
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")

@@ -58,7 +58,7 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	var cached, indirectAPICall bool
 	var userID, humanID common.UserID
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
-	defer func(currUserID, currHumanID *common.UserID, indirect bool) {
+	defer func(currUserID, currHumanID *common.UserID, indirect *bool) {
 		if tp.reqCounter != nil {
 			tp.reqCounter <- alarms.RequestInfo{
 				Service:     ServiceName,
@@ -71,8 +71,8 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			loggedUserID = currHumanID
 		}
 		tp.globalCtx.BackendLogger.Log(
-			ServiceName, time.Since(t0), cached, loggedUserID, indirect)
-	}(&userID, &humanID, indirectAPICall)
+			ServiceName, time.Since(t0), cached, loggedUserID, *indirect)
+	}(&userID, &humanID, &indirectAPICall)
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {
 		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
 		return

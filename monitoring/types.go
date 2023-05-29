@@ -7,6 +7,7 @@
 package monitoring
 
 import (
+	"apiguard/common"
 	"strconv"
 	"time"
 )
@@ -43,7 +44,7 @@ type BackendRequest struct {
 	Service      string
 	ProcTime     float64
 	IsCached     bool
-	UserID       int
+	UserID       common.UserID
 	IndirectCall bool
 }
 

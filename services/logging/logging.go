@@ -7,28 +7,28 @@
 package logging
 
 import (
-	"apiguard/common"
-	"time"
+	"apiguard/monitoring"
+	"net/http"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/rs/zerolog/log"
 )
 
 func LogServiceRequest(
-	service string,
-	procTime time.Duration,
-	cached bool,
-	indirect bool,
-	userID *common.UserID,
+	req *http.Request,
+	bReq *monitoring.BackendRequest,
 ) {
 	event := log.Info().
 		Bool("accessLog", true).
 		Str("type", "apiguard").
-		Str("service", service).
-		Float64("procTime", procTime.Seconds()).
-		Bool("isCached", cached).
-		Bool("isIndirect", indirect)
-	if userID != nil {
-		event.Int("userId", int(*userID))
+		Str("service", bReq.Service).
+		Float64("procTime", bReq.ProcTime).
+		Bool("isCached", bReq.IsCached).
+		Bool("isIndirect", bReq.IndirectCall).
+		Str("ipAddress", unireq.ClientIP(req).String()).
+		Str("userAgent", req.UserAgent())
+	if bReq.UserID.IsValid() {
+		event.Int("userId", int(bReq.UserID))
 	}
 	event.Send()
 }

@@ -123,8 +123,12 @@ func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
 // sends custom auth cookie, then the user identified by that cookie
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
-func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
-	if kua.db == nil {
+func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
+	req *http.Request,
+	serviceName string,
+) services.ReqProperties {
+
+	if analyzer.db == nil {
 		return services.ReqProperties{
 			ProposedStatus: http.StatusOK,
 			UserID:         common.InvalidUserID,
@@ -132,11 +136,11 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 			Error:          nil,
 		}
 	}
-	cookieValue := kua.getSessionValue(req)
+	cookieValue := analyzer.getSessionValue(req)
 	if cookieValue == "" {
 		services.LogCookies(req, log.Debug()).
-			Str("internalCookie", kua.internalSessionCookie).
-			Str("externalCookie", kua.externalSessionCookie).
+			Str("internalCookie", analyzer.internalSessionCookie).
+			Str("externalCookie", analyzer.externalSessionCookie).
 			Msgf("failed to find authentication cookies")
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
@@ -145,9 +149,9 @@ func (kua *CNCUserAnalyzer) UserInducedResponseStatus(req *http.Request, service
 			Error:          fmt.Errorf("session cookie not found"),
 		}
 	}
-	sessionID := kua.GetSessionID(req)
-	banned, userID, err := cncdb.FindBanBySession(kua.db, kua.location, sessionID, serviceName)
-	if err == sql.ErrNoRows || userID == kua.AnonymousUserID || !userID.IsValid() {
+	sessionID := analyzer.GetSessionID(req)
+	banned, userID, err := cncdb.FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
+	if err == sql.ErrNoRows || userID == analyzer.AnonymousUserID || !userID.IsValid() {
 		log.Debug().Msgf("failed to find session %s in database", sessionID)
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,

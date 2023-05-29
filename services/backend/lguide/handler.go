@@ -9,6 +9,7 @@ package lguide
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb"
+	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
@@ -113,7 +114,8 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
-		lga.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), cached, nil, false)
+		lga.globalCtx.BackendLogger.Log(
+			req, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
 	}()
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(req))

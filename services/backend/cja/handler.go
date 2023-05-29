@@ -8,6 +8,7 @@ package cja
 
 import (
 	"apiguard/botwatch"
+	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/reqcache"
 	"apiguard/services"
@@ -42,7 +43,8 @@ func (aa *CJAActions) Query(w http.ResponseWriter, req *http.Request) {
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	var cached bool
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(ServiceName, time.Since(t0), cached, nil, false)
+		aa.globalCtx.BackendLogger.Log(
+			req, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
 	}()
 
 	query := req.URL.Query().Get("q")

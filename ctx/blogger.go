@@ -10,6 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/monitoring"
 	"apiguard/services/logging"
+	"net/http"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/influx"
@@ -20,24 +21,30 @@ type BackendLogger struct {
 	timezoneLocation *time.Location
 }
 
+// Log logs a service backend (e.g. KonText, Treq, some UJC server) access
+// using application logging (zerolog) and also by sending data to a monitoring
+// module (currently InfluxDB-based).
 func (b *BackendLogger) Log(
+	req *http.Request,
 	service string,
 	procTime time.Duration,
 	cached bool,
-	userID *common.UserID,
+	userID common.UserID,
 	indirectCall bool,
 ) {
-	b.stream <- &monitoring.BackendRequest{
+	bReq := &monitoring.BackendRequest{
 		Created:      time.Now().In(b.timezoneLocation),
 		Service:      service,
 		ProcTime:     procTime.Seconds(),
 		IsCached:     cached,
-		UserID:       int(*userID),
+		UserID:       userID,
 		IndirectCall: indirectCall,
 	}
-	logging.LogServiceRequest(service, procTime, cached, indirectCall, userID)
+	b.stream <- bReq
+	logging.LogServiceRequest(req, bReq)
 }
 
+// NewBackendLogger creates a new backend access logging service
 func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {
 	blstream := make(chan *monitoring.BackendRequest)
 	go func() {

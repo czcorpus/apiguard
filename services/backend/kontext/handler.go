@@ -203,7 +203,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(
-			ServiceName, time.Since(t0), cached, loggedUserID, *indirect)
+			req, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
 	}(&userID, &humanID, &indirectAPICall)
 
 	if !strings.HasPrefix(req.URL.Path, ServicePath) {

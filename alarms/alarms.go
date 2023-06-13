@@ -372,7 +372,7 @@ func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
 				Report:    report,
 				BanID:     banID,
 			}
-			uniresp.WriteJSONResponse(w, ans)
+			uniresp.WriteJSONResponse(ctx.Writer, ans)
 			return
 		}
 	}

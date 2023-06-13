@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -110,43 +111,43 @@ func (lga *LanguageGuideActions) triggerDummyRequests(query string, data *Parsed
 	}
 }
 
-func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request) {
+func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
 		lga.globalCtx.BackendLogger.Log(
-			req, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
 	}()
 
-	lga.watchdog.Add(logging.NewLGRequestRecord(req))
+	lga.watchdog.Add(logging.NewLGRequestRecord(ctx.Request))
 
-	query := req.URL.Query().Get("q")
+	query := ctx.Request.URL.Query().Get("q")
 	if query == "" {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 
-	err := services.RestrictResponseTime(w, req, lga.readTimeoutSecs, lga.analyzer)
+	err := services.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.analyzer)
 	if err != nil {
 		return
 	}
 
 	var resp services.BackendResponse
-	direct := req.URL.Query().Get("direct")
+	direct := ctx.Request.URL.Query().Get("direct")
 	if direct == "1" {
 		resp = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(query)),
-			req,
+			ctx.Request,
 		)
 	} else {
 		resp = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetServiceURLPath, url.QueryEscape(query)),
-			req,
+			ctx.Request,
 		)
 	}
 
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 	parsed := Parse(string(resp.GetBody()))
@@ -154,11 +155,11 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		alts := parsed.Alternatives
 		resp = lga.createMainRequest(
 			fmt.Sprintf(lga.conf.BaseURL+targetDirectServiceURLPath, url.QueryEscape(alts[0].Id)),
-			req,
+			ctx.Request,
 		)
 
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		parsed = Parse(string(resp.GetBody()))
@@ -169,10 +170,10 @@ func (lga *LanguageGuideActions) Query(w http.ResponseWriter, req *http.Request)
 		log.Info().Msgf("More data available for `%s` in `items`: %v", query, parsed.items)
 	}
 	if parsed.Error != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 	}
 	lga.triggerDummyRequests(query, parsed)
-	uniresp.WriteJSONResponse(w, parsed)
+	uniresp.WriteJSONResponse(ctx.Writer, parsed)
 }
 
 func NewLanguageGuideActions(

@@ -29,6 +29,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -87,22 +88,22 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 // To be able to recognize users logged in via CNC cookie (which is the
 // one e.g. WaG does not use intentionally) we must actually make two
 // tests - 1. external cookie, 2. internal cookie
-func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
-	reqProps := kp.analyzer.UserInducedResponseStatus(req, ServiceName)
+func (kp *KontextProxy) Preflight(ctx *gin.Context) {
+	reqProps := kp.analyzer.UserInducedResponseStatus(ctx.Request, ServiceName)
 	if reqProps.Error != nil {
 		http.Error(
-			w,
+			ctx.Writer,
 			fmt.Sprintf("Failed to process preflight request: %s", reqProps.Error),
 			reqProps.ProposedStatus,
 		)
 		return
 
 	} else if reqProps.ProposedStatus >= 400 && reqProps.ProposedStatus < 500 {
-		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
-	uniresp.WriteJSONResponse(w, map[string]any{})
+	ctx.Writer.WriteHeader(http.StatusNoContent)
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{})
 }
 
 func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -120,9 +121,9 @@ func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
 // make the hidden user visible. So our proxy action will rename
 // a respective cookie and will allow a custom web application (e.g. WaG)
 // to use this special cookie.
-func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
+func (kp *KontextProxy) Login(ctx *gin.Context) {
 	postData := url.Values{}
-	postData.Set(AuthTokenEntry, req.FormValue(AuthTokenEntry))
+	postData.Set(AuthTokenEntry, ctx.Request.FormValue(AuthTokenEntry))
 	req2, err := http.NewRequest(
 		http.MethodPost,
 		CNCPortalLoginURL,
@@ -130,7 +131,7 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 	)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
 	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -145,26 +146,26 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 	resp, err := client.Do(req2)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), resp.StatusCode)
 		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
 	respMsg := make([]string, 0, 1)
 	err = json.Unmarshal(body, &respMsg)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), resp.StatusCode)
 		return
 	}
 
 	if respMsg[0] == "Invalid credentials" {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteCustomJSONErrorResponse(w, respMsg, http.StatusUnauthorized)
+		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, respMsg, http.StatusUnauthorized)
 		return
 	}
 
@@ -179,9 +180,9 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 				Str("value", cCopy.Value).
 				Msg("login action - mapping back internal cookie")
 		}
-		http.SetCookie(w, &cCopy)
+		http.SetCookie(ctx.Writer, &cCopy)
 	}
-	uniresp.WriteJSONResponse(w, respMsg)
+	uniresp.WriteJSONResponse(ctx.Writer, respMsg)
 }
 
 // AnyPath is the main handler for KonText API actions.

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -35,19 +36,19 @@ type Actions struct {
 	db *cncdb.DelayStats
 }
 
-func (a *Actions) Store(w http.ResponseWriter, req *http.Request) {
-	rawPayload, err := ioutil.ReadAll(req.Body)
+func (a *Actions) Store(ctx *gin.Context) {
+	rawPayload, err := ioutil.ReadAll(ctx.Request.Body)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
 	var payloadTmp payload
 	err = json.Unmarshal(rawPayload, &payloadTmp)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
 	}
-	ip, sessionID := logging.ExtractRequestIdentifiers(req)
+	ip, sessionID := logging.ExtractRequestIdentifiers(ctx.Request)
 	payload := telemetry.Payload{
 		Telemetry: make([]*telemetry.ActionRecord, len(payloadTmp.Telemetry)),
 	}

@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 type Actions struct {
@@ -24,12 +24,11 @@ type Actions struct {
 	cncDB    *sql.DB
 }
 
-func (a *Actions) BanInfo(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	userID, err := strconv.Atoi(vars["userID"])
+func (a *Actions) BanInfo(ctx *gin.Context) {
+	userID, err := strconv.Atoi(ctx.Param("userID"))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
@@ -38,26 +37,25 @@ func (a *Actions) BanInfo(w http.ResponseWriter, req *http.Request) {
 	ban, err := cncdb.MostRecentActiveBan(a.cncDB, a.location, userID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(w, ban)
+	uniresp.WriteJSONResponse(ctx.Writer, ban)
 }
 
-func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	userID, err := common.Str2UserID(vars["userID"])
-	days := req.URL.Query().Get("days")
-	hours := req.URL.Query().Get("hours")
+func (a *Actions) SetBan(ctx *gin.Context) {
+	userID, err := common.Str2UserID(ctx.Param("userID"))
+	days := ctx.Request.URL.Query().Get("days")
+	hours := ctx.Request.URL.Query().Get("hours")
 	var banLen time.Duration
 	if days != "" {
 		ndays, err := strconv.Atoi(days)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w,
+				ctx.Writer,
 				uniresp.NewActionErrorFrom(err),
 				http.StatusInternalServerError,
 			)
@@ -69,7 +67,7 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 		nhours, err := strconv.Atoi(hours)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w,
+				ctx.Writer,
 				uniresp.NewActionErrorFrom(err),
 				http.StatusInternalServerError,
 			)
@@ -79,7 +77,7 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 	}
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
@@ -89,28 +87,27 @@ func (a *Actions) SetBan(w http.ResponseWriter, req *http.Request) {
 	newID, err := cncdb.BanUser(a.cncDB, a.location, userID, nil, now, now.Add(banLen))
 	if err == cncdb.ErrorUserAlreadyBannned {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusUnprocessableEntity,
 		)
 
 	} else if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(w, map[string]any{"banId": newID})
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"banId": newID})
 }
 
-func (a *Actions) DisableBan(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	userID, err := strconv.Atoi(vars["userID"])
+func (a *Actions) DisableBan(ctx *gin.Context) {
+	userID, err := strconv.Atoi(ctx.Param("userID"))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
@@ -119,13 +116,13 @@ func (a *Actions) DisableBan(w http.ResponseWriter, req *http.Request) {
 	numBans, err := cncdb.UnbanUser(a.cncDB, a.location, userID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-	uniresp.WriteJSONResponse(w, map[string]any{"bansRemoved": numBans})
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"bansRemoved": numBans})
 
 }
 

@@ -257,9 +257,14 @@ func runService(
 			cache,
 		)
 
-		engine.POST("/service/kontext/login", kontextActions.Login)
 		engine.GET("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
-		engine.Any("/service/kontext/*path", kontextActions.AnyPath)
+		engine.Any("/service/kontext/*path", func(ctx *gin.Context) {
+			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+				kontextActions.Login(ctx)
+			} else {
+				kontextActions.AnyPath(ctx)
+			}
+		})
 		servicesDefaults["kontext"] = kontextActions
 		log.Info().Msg("Service Kontext enabled")
 	}

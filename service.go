@@ -259,7 +259,7 @@ func runService(
 
 		engine.POST("/service/kontext/login", kontextActions.Login)
 		engine.GET("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
-		router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
+		engine.Any("/service/kontext/*path", kontextActions.AnyPath)
 		servicesDefaults["kontext"] = kontextActions
 		log.Info().Msg("Service Kontext enabled")
 	}
@@ -289,7 +289,7 @@ func runService(
 			treqReqCounter,
 			cache,
 		)
-		router.PathPrefix("/service/treq").HandlerFunc(treqActions.AnyPath)
+		engine.Any("/service/treq/*path", treqActions.AnyPath)
 		log.Info().Msg("Service Treq enabled")
 	}
 
@@ -365,8 +365,9 @@ func runService(
 	go alarm.Run(alarmSyscallChan)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
+
 	srv := &http.Server{
-		Handler:      router,
+		Handler:      engine,
 		Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
 		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,

@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/influx"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -54,7 +55,7 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 	return err == nil
 }
 
-func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	var cached, indirectAPICall bool
 	var userID, humanID common.UserID
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
@@ -71,34 +72,34 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			loggedUserID = currHumanID
 		}
 		tp.globalCtx.BackendLogger.Log(
-			req, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
+			ctx.Request, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
 	}(&userID, &humanID, &indirectAPICall)
-	if !strings.HasPrefix(req.URL.Path, ServicePath) {
-		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
+	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {
+		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.analyzer.UserInducedResponseStatus(req, ServiceName)
+	reqProps := tp.analyzer.UserInducedResponseStatus(ctx.Request, ServiceName)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
 		http.Error(
-			w,
+			ctx.Writer,
 			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
 			reqProps.ProposedStatus,
 		)
 		return
 
 	} else if reqProps.ForbidsAccess() {
-		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	services.RestrictResponseTime(w, req, tp.readTimeoutSecs, tp.analyzer)
+	services.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.analyzer)
 
-	passedHeaders := req.Header
+	passedHeaders := ctx.Request.Header
 	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = tp.analyzer.UserInternalCookieStatus(req, ServiceName)
+		humanID, err = tp.analyzer.UserInternalCookieStatus(ctx.Request, ServiceName)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}
@@ -109,15 +110,15 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// first, remap cookie names
-	if tp.reqUsesMappedSession(req) {
+	if tp.reqUsesMappedSession(ctx.Request) {
 		err := backend.MapSessionCookie(
-			req,
+			ctx.Request,
 			tp.conf.ExternalSessionCookieName,
 			tp.cncAuthCookie,
 		)
 		if err != nil {
 			http.Error(
-				w,
+				ctx.Writer,
 				err.Error(),
 				http.StatusInternalServerError,
 			)
@@ -125,16 +126,16 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	// then update auth cookie by x-api-key (if applicable)
-	xApiKey := req.Header.Get(backend.HeaderAPIKey)
+	xApiKey := ctx.Request.Header.Get(backend.HeaderAPIKey)
 	if xApiKey != "" {
-		cookie, err := req.Cookie(tp.cncAuthCookie)
+		cookie, err := ctx.Request.Cookie(tp.cncAuthCookie)
 		if err == nil {
 			cookie.Value = xApiKey
 		}
 	}
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
-	serviceResp := tp.makeRequest(req)
+	serviceResp := tp.makeRequest(ctx.Request)
 	tp.reporting <- services.ProxyProcReport{
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
@@ -142,9 +143,9 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
-		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)
+		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 		http.Error(
-			w,
+			ctx.Writer,
 			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
 			http.StatusInternalServerError,
 		)
@@ -152,10 +153,10 @@ func (tp *TreqProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	for k, v := range serviceResp.GetHeaders() {
-		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
+		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
-	w.WriteHeader(serviceResp.GetStatusCode())
-	w.Write(serviceResp.GetBody())
+	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
+	ctx.Writer.Write(serviceResp.GetBody())
 }
 
 func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {

@@ -24,7 +24,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/mail"
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -302,21 +302,20 @@ func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Li
 	return aticker.counter
 }
 
-func (aticker *AlarmTicker) HandleReportListAction(w http.ResponseWriter, req *http.Request) {
+func (aticker *AlarmTicker) HandleReportListAction(ctx *gin.Context) {
 
-	uniresp.WriteJSONResponse(w, map[string]any{"reports": aticker.reports})
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"reports": aticker.reports})
 
 }
 
-func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	alarmID := vars["alarmID"]
+func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
+	alarmID := ctx.Param("alarmId")
 
 	var qry handleReviewPayload
-	err := json.NewDecoder(req.Body).Decode(&qry)
+	err := json.NewDecoder(ctx.Request.Body).Decode(&qry)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
 
@@ -325,7 +324,7 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 			err := report.ConfirmReviewViaEmail(alarmID, qry.Reviewer)
 			if err == ErrConfirmationKeyNotFound {
 				uniresp.WriteJSONErrorResponse(
-					w,
+					ctx.Writer,
 					uniresp.NewActionErrorFrom(err),
 					http.StatusNotFound,
 				)
@@ -333,7 +332,7 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 			}
 			if err == ErrMissingReviewerIdentification {
 				uniresp.WriteJSONErrorResponse(
-					w,
+					ctx.Writer,
 					uniresp.NewActionErrorFrom(err),
 					http.StatusBadRequest,
 				)
@@ -341,7 +340,7 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 			}
 			if err != nil {
 				uniresp.WriteJSONErrorResponse(
-					w,
+					ctx.Writer,
 					uniresp.NewActionErrorFrom(err),
 					http.StatusInternalServerError,
 				)
@@ -361,7 +360,7 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 				)
 				if err != nil {
 					uniresp.WriteJSONErrorResponse(
-						w,
+						ctx.Writer,
 						uniresp.NewActionErrorFrom(err),
 						http.StatusInternalServerError,
 					)
@@ -373,12 +372,12 @@ func (aticker *AlarmTicker) HandleReviewAction(w http.ResponseWriter, req *http.
 				Report:    report,
 				BanID:     banID,
 			}
-			uniresp.WriteJSONResponse(w, ans)
+			uniresp.WriteJSONResponse(ctx.Writer, ans)
 			return
 		}
 	}
 	uniresp.WriteJSONErrorResponse(
-		w,
+		ctx.Writer,
 		uniresp.NewActionError("confirmation key not found"),
 		http.StatusNotFound,
 	)

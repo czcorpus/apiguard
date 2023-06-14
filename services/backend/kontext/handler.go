@@ -29,6 +29,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -87,22 +88,22 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 // To be able to recognize users logged in via CNC cookie (which is the
 // one e.g. WaG does not use intentionally) we must actually make two
 // tests - 1. external cookie, 2. internal cookie
-func (kp *KontextProxy) Preflight(w http.ResponseWriter, req *http.Request) {
-	reqProps := kp.analyzer.UserInducedResponseStatus(req, ServiceName)
+func (kp *KontextProxy) Preflight(ctx *gin.Context) {
+	reqProps := kp.analyzer.UserInducedResponseStatus(ctx.Request, ServiceName)
 	if reqProps.Error != nil {
 		http.Error(
-			w,
+			ctx.Writer,
 			fmt.Sprintf("Failed to process preflight request: %s", reqProps.Error),
 			reqProps.ProposedStatus,
 		)
 		return
 
 	} else if reqProps.ProposedStatus >= 400 && reqProps.ProposedStatus < 500 {
-		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
-	uniresp.WriteJSONResponse(w, map[string]any{})
+	ctx.Writer.WriteHeader(http.StatusNoContent)
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{})
 }
 
 func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -120,9 +121,9 @@ func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
 // make the hidden user visible. So our proxy action will rename
 // a respective cookie and will allow a custom web application (e.g. WaG)
 // to use this special cookie.
-func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
+func (kp *KontextProxy) Login(ctx *gin.Context) {
 	postData := url.Values{}
-	postData.Set(AuthTokenEntry, req.FormValue(AuthTokenEntry))
+	postData.Set(AuthTokenEntry, ctx.Request.FormValue(AuthTokenEntry))
 	req2, err := http.NewRequest(
 		http.MethodPost,
 		CNCPortalLoginURL,
@@ -130,7 +131,7 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 	)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
 	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
@@ -145,26 +146,26 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 	resp, err := client.Do(req2)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), resp.StatusCode)
 		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
 		return
 	}
 	respMsg := make([]string, 0, 1)
 	err = json.Unmarshal(body, &respMsg)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), resp.StatusCode)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), resp.StatusCode)
 		return
 	}
 
 	if respMsg[0] == "Invalid credentials" {
 		log.Error().Err(err).Msgf("failed to perform login")
-		uniresp.WriteCustomJSONErrorResponse(w, respMsg, http.StatusUnauthorized)
+		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, respMsg, http.StatusUnauthorized)
 		return
 	}
 
@@ -179,13 +180,13 @@ func (kp *KontextProxy) Login(w http.ResponseWriter, req *http.Request) {
 				Str("value", cCopy.Value).
 				Msg("login action - mapping back internal cookie")
 		}
-		http.SetCookie(w, &cCopy)
+		http.SetCookie(ctx.Writer, &cCopy)
 	}
-	uniresp.WriteJSONResponse(w, respMsg)
+	uniresp.WriteJSONResponse(ctx.Writer, respMsg)
 }
 
 // AnyPath is the main handler for KonText API actions.
-func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
+func (kp *KontextProxy) AnyPath(ctx *gin.Context) {
 	var userID, humanID common.UserID
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
@@ -203,38 +204,38 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(
-			req, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
+			ctx.Request, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
 	}(&userID, &humanID, &indirectAPICall)
 
-	if !strings.HasPrefix(req.URL.Path, ServicePath) {
+	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")
-		http.Error(w, "Invalid path detected", http.StatusInternalServerError)
+		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.analyzer.UserInducedResponseStatus(req, ServiceName)
+	reqProps := kp.analyzer.UserInducedResponseStatus(ctx.Request, ServiceName)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
 		http.Error(
-			w,
+			ctx.Writer,
 			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
 			reqProps.ProposedStatus,
 		)
 		return
 
 	} else if reqProps.ForbidsAccess() {
-		http.Error(w, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	services.RestrictResponseTime(w, req, kp.readTimeoutSecs, kp.analyzer)
+	services.RestrictResponseTime(ctx.Writer, ctx.Request, kp.readTimeoutSecs, kp.analyzer)
 
-	passedHeaders := req.Header
+	passedHeaders := ctx.Request.Header
 
 	if kp.cncAuthCookie != kp.conf.ExternalSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = kp.analyzer.UserInternalCookieStatus(req, ServiceName)
+		humanID, err = kp.analyzer.UserInternalCookieStatus(ctx.Request, ServiceName)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}
@@ -249,24 +250,24 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if kp.conf.UseHeaderXApiKey {
-		if kp.reqUsesMappedSession(req) {
-			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(req, kp.conf.ExternalSessionCookieName)}
+		if kp.reqUsesMappedSession(ctx.Request) {
+			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(ctx.Request, kp.conf.ExternalSessionCookieName)}
 
 		} else {
-			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(req, kp.cncAuthCookie)}
+			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(ctx.Request, kp.cncAuthCookie)}
 		}
 
-	} else if kp.reqUsesMappedSession(req) {
+	} else if kp.reqUsesMappedSession(ctx.Request) {
 
 		err := backend.MapSessionCookie(
-			req,
+			ctx.Request,
 			kp.conf.ExternalSessionCookieName,
 			kp.cncAuthCookie,
 		)
 		if err != nil {
 			log.Error().Err(reqProps.Error).Msgf("failed to proxy request - cookie mapping")
 			http.Error(
-				w,
+				ctx.Writer,
 				err.Error(),
 				http.StatusInternalServerError,
 			)
@@ -275,7 +276,7 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	serviceResp := kp.makeRequest(req, reqProps)
+	serviceResp := kp.makeRequest(ctx.Request, reqProps)
 	kp.reporting <- services.ProxyProcReport{
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
@@ -283,9 +284,9 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
-		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", req.URL.Path)
+		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 		http.Error(
-			w,
+			ctx.Writer,
 			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
 			http.StatusInternalServerError,
 		)
@@ -293,10 +294,10 @@ func (kp *KontextProxy) AnyPath(w http.ResponseWriter, req *http.Request) {
 	}
 
 	for k, v := range serviceResp.GetHeaders() {
-		w.Header().Add(k, v[0]) // TODO duplicated headers for content-type
+		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
-	w.WriteHeader(serviceResp.GetStatusCode())
-	w.Write([]byte(serviceResp.GetBody()))
+	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
+	ctx.Writer.Write([]byte(serviceResp.GetBody()))
 }
 
 func (kp *KontextProxy) makeRequest(

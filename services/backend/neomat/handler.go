@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -37,50 +38,50 @@ type Response struct {
 	Entries []string `json:"entries"`
 }
 
-func (aa *NeomatActions) Query(w http.ResponseWriter, req *http.Request) {
+func (aa *NeomatActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
 		aa.globalCtx.BackendLogger.Log(
-			req, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
 	}()
 
-	query := req.URL.Query().Get("q")
+	query := ctx.Request.URL.Query().Get("q")
 	if query == "" {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("empty query"), 422)
 		return
 	}
-	maxItems := req.URL.Query().Get("maxItems")
+	maxItems := ctx.Request.URL.Query().Get("maxItems")
 	if maxItems == "" {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty maxItems"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("empty maxItems"), 422)
 		return
 	}
 	maxItemsCount, err := strconv.Atoi(maxItems)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
-	err = services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
+	err = services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
 	resp := aa.createMainRequest(
 		fmt.Sprintf("%s/index.php?retezec=%s&prijimam=1", aa.conf.BaseURL, url.QueryEscape(query)),
-		req,
+		ctx.Request,
 	)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
 	entries, err := parseData(string(resp.GetBody()), maxItemsCount)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
-	uniresp.WriteJSONResponse(w, Response{Entries: entries})
+	uniresp.WriteJSONResponse(ctx.Writer, Response{Entries: entries})
 }
 
 func (aa *NeomatActions) createMainRequest(url string, req *http.Request) services.BackendResponse {

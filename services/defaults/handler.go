@@ -11,7 +11,7 @@ import (
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 )
 
 var (
@@ -36,45 +36,42 @@ func (a *Actions) findService(name string) (DefaultsProvider, error) {
 	return s, nil
 }
 
-func (a *Actions) Set(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	service, err := a.findService(vars["serviceID"])
+func (a *Actions) Set(ctx *gin.Context) {
+	service, err := a.findService(ctx.Param("serviceID"))
 	if err == errNoSuchService {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
 		return
 	}
-	service.SetDefault(req, vars["key"], req.URL.Query().Get("value"))
-	uniresp.WriteJSONResponse(w, map[string]bool{"ok": true})
+	service.SetDefault(ctx.Request, ctx.Param("key"), ctx.Request.URL.Query().Get("value"))
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]bool{"ok": true})
 }
 
-func (a *Actions) Get(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	service, err := a.findService(vars["serviceID"])
+func (a *Actions) Get(ctx *gin.Context) {
+	service, err := a.findService(ctx.Param("serviceID"))
 	if err == errNoSuchService {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
 		return
 	}
-	val, err := service.GetDefault(req, vars["key"])
+	val, err := service.GetDefault(ctx.Request, ctx.Param("key"))
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
 		return
 	}
-	uniresp.WriteJSONResponse(w, map[string]string{vars["key"]: val})
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]string{ctx.Param("key"): val})
 }
 
-func (a *Actions) GetAll(w http.ResponseWriter, req *http.Request) {
-	vars := mux.Vars(req)
-	service, err := a.findService(vars["serviceID"])
+func (a *Actions) GetAll(ctx *gin.Context) {
+	service, err := a.findService(ctx.Param("serviceID"))
 	if err == errNoSuchService {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
 		return
 	}
-	val, err := service.GetDefault(req, vars["key"])
+	val, err := service.GetDefault(ctx.Request, ctx.Param("key"))
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusNotFound)
 		return
 	}
-	uniresp.WriteJSONResponse(w, map[string]string{vars["key"]: val})
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]string{ctx.Param("key"): val})
 }
 
 func NewActions(defaultsProviders map[string]DefaultsProvider) *Actions {

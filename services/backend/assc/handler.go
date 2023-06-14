@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 /*
@@ -41,25 +42,25 @@ type ASSCActions struct {
 	analyzer        *botwatch.Analyzer
 }
 
-func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
+func (aa *ASSCActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
 		aa.globalCtx.BackendLogger.Log(
-			req, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
 	}()
 
-	queries, ok := req.URL.Query()["q"]
+	queries, ok := ctx.Request.URL.Query()["q"]
 	if !ok {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("too many queries"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("too many queries"), 422)
 		return
 	}
 
-	err := services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
+	err := services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -68,16 +69,16 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 	for _, query := range queries {
 		response := aa.createMainRequest(
 			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)),
-			req,
+			ctx.Request,
 		)
 		cached = cached || response.IsCached()
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		data, err = parseData(string(response.GetBody()))
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		// check if result is not empty and contains query key
@@ -86,7 +87,7 @@ func (aa *ASSCActions) Query(w http.ResponseWriter, req *http.Request) {
 			break
 		}
 	}
-	uniresp.WriteJSONResponse(w, data)
+	uniresp.WriteJSONResponse(ctx.Writer, data)
 }
 
 func (aa *ASSCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {

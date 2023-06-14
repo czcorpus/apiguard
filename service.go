@@ -37,8 +37,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/gorilla/mux"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -58,10 +59,12 @@ func runService(
 	signal.Notify(syscallChan, syscall.SIGHUP)
 	exitEvent := make(chan os.Signal)
 
-	router := mux.NewRouter()
-	router.Use(coreMiddleware)
-	router.MethodNotAllowedHandler = uniresp.NotAllowedHandler{}
-	router.NotFoundHandler = uniresp.NotFoundHandler{}
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	engine.Use(logging.GinMiddleware())
+	engine.Use(uniresp.AlwaysJSONContentType())
+	engine.NoMethod(uniresp.NoMethodHandler)
+	engine.NoRoute(uniresp.NotFoundHandler)
 
 	// alarm
 	alarm := alarms.NewAlarmTicker(
@@ -85,20 +88,11 @@ func runService(
 		}
 	}
 
-	router.HandleFunc(
-		"/alarm/{alarmID}/confirmation", alarm.HandleReviewAction).Methods(http.MethodPost)
-
-	router.HandleFunc(
-		"/alarm-confirmation", alarm.HandleConfirmationPage).Methods(http.MethodGet)
-
-	router.HandleFunc(
-		"/alarm", alarm.HandleReportListAction).Methods(http.MethodGet)
-
-	router.HandleFunc(
-		"/alarms/list", alarm.HandleListAction).Methods(http.MethodGet)
-
-	router.HandleFunc(
-		"/alarms/clean", alarm.HandleCleanAction).Methods(http.MethodPost)
+	engine.POST("/alarm/:alarmID/confirmation", alarm.HandleReviewAction)
+	engine.GET("/alarm-confirmation", alarm.HandleConfirmationPage)
+	engine.GET("/alarm", alarm.HandleReportListAction)
+	engine.GET("/alarms/list", alarm.HandleListAction)
+	engine.POST("/alarms/clean", alarm.HandleCleanAction)
 
 	// telemetry analyzer
 	delayStats := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
@@ -144,7 +138,7 @@ func runService(
 			telemetryAnalyzer,
 			cache,
 		)
-		router.HandleFunc("/service/language-guide", langGuideActions.Query)
+		engine.GET("/service/language-guide", langGuideActions.Query)
 	}
 
 	// "Akademický slovník současné češtiny"
@@ -157,7 +151,7 @@ func runService(
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		router.HandleFunc("/service/assc", asscActions.Query)
+		engine.GET("/service/assc", asscActions.Query)
 		log.Info().Msg("Service ASSC enabled")
 	}
 
@@ -171,7 +165,7 @@ func runService(
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		router.HandleFunc("/service/ssjc", ssjcActions.Query)
+		engine.GET("/service/ssjc", ssjcActions.Query)
 		log.Info().Msg("Service SSJC enabled")
 	}
 
@@ -185,7 +179,7 @@ func runService(
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		router.HandleFunc("/service/psjc", psjcActions.Query)
+		engine.GET("/service/psjc", psjcActions.Query)
 		log.Info().Msg("Service PSJC enabled")
 	}
 
@@ -199,7 +193,7 @@ func runService(
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		router.HandleFunc("/service/kla", klaActions.Query)
+		engine.GET("/service/kla", klaActions.Query)
 		log.Info().Msg("Service KLA enabled")
 	}
 
@@ -213,7 +207,7 @@ func runService(
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		router.HandleFunc("/service/neomat", neomatActions.Query)
+		engine.GET("/service/neomat", neomatActions.Query)
 		log.Info().Msg("Service Neomat enabled")
 	}
 
@@ -227,7 +221,7 @@ func runService(
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		router.HandleFunc("/service/cja", cjaActions.Query)
+		engine.GET("/service/cja", cjaActions.Query)
 		log.Info().Msg("Service CJA enabled")
 	}
 
@@ -263,9 +257,14 @@ func runService(
 			cache,
 		)
 
-		router.HandleFunc("/service/kontext/login", kontextActions.Login).Methods(http.MethodPost)
-		router.HandleFunc("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
-		router.PathPrefix("/service/kontext").HandlerFunc(kontextActions.AnyPath)
+		engine.GET("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
+		engine.Any("/service/kontext/*path", func(ctx *gin.Context) {
+			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+				kontextActions.Login(ctx)
+			} else {
+				kontextActions.AnyPath(ctx)
+			}
+		})
 		servicesDefaults["kontext"] = kontextActions
 		log.Info().Msg("Service Kontext enabled")
 	}
@@ -295,7 +294,7 @@ func runService(
 			treqReqCounter,
 			cache,
 		)
-		router.PathPrefix("/service/treq").HandlerFunc(treqActions.AnyPath)
+		engine.Any("/service/treq/*path", treqActions.AnyPath)
 		log.Info().Msg("Service Treq enabled")
 	}
 
@@ -303,44 +302,44 @@ func runService(
 
 	usersActions := users.NewActions(&users.Conf{}, globalCtx.CNCDB, conf.TimezoneLocation())
 
-	router.HandleFunc("/user/{userID}/ban", usersActions.BanInfo).Methods(http.MethodGet)
+	engine.GET("/user/:userID/ban", usersActions.BanInfo)
 
-	router.HandleFunc("/user/{userID}/ban", usersActions.SetBan).Methods(http.MethodPut)
+	engine.PUT("/user/:userID/ban", usersActions.SetBan)
 
-	router.HandleFunc("/user/{userID}/ban", usersActions.DisableBan).Methods(http.MethodDelete)
+	engine.DELETE("/user/:userID/ban", usersActions.DisableBan)
 
 	// session tools
 
-	router.HandleFunc("/defaults/{serviceID}/{key}", sessActions.Get).Methods(http.MethodGet)
+	engine.GET("/defaults/:serviceID/:key", sessActions.Get)
 
-	router.HandleFunc("/defaults/{serviceID}/{key}", sessActions.Set).Methods(http.MethodPost)
+	engine.POST("/defaults/:serviceID/:key", sessActions.Set)
 
 	// administration/monitoring actions
 
 	telemetryActions := tstorage.NewActions(delayStats)
-	router.HandleFunc("/telemetry", telemetryActions.Store).Methods(http.MethodPost)
+	engine.POST("/telemetry", telemetryActions.Store)
 
 	requestsActions := requests.NewActions(delayStats)
-	router.HandleFunc("/requests", requestsActions.List)
+	engine.GET("/requests", requestsActions.List)
 
-	router.HandleFunc("/delayLogsAnalysis", func(w http.ResponseWriter, req *http.Request) {
+	engine.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
 		binWidth, otherLimit := 0.1, 5.0
 		var err error
 
-		queryValue := req.URL.Query().Get("binwidth")
+		queryValue := ctx.Request.URL.Query().Get("binwidth")
 		if queryValue != "" {
 			binWidth, err = strconv.ParseFloat(queryValue, 64)
 			if err != nil {
-				uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
 				return
 			}
 		}
 
-		queryValue = req.URL.Query().Get("otherlimit")
+		queryValue = ctx.Request.URL.Query().Get("otherlimit")
 		if queryValue != "" {
 			otherLimit, err = strconv.ParseFloat(queryValue, 64)
 			if err != nil {
-				uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
 				return
 			}
 		}
@@ -348,9 +347,9 @@ func runService(
 		ans, err := delayStats.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
-				w, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
 		} else {
-			uniresp.WriteJSONResponse(w, ans)
+			uniresp.WriteJSONResponse(ctx.Writer, ans)
 		}
 	})
 
@@ -371,8 +370,9 @@ func runService(
 	go alarm.Run(alarmSyscallChan)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
+
 	srv := &http.Server{
-		Handler:      router,
+		Handler:      engine,
 		Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),
 		WriteTimeout: time.Duration(conf.ServerWriteTimeoutSecs) * time.Second,
 		ReadTimeout:  time.Duration(conf.ServerReadTimeoutSecs) * time.Second,

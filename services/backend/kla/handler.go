@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -38,35 +39,35 @@ type Response struct {
 	Query  string   `json:"query"`
 }
 
-func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
+func (aa *KLAActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
 		aa.globalCtx.BackendLogger.Log(
-			req, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
 	}()
 
-	queries, ok := req.URL.Query()["q"]
+	queries, ok := ctx.Request.URL.Query()["q"]
 	if !ok {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty query"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("empty query"), 422)
 		return
 	}
 	if len(queries) != 1 && len(queries) > aa.conf.MaxQueries {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("too many queries"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("too many queries"), 422)
 		return
 	}
-	maxImages := req.URL.Query().Get("maxImages")
+	maxImages := ctx.Request.URL.Query().Get("maxImages")
 	if maxImages == "" {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError("empty maxImages"), 422)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError("empty maxImages"), 422)
 		return
 	}
 	maxImageCount, err := strconv.Atoi(maxImages)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
 
-	err = services.RestrictResponseTime(w, req, aa.readTimeoutSecs, aa.analyzer)
+	err = services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -76,17 +77,17 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 	for _, query = range queries {
 		resp := aa.createMainRequest(
 			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_cards=cards&pocet_karet=100&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
-			req,
+			ctx.Request,
 		)
 		cached = cached || resp.IsCached()
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 
 		images, err = parseData(string(resp.GetBody()), maxImageCount, aa.conf.BaseURL)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(w, uniresp.NewActionError(err.Error()), 500)
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
 		if len(images) > 0 {
@@ -94,7 +95,7 @@ func (aa *KLAActions) Query(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	uniresp.WriteJSONResponse(w, Response{
+	uniresp.WriteJSONResponse(ctx.Writer, Response{
 		Images: images,
 		Query:  query,
 	})

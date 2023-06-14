@@ -14,6 +14,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 )
 
 type cleanActionResponse struct {
@@ -21,7 +22,7 @@ type cleanActionResponse struct {
 	NumRemaining int `json:"numRemaining"`
 }
 
-func (aticker *AlarmTicker) HandleListAction(w http.ResponseWriter, req *http.Request) {
+func (aticker *AlarmTicker) HandleListAction(ctx *gin.Context) {
 
 	recordsCopy := make([]AlarmReport, len(aticker.reports))
 	for i, report := range aticker.reports {
@@ -30,18 +31,18 @@ func (aticker *AlarmTicker) HandleListAction(w http.ResponseWriter, req *http.Re
 	sort.Slice(recordsCopy, func(i, j int) bool {
 		return recordsCopy[i].Created.Before(recordsCopy[j].Created)
 	})
-	uniresp.WriteJSONResponse(w, recordsCopy)
+	uniresp.WriteJSONResponse(ctx.Writer, recordsCopy)
 }
 
-func (aticker *AlarmTicker) HandleCleanAction(w http.ResponseWriter, req *http.Request) {
-	err := unireq.CheckSuperfluousURLArgs(req, []string{"maxAge", "alsoNonReviewed"})
+func (aticker *AlarmTicker) HandleCleanAction(ctx *gin.Context) {
+	err := unireq.CheckSuperfluousURLArgs(ctx.Request, []string{"maxAge", "alsoNonReviewed"})
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(w, uniresp.NewActionErrorFrom(err), http.StatusBadRequest)
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusBadRequest)
 	}
-	maxAge, err := datetime.ParseDuration(req.URL.Query().Get("maxAge"))
+	maxAge, err := datetime.ParseDuration(ctx.Request.URL.Query().Get("maxAge"))
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
 			http.StatusUnprocessableEntity,
 		)
@@ -49,14 +50,14 @@ func (aticker *AlarmTicker) HandleCleanAction(w http.ResponseWriter, req *http.R
 	}
 	if maxAge == 0 {
 		uniresp.WriteJSONErrorResponse(
-			w,
+			ctx.Writer,
 			uniresp.NewActionError("maxAge argument must be greater than zero"),
 			http.StatusBadRequest,
 		)
 	}
 
 	var includeNonReviewed bool
-	if req.URL.Query().Get("alsoNonReviewed") == "1" {
+	if ctx.Request.URL.Query().Get("alsoNonReviewed") == "1" {
 		includeNonReviewed = true
 	}
 
@@ -74,5 +75,5 @@ func (aticker *AlarmTicker) HandleCleanAction(w http.ResponseWriter, req *http.R
 	resp.NumDeleted = len(aticker.reports) - len(remainReports)
 	resp.NumRemaining = len(remainReports)
 	aticker.reports = remainReports
-	uniresp.WriteJSONResponse(w, resp)
+	uniresp.WriteJSONResponse(ctx.Writer, resp)
 }

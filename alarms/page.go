@@ -10,10 +10,10 @@ import (
 	"apiguard/cncdb"
 	"fmt"
 	"html/template"
-	"net/http"
 	"path"
 	"runtime"
 
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -36,15 +36,15 @@ type reportPageData struct {
 	Ban             *cncdb.UserBan
 }
 
-func (aticker *AlarmTicker) HandleConfirmationPage(w http.ResponseWriter, req *http.Request) {
-	w.Header().Add("Content-Type", "text/html")
+func (aticker *AlarmTicker) HandleConfirmationPage(ctx *gin.Context) {
+	ctx.Writer.Header().Add("Content-Type", "text/html")
 	tpl, err := loadTemplateFile("report.html")
 	if err != nil {
 		log.Error().Err(err).Send() // TODO
 	}
 	var data reportPageData
-	alarmID := req.URL.Query().Get("id")
-	data.ReviewerMail = req.URL.Query().Get("reviewer")
+	alarmID := ctx.Request.URL.Query().Get("id")
+	data.ReviewerMail = ctx.Request.URL.Query().Get("reviewer")
 	var srchReport *AlarmReport
 	for _, report := range aticker.reports {
 		if report.ReviewCode == alarmID {
@@ -67,7 +67,7 @@ func (aticker *AlarmTicker) HandleConfirmationPage(w http.ResponseWriter, req *h
 		data.Ban = ban
 		data.Report = srchReport
 	}
-	err = tpl.ExecuteTemplate(w, "report.html", data)
+	err = tpl.ExecuteTemplate(ctx.Writer, "report.html", data)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to render HTML template")
 	}

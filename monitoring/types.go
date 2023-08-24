@@ -12,6 +12,21 @@ import (
 	"time"
 )
 
+const BackendActionTypeQuery = "query"
+const BackendActionTypeLogin = "login"
+const BackendActionTypePreflight = "preflight"
+
+// -----
+
+// BackendActionType represents the most general request type distinction
+// independent of a concrete service. Currently we need this mostly
+// to monitor actions related to our central authentication, i.e. how
+// APIGuard handles unauthenticated users and tries to authenticate them
+// (if applicable)
+type BackendActionType string
+
+// -----
+
 type TelemetryEntropy struct {
 	Created                       time.Time
 	SessionID                     string
@@ -39,6 +54,8 @@ func (te *TelemetryEntropy) GetTime() time.Time {
 	return te.Created
 }
 
+// ----
+
 type BackendRequest struct {
 	Created      time.Time
 	Service      string
@@ -46,12 +63,14 @@ type BackendRequest struct {
 	IsCached     bool
 	UserID       common.UserID
 	IndirectCall bool
+	ActionType   BackendActionType
 }
 
 func (br *BackendRequest) ToInfluxDB() (map[string]string, map[string]any) {
 	return map[string]string{
-			"service":  br.Service,
-			"isCached": strconv.FormatBool(br.IsCached),
+			"service":    br.Service,
+			"isCached":   strconv.FormatBool(br.IsCached),
+			"actionType": string(br.ActionType),
 		},
 		map[string]any{
 			"procTime":     br.ProcTime,

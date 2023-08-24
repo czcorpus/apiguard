@@ -10,6 +10,7 @@ import (
 	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"fmt"
@@ -45,7 +46,14 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 	var cached bool
 	defer func() {
 		aa.globalCtx.BackendLogger.Log(
-			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			cached,
+			common.InvalidUserID,
+			false,
+			monitoring.BackendActionTypeQuery,
+		)
 	}()
 
 	query := ctx.Request.URL.Query().Get("q")

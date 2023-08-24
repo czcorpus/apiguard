@@ -10,6 +10,7 @@ import (
 	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"fmt"
@@ -44,7 +45,14 @@ func (aa *KLAActions) Query(ctx *gin.Context) {
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
 		aa.globalCtx.BackendLogger.Log(
-			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			cached,
+			common.InvalidUserID,
+			false,
+			monitoring.BackendActionTypeQuery,
+		)
 	}()
 
 	queries, ok := ctx.Request.URL.Query()["q"]

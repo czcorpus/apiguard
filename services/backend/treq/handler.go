@@ -15,7 +15,6 @@ import (
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
-	"database/sql"
 	"fmt"
 	"net/http"
 	"strings"
@@ -36,9 +35,7 @@ type TreqProxy struct {
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
-	cache           services.Cache
 	analyzer        *analyzer.CNCUserAnalyzer
-	cncDB           *sql.DB
 	apiProxy        services.APIProxy
 	reporting       chan<- services.ProxyProcReport
 
@@ -169,7 +166,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 	cacheApplCookies := []string{tp.conf.ExternalSessionCookieName, tp.cncAuthCookie}
-	resp, err := tp.cache.Get(req, cacheApplCookies)
+	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
 		urlArgs := req.URL.Query()
@@ -180,7 +177,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 			req.Header,
 			req.Body,
 		)
-		err := tp.cache.Set(req, resp, cacheApplCookies)
+		err := tp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
 			return &services.ProxiedResponse{Err: err}
 		}
@@ -198,9 +195,7 @@ func NewTreqProxy(
 	cncAuthCookie string,
 	analyzer *analyzer.CNCUserAnalyzer,
 	readTimeoutSecs int,
-	cncDB *sql.DB,
 	reqCounter chan<- alarms.RequestInfo,
-	cache services.Cache,
 ) *TreqProxy {
 	reporting := make(chan services.ProxyProcReport)
 	go func() {
@@ -212,10 +207,8 @@ func NewTreqProxy(
 		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
-		cncDB:           cncDB,
-		apiProxy:        *services.NewAPIProxy(conf.GetProxyConf()),
+		apiProxy:        *services.NewAPIProxy(conf.GetCoreConf()),
 		reqCounter:      reqCounter,
-		cache:           cache,
 		reporting:       reporting,
 	}
 }

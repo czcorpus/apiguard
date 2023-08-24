@@ -43,7 +43,6 @@ type LanguageGuideActions struct {
 	readTimeoutSecs int
 	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
 	analyzer        *botwatch.Analyzer
-	cache           services.Cache
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -69,10 +68,10 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 }
 
 func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
-	resp, err := lga.cache.Get(req, nil)
+	resp, err := lga.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
 		resp := services.GetRequest(url, lga.conf.ClientUserAgent)
-		err = lga.cache.Set(req, resp, nil)
+		err = lga.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
 			return &services.SimpleResponse{Err: err}
 		}
@@ -192,7 +191,6 @@ func NewLanguageGuideActions(
 	readTimeoutSecs int,
 	db *cncdb.DelayStats,
 	analyzer *botwatch.Analyzer,
-	cache services.Cache,
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botwatchConf, telemetryConf, db)
 	return &LanguageGuideActions{
@@ -201,6 +199,5 @@ func NewLanguageGuideActions(
 		readTimeoutSecs: readTimeoutSecs,
 		watchdog:        wdog,
 		analyzer:        analyzer,
-		cache:           cache,
 	}
 }

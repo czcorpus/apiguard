@@ -24,6 +24,7 @@ import (
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/ctx"
+	"apiguard/reqcache"
 	"apiguard/services"
 
 	"github.com/czcorpus/cnc-gokit/influx"
@@ -131,11 +132,27 @@ func preExit(alarm *alarms.AlarmTicker) {
 
 func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
 	influxDB := openInfluxDB(&conf.Monitoring)
+
+	var cache services.Cache
+	if conf.Cache.FileRootPath != "" {
+		cache = reqcache.NewFileReqCache(&conf.Cache)
+		log.Info().Msgf("using file request cache (path: %s)", conf.Cache.FileRootPath)
+
+	} else if conf.Cache.RedisAddr != "" {
+		cache = reqcache.NewRedisReqCache(&conf.Cache)
+		log.Info().Msgf("using redis request cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
+
+	} else {
+		cache = reqcache.NewNullCache()
+		log.Info().Msg("using NULL cache (path not specified)")
+	}
+
 	return ctx.GlobalContext{
 		TimezoneLocation: conf.TimezoneLocation(),
 		InfluxDB:         influxDB,
 		BackendLogger:    ctx.NewBackendLogger(influxDB, conf.TimezoneLocation()),
 		CNCDB:            openCNCDatabase(&conf.CNCDB),
+		Cache:            cache,
 	}
 }
 

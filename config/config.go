@@ -16,6 +16,7 @@ import (
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
 	"apiguard/services/backend/lguide"
+	"apiguard/services/backend/mquery"
 	"apiguard/services/backend/neomat"
 	"apiguard/services/backend/psjc"
 	"apiguard/services/backend/ssjc"
@@ -24,7 +25,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
@@ -53,6 +54,7 @@ type servicesSection struct {
 	Neomat        neomat.Conf  `json:"neomat"`
 	CJA           cja.Conf     `json:"cja"`
 	Kontext       kontext.Conf `json:"kontext"`
+	MQuery        mquery.Conf  `json:"mquery"`
 	Treq          treq.Conf    `json:"treq"`
 }
 
@@ -154,7 +156,7 @@ func LoadConfig(path string) *Configuration {
 	if path == "" {
 		log.Fatal().Msg("Cannot load config - path not specified")
 	}
-	rawData, err := ioutil.ReadFile(path)
+	rawData, err := os.ReadFile(path)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Cannot load config")
 	}

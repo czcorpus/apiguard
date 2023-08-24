@@ -11,6 +11,7 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -72,7 +73,14 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			loggedUserID = currHumanID
 		}
 		tp.globalCtx.BackendLogger.Log(
-			ctx.Request, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			cached,
+			*loggedUserID,
+			*indirect,
+			monitoring.BackendActionTypeQuery,
+		)
 	}(&userID, &humanID, &indirectAPICall)
 	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)

@@ -11,6 +11,7 @@ import (
 	"apiguard/cncdb"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/logging"
@@ -116,7 +117,14 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
 		lga.globalCtx.BackendLogger.Log(
-			ctx.Request, ServiceName, time.Since(t0), cached, common.InvalidUserID, false)
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			cached,
+			common.InvalidUserID,
+			false,
+			monitoring.BackendActionTypeQuery,
+		)
 	}()
 
 	lga.watchdog.Add(logging.NewLGRequestRecord(ctx.Request))

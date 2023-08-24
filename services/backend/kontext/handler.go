@@ -8,9 +8,11 @@ package kontext
 
 import (
 	"apiguard/alarms"
+	"apiguard/cncdb"
 	"apiguard/cncdb/analyzer"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -89,7 +91,23 @@ func (kp *KontextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 // one e.g. WaG does not use intentionally) we must actually make two
 // tests - 1. external cookie, 2. internal cookie
 func (kp *KontextProxy) Preflight(ctx *gin.Context) {
+	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
+	userId := common.InvalidUserID
+
+	defer func(currUserID *common.UserID) {
+		kp.globalCtx.BackendLogger.Log(
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			false,
+			*currUserID,
+			true,
+			monitoring.BackendActionTypePreflight,
+		)
+	}(&userId)
+
 	reqProps := kp.analyzer.UserInducedResponseStatus(ctx.Request, ServiceName)
+	userId = reqProps.UserID
 	if reqProps.Error != nil {
 		http.Error(
 			ctx.Writer,
@@ -122,6 +140,21 @@ func (kp *KontextProxy) reqUsesMappedSession(req *http.Request) bool {
 // a respective cookie and will allow a custom web application (e.g. WaG)
 // to use this special cookie.
 func (kp *KontextProxy) Login(ctx *gin.Context) {
+	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
+	userId := common.InvalidUserID
+
+	defer func(currUserID *common.UserID) {
+		kp.globalCtx.BackendLogger.Log(
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			false,
+			*currUserID,
+			true,
+			monitoring.BackendActionTypeLogin,
+		)
+	}(&userId)
+
 	postData := url.Values{}
 	postData.Set(AuthTokenEntry, ctx.Request.FormValue(AuthTokenEntry))
 	req2, err := http.NewRequest(
@@ -173,6 +206,11 @@ func (kp *KontextProxy) Login(ctx *gin.Context) {
 	for _, cookie := range cookies {
 		cCopy := *cookie
 		if cCopy.Name == kp.cncAuthCookie && kp.conf.ExternalSessionCookieName != "" {
+			var err error
+			userId, err = cncdb.FindUserBySession(kp.cncDB, cCopy.Value)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
+			}
 			cCopy.Name = kp.conf.ExternalSessionCookieName
 			log.Debug().
 				Str("internalCookie", kp.cncAuthCookie).
@@ -204,7 +242,14 @@ func (kp *KontextProxy) AnyPath(ctx *gin.Context) {
 			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(
-			ctx.Request, ServiceName, time.Since(t0), cached, *loggedUserID, *indirect)
+			ctx.Request,
+			ServiceName,
+			time.Since(t0),
+			cached,
+			*loggedUserID,
+			*indirect,
+			monitoring.BackendActionTypeQuery,
+		)
 	}(&userID, &humanID, &indirectAPICall)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {

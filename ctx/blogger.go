@@ -31,6 +31,7 @@ func (b *BackendLogger) Log(
 	cached bool,
 	userID common.UserID,
 	indirectCall bool,
+	actionType monitoring.BackendActionType,
 ) {
 	bReq := &monitoring.BackendRequest{
 		Created:      time.Now().In(b.timezoneLocation),
@@ -39,6 +40,7 @@ func (b *BackendLogger) Log(
 		IsCached:     cached,
 		UserID:       userID,
 		IndirectCall: indirectCall,
+		ActionType:   actionType,
 	}
 	b.stream <- bReq
 	logging.LogServiceRequest(req, bReq)

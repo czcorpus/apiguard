@@ -13,17 +13,17 @@ import (
 	"apiguard/cncdb/analyzer"
 	"apiguard/config"
 	"apiguard/ctx"
-	"apiguard/reqcache"
-	"apiguard/services"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
 	"apiguard/services/backend/lguide"
+	"apiguard/services/backend/mquery"
 	"apiguard/services/backend/neomat"
 	"apiguard/services/backend/psjc"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
+	"apiguard/services/cnc"
 	"apiguard/services/defaults"
 	"apiguard/services/requests"
 	"apiguard/services/tstorage"
@@ -43,9 +43,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func notFoundHandler() {
-
-}
+const (
+	cncPortalLoginURL = "https://www.korpus.cz/login"
+	authTokenEntry    = "personal_access_token"
+)
 
 func runService(
 	globalCtx *ctx.GlobalContext,
@@ -109,20 +110,6 @@ func runService(
 
 	// ----------------------
 
-	var cache services.Cache
-	if conf.Cache.FileRootPath != "" {
-		cache = reqcache.NewFileReqCache(&conf.Cache)
-		log.Info().Msgf("using file request cache (path: %s)", conf.Cache.FileRootPath)
-
-	} else if conf.Cache.RedisAddr != "" {
-		cache = reqcache.NewRedisReqCache(&conf.Cache)
-		log.Info().Msgf("using redis request cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
-
-	} else {
-		cache = reqcache.NewNullCache()
-		log.Info().Msg("using NULL cache (path not specified)")
-	}
-
 	// --------------------
 
 	// "Jazyková příručka ÚJČ"
@@ -136,7 +123,6 @@ func runService(
 			conf.ServerReadTimeoutSecs,
 			delayStats,
 			telemetryAnalyzer,
-			cache,
 		)
 		engine.GET("/service/language-guide", langGuideActions.Query)
 	}
@@ -147,7 +133,6 @@ func runService(
 		asscActions := assc.NewASSCActions(
 			globalCtx,
 			&conf.Services.ASSC,
-			cache,
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -161,7 +146,6 @@ func runService(
 		ssjcActions := ssjc.NewSSJCActions(
 			globalCtx,
 			&conf.Services.SSJC,
-			cache,
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -175,7 +159,6 @@ func runService(
 		psjcActions := psjc.NewPSJCActions(
 			globalCtx,
 			&conf.Services.PSJC,
-			cache,
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -189,7 +172,6 @@ func runService(
 		klaActions := kla.NewKLAActions(
 			globalCtx,
 			&conf.Services.KLA,
-			cache,
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -203,7 +185,6 @@ func runService(
 		neomatActions := neomat.NewNeomatActions(
 			globalCtx,
 			&conf.Services.Neomat,
-			cache,
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -217,7 +198,6 @@ func runService(
 		cjaActions := cja.NewCJAActions(
 			globalCtx,
 			&conf.Services.CJA,
-			cache,
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -244,17 +224,22 @@ func runService(
 
 		var kontextReqCounter chan<- alarms.RequestInfo
 		if len(conf.Services.Kontext.Limits) > 0 {
-			kontextReqCounter = alarm.Register(kontext.ServiceName, conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
+			kontextReqCounter = alarm.Register(
+				"kontext", conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
 		}
 		kontextActions := kontext.NewKontextProxy(
 			globalCtx,
 			&conf.Services.Kontext,
-			conf.CNCAuth.SessionCookieName,
+			&cnc.EnvironConf{
+				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
+				AuthTokenEntry:    authTokenEntry,
+				ServicePath:       "/service/kontext",
+				ServiceName:       "kontext",
+				CNCPortalLoginURL: cncPortalLoginURL,
+				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
+			},
 			cnca,
-			conf.ServerReadTimeoutSecs,
-			globalCtx.CNCDB,
 			kontextReqCounter,
-			cache,
 		)
 
 		engine.GET("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
@@ -267,6 +252,49 @@ func runService(
 		})
 		servicesDefaults["kontext"] = kontextActions
 		log.Info().Msg("Service Kontext enabled")
+	}
+
+	// MQuery proxy
+
+	if conf.Services.MQuery.ExternalURL != "" {
+		cnca := analyzer.NewCNCUserAnalyzer(
+			globalCtx.CNCDB,
+			conf.TimezoneLocation(),
+			userTableProps,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.MQuery.ExternalSessionCookieName,
+			conf.CNCDB.AnonymousUserID,
+		)
+
+		var mqueryReqCounter chan<- alarms.RequestInfo
+		if len(conf.Services.MQuery.Limits) > 0 {
+			mqueryReqCounter = alarm.Register(
+				"mquery", conf.Services.MQuery.Alarm, conf.Services.MQuery.Limits)
+		}
+		mqueryActions := mquery.NewMQueryProxy(
+			globalCtx,
+			&conf.Services.MQuery,
+			&cnc.EnvironConf{
+				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
+				AuthTokenEntry:    authTokenEntry,
+				ServicePath:       "/service/mquery",
+				ServiceName:       "mquery",
+				CNCPortalLoginURL: cncPortalLoginURL,
+				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
+			},
+			cnca,
+			mqueryReqCounter,
+		)
+
+		engine.GET("/service/mquery/preflight", mqueryActions.Preflight) // TODO fix terrible URL patch (proxy issue)
+		engine.Any("/service/mquery/*path", func(ctx *gin.Context) {
+			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+				mqueryActions.Login(ctx)
+			} else {
+				mqueryActions.AnyPath(ctx)
+			}
+		})
+		log.Info().Msg("Service MQuery enabled")
 	}
 
 	// Treq (API) proxy
@@ -290,9 +318,7 @@ func runService(
 			conf.CNCAuth.SessionCookieName,
 			cnca,
 			conf.ServerReadTimeoutSecs,
-			globalCtx.CNCDB,
 			treqReqCounter,
-			cache,
 		)
 		engine.Any("/service/treq/*path", treqActions.AnyPath)
 		log.Info().Msg("Service Treq enabled")

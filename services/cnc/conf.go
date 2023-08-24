@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package treq
+package cnc
 
 import (
 	"apiguard/alarms"
@@ -12,7 +12,7 @@ import (
 	"fmt"
 )
 
-type Conf struct {
+type ProxyConf struct {
 	// InternalURL is a URL where the backend is installed
 	// (typically something like "http://192.168.1.x:8080")
 	// The URL should not end with the slash character
@@ -30,6 +30,8 @@ type Conf struct {
 	// in the CNCAuth section where a central auth cookie is defined.
 	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
+	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
+
 	Limits []alarms.Limit `json:"limits"`
 
 	Alarm alarms.AlarmConf `json:"alarm"`
@@ -39,18 +41,27 @@ type Conf struct {
 	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
 }
 
-func (c *Conf) Validate(context string) error {
+func (c *ProxyConf) Validate(context string) error {
 	if c.InternalURL == "" {
 		return fmt.Errorf("%s.internalURL is missing/empty", context)
 	}
 	return nil
 }
 
-func (c *Conf) GetCoreConf() services.GeneralProxyConf {
+func (c *ProxyConf) GetCoreConf() services.GeneralProxyConf {
 	return services.GeneralProxyConf{
 		InternalURL:         c.InternalURL,
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
 	}
+}
+
+type EnvironConf struct {
+	CNCAuthCookie     string
+	AuthTokenEntry    string
+	ReadTimeoutSecs   int
+	ServiceName       string
+	ServicePath       string
+	CNCPortalLoginURL string
 }

@@ -31,7 +31,6 @@ type NeomatActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	cache           services.Cache
 	analyzer        *botwatch.Analyzer
 }
 
@@ -93,10 +92,10 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 }
 
 func (aa *NeomatActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
-	resp, err := aa.cache.Get(req, nil)
+	resp, err := aa.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
 		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.cache.Set(req, resp, nil)
+		err = aa.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
 			return &services.SimpleResponse{Err: err}
 		}
@@ -111,14 +110,12 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) servic
 func NewNeomatActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	cache services.Cache,
 	analyzer *botwatch.Analyzer,
 	readTimeoutSecs int,
 ) *NeomatActions {
 	return &NeomatActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		cache:           cache,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
 	}

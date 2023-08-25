@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"time"
 
@@ -319,13 +320,12 @@ func (kp *CoreProxy) makeRequest(
 	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.ExternalSessionCookieName}
 	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
-		path := req.URL.Path[len(kp.rConf.ServicePath):]
 		dfltArgs := kp.CreateDefaultArgs(reqProps)
 		urlArgs := req.URL.Query()
 		dfltArgs.ApplyTo(urlArgs)
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
-			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
+			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):])+"?"+urlArgs.Encode(),
 			req.Method,
 			req.Header,
 			req.Body,

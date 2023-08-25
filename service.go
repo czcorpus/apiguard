@@ -242,10 +242,13 @@ func runService(
 			kontextReqCounter,
 		)
 
-		engine.GET("/service/kontextpreflight", kontextActions.Preflight) // TODO fix terrible URL patch (proxy issue)
 		engine.Any("/service/kontext/*path", func(ctx *gin.Context) {
-			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
 				kontextActions.Login(ctx)
+
+			} else if ctx.Param("path") == "/preflight" {
+				kontextActions.Preflight(ctx)
+
 			} else {
 				kontextActions.AnyPath(ctx)
 			}

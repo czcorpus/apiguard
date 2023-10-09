@@ -235,7 +235,9 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	services.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.analyzer)
+	if err := services.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.analyzer); err != nil {
+		return
+	}
 
 	passedHeaders := ctx.Request.Header
 

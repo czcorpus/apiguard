@@ -72,6 +72,10 @@ func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 	}
 }
 
+// ExtractRequestIdentifiers fetches IP address of a requesting client
+// and also a related session ID. In case there is no session ID, the
+// function does not consider it as an error and return just an empty
+// string as the second value.
 func ExtractRequestIdentifiers(req *http.Request) (string, string) {
 	ip := ExtractClientIP(req)
 	session, err := req.Cookie(WaGSessionName)

@@ -7,11 +7,14 @@
 package analyzer
 
 import (
+	"apiguard/botwatch"
 	"apiguard/cncdb"
 	"apiguard/common"
 	"apiguard/services"
+	"apiguard/services/logging"
 	"database/sql"
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -56,6 +59,14 @@ type CNCUserAnalyzer struct {
 // CalcDelay calculates a delay user deserves. CNCUserAnalyzer
 // returns 0.
 func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+	ip, _ := logging.ExtractRequestIdentifiers(req)
+	isBanned, err := cncdb.TestIPBan(kua.db, net.ParseIP(ip), kua.location)
+	if err != nil {
+		return 0, err
+	}
+	if isBanned {
+		return botwatch.UltraDuration, nil
+	}
 	return 0, nil
 }
 

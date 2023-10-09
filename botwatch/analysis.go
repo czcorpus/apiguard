@@ -28,7 +28,7 @@ import (
 )
 
 const (
-	ultraDuration = time.Duration(24) * time.Hour
+	UltraDuration = time.Duration(24) * time.Hour
 )
 
 type Backend interface {
@@ -95,7 +95,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 		return 0, err
 	}
 	if isBanned {
-		return ultraDuration, nil
+		return UltraDuration, nil
 	}
 	botScore, err := a.backend.BotScore(req)
 	if err == backend.ErrUnknownClient {

@@ -58,19 +58,25 @@ type CNCUserAnalyzer struct {
 
 // CalcDelay calculates a delay user deserves. CNCUserAnalyzer
 // returns 0.
-func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
 	ip, _ := logging.ExtractRequestIdentifiers(req)
+	delayInfo := services.DelayInfo{
+		Delay: time.Duration(0),
+		IsBan: false,
+	}
 	isBanned, err := cncdb.TestIPBan(kua.db, net.ParseIP(ip), kua.location)
 	if err != nil {
-		return 0, err
+		return delayInfo, err
 	}
 	if isBanned {
-		return botwatch.UltraDuration, nil
+		delayInfo.Delay = botwatch.UltraDuration
+		delayInfo.IsBan = true
+		return delayInfo, nil
 	}
-	return 0, nil
+	return delayInfo, nil
 }
 
-func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay time.Duration) error {
+func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo) error {
 	return nil // TODO
 }
 

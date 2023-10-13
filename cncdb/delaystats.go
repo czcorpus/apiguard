@@ -9,6 +9,7 @@ package cncdb
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb/rdelay"
+	"apiguard/services"
 	"apiguard/services/telemetry"
 	"database/sql"
 	"fmt"
@@ -607,7 +608,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) LogAppliedDelay(delay time.Duration) error {
+func (c *DelayStats) LogAppliedDelay(delayInfo services.DelayInfo) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
@@ -615,7 +616,7 @@ func (c *DelayStats) LogAppliedDelay(delay time.Duration) error {
 
 	_, err = tx.Exec(
 		"INSERT INTO apiguard_delay_log (delay) VALUES (?)",
-		delay.Seconds(),
+		delayInfo.Delay.Seconds(),
 	)
 	if err != nil {
 		tx.Rollback()

@@ -26,9 +26,14 @@ func (rp ReqProperties) ForbidsAccess() bool {
 	return rp.ProposedStatus >= 400 && rp.ProposedStatus < 500
 }
 
+type DelayInfo struct {
+	Delay time.Duration
+	IsBan bool
+}
+
 type ReqAnalyzer interface {
-	CalcDelay(req *http.Request) (time.Duration, error)
-	LogAppliedDelay(respDelay time.Duration) error
+	CalcDelay(req *http.Request) (DelayInfo, error)
+	LogAppliedDelay(respDelay DelayInfo, clientIP string) error
 	UserInducedResponseStatus(req *http.Request, serviceName string) ReqProperties
 }
 
@@ -44,7 +49,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		return err
 	}
 	log.Debug().Msgf("Client is going to wait for %v", respDelay)
-	if respDelay.Seconds() >= float64(readTimeoutSecs) {
+	if respDelay.Delay.Seconds() >= float64(readTimeoutSecs) {
 		uniresp.WriteJSONErrorResponse(
 			w,
 			uniresp.NewActionError("service overloaded"),
@@ -52,7 +57,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		)
 		return err
 	}
-	go analyzer.LogAppliedDelay(respDelay)
-	time.Sleep(respDelay)
+	go analyzer.LogAppliedDelay(respDelay, req.RemoteAddr)
+	time.Sleep(respDelay.Delay)
 	return nil
 }

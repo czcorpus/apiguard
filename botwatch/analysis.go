@@ -46,7 +46,7 @@ type StatsStorage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
 	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(delay time.Duration) error
+	LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error
 }
 
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
@@ -88,14 +88,20 @@ func (a *Analyzer) UserInducedResponseStatus(req *http.Request, serviceName stri
 	}
 }
 
-func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+func (a *Analyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
+	delayInfo := services.DelayInfo{
+		Delay: time.Duration(0),
+		IsBan: false,
+	}
 	isBanned, err := a.storage.TestIPBan(net.ParseIP(ip))
 	if err != nil {
-		return 0, err
+		return delayInfo, err
 	}
 	if isBanned {
-		return UltraDuration, nil
+		delayInfo.Delay = UltraDuration
+		delayInfo.IsBan = true
+		return delayInfo, nil
 	}
 	botScore, err := a.backend.BotScore(req)
 	if err == backend.ErrUnknownClient {
@@ -107,17 +113,19 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 			// no telemetry - let's check client's request activity
 			stats, err := a.storage.LoadStats(ip, sessionID, a.conf.WatchedTimeWindowSecs, true)
 			if err != nil {
-				return 0, err
+				return delayInfo, err
 			}
 			if stats.Count > 50 {
 				// user with a "long" session waits from ~8s to infinity
 				// (e.g. 100 req. => ~14s, 500 req. => ~58s)
-				return time.Duration(penaltyFn2(stats.Count)) * time.Millisecond, nil
+				delayInfo.Delay = time.Duration(penaltyFn2(stats.Count)) * time.Millisecond
+				return delayInfo, nil
 
 			} else if stats.Count > 1 {
 				// user with a "long" session and just a few requests
 				// waits for ~1 to ~8 seconds
-				return time.Duration(penaltyFn1(stats.Count)) * time.Millisecond, nil
+				delayInfo.Delay = time.Duration(penaltyFn1(stats.Count)) * time.Millisecond
+				return delayInfo, nil
 			}
 		}
 		// no (valid) session (first request or a simple bot) => let's load stats for the whole IP
@@ -126,23 +134,25 @@ func (a *Analyzer) CalcDelay(req *http.Request) (time.Duration, error) {
 			"loaded stats of whole IP (users without telemetry), num req: %d, latest: %v",
 			stats.Count, stats.LastAccess)
 		if err != nil {
-			return 0, err
+			return delayInfo, err
 		}
 		// user w
-		return time.Duration(penaltyFn3(stats.Count)) * time.Millisecond, nil
+		delayInfo.Delay = time.Duration(penaltyFn3(stats.Count)) * time.Millisecond
+		return delayInfo, nil
 
 	} else if err != nil {
-		return 0, err
+		return delayInfo, err
 
 	} else {
 		log.Debug().Msg("Client with telemetry...")
 		// user with telemetry waits from 0 to ~6s
-		return time.Duration(1000*2.5*botScore*2.5*botScore) * time.Millisecond, nil
+		delayInfo.Delay = time.Duration(1000*2.5*botScore*2.5*botScore) * time.Millisecond
+		return delayInfo, nil
 	}
 }
 
-func (a *Analyzer) LogAppliedDelay(delay time.Duration) error {
-	err := a.storage.LogAppliedDelay(delay)
+func (a *Analyzer) LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error {
+	err := a.storage.LogAppliedDelay(delayInfo, clientIP)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
 	}

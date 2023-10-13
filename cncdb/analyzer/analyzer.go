@@ -30,6 +30,7 @@ import (
 // (SessionCookieNames)
 type CNCUserAnalyzer struct {
 	db             *sql.DB
+	delayStats     *cncdb.DelayStats
 	location       *time.Location
 	userTableProps cncdb.UserTableProps
 
@@ -58,20 +59,30 @@ type CNCUserAnalyzer struct {
 
 // CalcDelay calculates a delay user deserves. CNCUserAnalyzer
 // returns 0.
-func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (time.Duration, error) {
+func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
 	ip, _ := logging.ExtractRequestIdentifiers(req)
+	delayInfo := services.DelayInfo{
+		Delay: time.Duration(0),
+		IsBan: false,
+	}
 	isBanned, err := cncdb.TestIPBan(kua.db, net.ParseIP(ip), kua.location)
 	if err != nil {
-		return 0, err
+		return delayInfo, err
 	}
 	if isBanned {
-		return botwatch.UltraDuration, nil
+		delayInfo.Delay = botwatch.UltraDuration
+		delayInfo.IsBan = true
+		return delayInfo, nil
 	}
-	return 0, nil
+	return delayInfo, nil
 }
 
-func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay time.Duration) error {
-	return nil // TODO
+func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo, clientIP string) error {
+	err := kua.delayStats.LogAppliedDelay(respDelay, clientIP)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to register delay log")
+	}
+	return err
 }
 
 func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {
@@ -185,7 +196,8 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 
 func NewCNCUserAnalyzer(
 	db *sql.DB,
-	locaction *time.Location,
+	delayStats *cncdb.DelayStats,
+	location *time.Location,
 	userTableProps cncdb.UserTableProps,
 	internalSessionCookie string,
 	externalSessionCookie string,
@@ -194,7 +206,8 @@ func NewCNCUserAnalyzer(
 ) *CNCUserAnalyzer {
 	return &CNCUserAnalyzer{
 		db:                    db,
-		location:              locaction,
+		delayStats:            delayStats,
+		location:              location,
 		userTableProps:        userTableProps,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,

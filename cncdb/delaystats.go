@@ -9,6 +9,7 @@ package cncdb
 import (
 	"apiguard/botwatch"
 	"apiguard/cncdb/rdelay"
+	"apiguard/services"
 	"apiguard/services/telemetry"
 	"database/sql"
 	"fmt"
@@ -65,8 +66,10 @@ CREATE TABLE api_ip_ban (
 
 CREATE TABLE apiguard_delay_log (
 	id INT NOT NULL auto_increment,
+	client_ip VARCHAR(45) NOT NULL,
 	created datetime NOT NULL DEFAULT NOW(),
 	delay FLOAT NOT NULL,
+	is_ban TINYINT NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -607,15 +610,17 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) LogAppliedDelay(delay time.Duration) error {
+func (c *DelayStats) LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO apiguard_delay_log (delay) VALUES (?)",
-		delay.Seconds(),
+		"INSERT INTO apiguard_delay_log (client_ip, delay, is_ban) VALUES (?, ?, ?)",
+		clientIP,
+		delayInfo.Delay.Seconds(),
+		delayInfo.IsBan,
 	)
 	if err != nil {
 		tx.Rollback()
@@ -644,6 +649,7 @@ func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*del
 			CONVERT(LEAST(FLOOR(delay/%f)*%f, %f), CHAR) AS delay_bin,
 			COUNT(*) as count
 		FROM apiguard_delay_log
+		WHERE is_ban = 0
 		GROUP BY delay_bin
 		ORDER BY delay_bin
 	`, binWidth, binWidth, otherLimit))
@@ -664,6 +670,7 @@ func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*del
 		row := c.conn.QueryRow(`
 			SELECT created
 			FROM apiguard_delay_log
+			WHERE is_ban = 0
 			ORDER BY created
 			LIMIT 1
 		`)
@@ -671,6 +678,37 @@ func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*del
 		histogram.OldestRecord = &oldestRecord
 	}
 	return &histogram, nil
+}
+
+type banRow struct {
+	ClientIP string `json:"clientIp"`
+	Bans     int    `json:"bans"`
+}
+
+func (c *DelayStats) AnalyzeBans(timeAgo time.Duration) ([]banRow, error) {
+	bans := make([]banRow, 0, 100)
+	rows, err := c.conn.Query(`
+		SELECT
+			client_ip,
+			COUNT(*) as ban_count
+		FROM apiguard_delay_log
+		WHERE is_ban = 1 AND created >= current_timestamp - INTERVAL ? SECOND
+		GROUP BY client_ip
+		`,
+		timeAgo.Seconds(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		d := banRow{}
+		err := rows.Scan(&d.ClientIP, &d.Bans)
+		if err != nil {
+			return nil, err
+		}
+		bans = append(bans, d)
+	}
+	return bans, nil
 }
 
 func (c *DelayStats) StartTx() (*sql.Tx, error) {

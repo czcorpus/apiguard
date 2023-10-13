@@ -680,6 +680,37 @@ func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*del
 	return &histogram, nil
 }
 
+type banRow struct {
+	ClientIP string `json:"clientIp"`
+	Bans     int    `json:"bans"`
+}
+
+func (c *DelayStats) AnalyzeBans(timeAgo time.Duration) ([]banRow, error) {
+	bans := make([]banRow, 0, 100)
+	rows, err := c.conn.Query(`
+		SELECT
+			client_ip,
+			COUNT(*) as ban_count
+		FROM apiguard_delay_log
+		WHERE is_ban = 1 AND created >= current_timestamp - INTERVAL ? SECOND
+		GROUP BY client_ip
+		`,
+		timeAgo.Seconds(),
+	)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		d := banRow{}
+		err := rows.Scan(&d.ClientIP, &d.Bans)
+		if err != nil {
+			return nil, err
+		}
+		bans = append(bans, d)
+	}
+	return bans, nil
+}
+
 func (c *DelayStats) StartTx() (*sql.Tx, error) {
 	return c.conn.Begin()
 }

@@ -37,6 +37,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -377,6 +378,28 @@ func runService(
 		}
 
 		ans, err := delayStats.AnalyzeDelayLog(binWidth, otherLimit)
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+		} else {
+			uniresp.WriteJSONResponse(ctx.Writer, ans)
+		}
+	})
+
+	engine.GET("/bans", func(ctx *gin.Context) {
+		duration := time.Duration(24 * time.Hour)
+		var err error
+
+		queryValue := ctx.Request.URL.Query().Get("timeAgo")
+		if queryValue != "" {
+			duration, err = datetime.ParseDuration(queryValue)
+			if err != nil {
+				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
+				return
+			}
+		}
+
+		ans, err := delayStats.AnalyzeBans(duration)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)

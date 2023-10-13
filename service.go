@@ -215,6 +215,7 @@ func runService(
 	if conf.Services.Kontext.ExternalURL != "" {
 		cnca := analyzer.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
+			delayStats,
 			conf.TimezoneLocation(),
 			userTableProps,
 			conf.CNCAuth.SessionCookieName,
@@ -262,6 +263,7 @@ func runService(
 	if conf.Services.MQuery.ExternalURL != "" {
 		cnca := analyzer.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
+			delayStats,
 			conf.TimezoneLocation(),
 			userTableProps,
 			conf.CNCAuth.SessionCookieName,
@@ -305,6 +307,7 @@ func runService(
 	if conf.Services.Treq.ExternalURL != "" {
 		cnca := analyzer.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
+			delayStats,
 			conf.TimezoneLocation(),
 			userTableProps,
 			conf.CNCAuth.SessionCookieName,

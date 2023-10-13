@@ -30,6 +30,7 @@ import (
 // (SessionCookieNames)
 type CNCUserAnalyzer struct {
 	db             *sql.DB
+	delayStats     *cncdb.DelayStats
 	location       *time.Location
 	userTableProps cncdb.UserTableProps
 
@@ -77,7 +78,7 @@ func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, er
 }
 
 func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo, clientIP string) error {
-	return nil // TODO
+	return kua.delayStats.LogAppliedDelay(respDelay, clientIP)
 }
 
 func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {
@@ -191,7 +192,8 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 
 func NewCNCUserAnalyzer(
 	db *sql.DB,
-	locaction *time.Location,
+	delayStats *cncdb.DelayStats,
+	location *time.Location,
 	userTableProps cncdb.UserTableProps,
 	internalSessionCookie string,
 	externalSessionCookie string,
@@ -200,7 +202,8 @@ func NewCNCUserAnalyzer(
 ) *CNCUserAnalyzer {
 	return &CNCUserAnalyzer{
 		db:                    db,
-		location:              locaction,
+		delayStats:            delayStats,
+		location:              location,
 		userTableProps:        userTableProps,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,

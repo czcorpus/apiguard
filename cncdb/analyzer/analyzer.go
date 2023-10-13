@@ -76,7 +76,7 @@ func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, er
 	return delayInfo, nil
 }
 
-func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo) error {
+func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo, clientIP string) error {
 	return nil // TODO
 }
 

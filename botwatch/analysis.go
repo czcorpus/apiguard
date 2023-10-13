@@ -46,7 +46,7 @@ type StatsStorage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
 	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(delayInfo services.DelayInfo) error
+	LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error
 }
 
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
@@ -151,8 +151,8 @@ func (a *Analyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
 	}
 }
 
-func (a *Analyzer) LogAppliedDelay(delayInfo services.DelayInfo) error {
-	err := a.storage.LogAppliedDelay(delayInfo)
+func (a *Analyzer) LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error {
+	err := a.storage.LogAppliedDelay(delayInfo, clientIP)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
 	}

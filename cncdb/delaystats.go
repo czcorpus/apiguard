@@ -66,8 +66,10 @@ CREATE TABLE api_ip_ban (
 
 CREATE TABLE apiguard_delay_log (
 	id INT NOT NULL auto_increment,
+	client_ip VARCHAR(45) NOT NULL,
 	created datetime NOT NULL DEFAULT NOW(),
 	delay FLOAT NOT NULL,
+	is_ban TINYINT NOT NULL,
 	PRIMARY KEY (id)
 );
 
@@ -608,15 +610,17 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) LogAppliedDelay(delayInfo services.DelayInfo) error {
+func (c *DelayStats) LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
 	}
 
 	_, err = tx.Exec(
-		"INSERT INTO apiguard_delay_log (delay) VALUES (?)",
+		"INSERT INTO apiguard_delay_log (client_ip, delay, is_ban) VALUES (?, ?, ?)",
+		clientIP,
 		delayInfo.Delay.Seconds(),
+		delayInfo.IsBan,
 	)
 	if err != nil {
 		tx.Rollback()
@@ -645,6 +649,7 @@ func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*del
 			CONVERT(LEAST(FLOOR(delay/%f)*%f, %f), CHAR) AS delay_bin,
 			COUNT(*) as count
 		FROM apiguard_delay_log
+		WHERE is_ban = 0
 		GROUP BY delay_bin
 		ORDER BY delay_bin
 	`, binWidth, binWidth, otherLimit))
@@ -665,6 +670,7 @@ func (c *DelayStats) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*del
 		row := c.conn.QueryRow(`
 			SELECT created
 			FROM apiguard_delay_log
+			WHERE is_ban = 0
 			ORDER BY created
 			LIMIT 1
 		`)

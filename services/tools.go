@@ -33,7 +33,7 @@ type DelayInfo struct {
 
 type ReqAnalyzer interface {
 	CalcDelay(req *http.Request) (DelayInfo, error)
-	LogAppliedDelay(respDelay DelayInfo) error
+	LogAppliedDelay(respDelay DelayInfo, clientIP string) error
 	UserInducedResponseStatus(req *http.Request, serviceName string) ReqProperties
 }
 
@@ -57,7 +57,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		)
 		return err
 	}
-	go analyzer.LogAppliedDelay(respDelay)
+	go analyzer.LogAppliedDelay(respDelay, req.RemoteAddr)
 	time.Sleep(respDelay.Delay)
 	return nil
 }

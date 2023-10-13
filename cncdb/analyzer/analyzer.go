@@ -78,7 +78,11 @@ func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, er
 }
 
 func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo, clientIP string) error {
-	return kua.delayStats.LogAppliedDelay(respDelay, clientIP)
+	err := kua.delayStats.LogAppliedDelay(respDelay, clientIP)
+	if err != nil {
+		log.Error().Err(err).Msg("Failed to register delay log")
+	}
+	return err
 }
 
 func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {

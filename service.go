@@ -292,10 +292,13 @@ func runService(
 			mqueryReqCounter,
 		)
 
-		engine.GET("/service/mquery/preflight", mqueryActions.Preflight) // TODO fix terrible URL patch (proxy issue)
 		engine.Any("/service/mquery/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
 				mqueryActions.Login(ctx)
+
+			} else if ctx.Param("path") == "/preflight" {
+				mqueryActions.Preflight(ctx)
+
 			} else {
 				mqueryActions.AnyPath(ctx)
 			}

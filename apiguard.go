@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"math/rand"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -27,16 +26,18 @@ import (
 	"apiguard/reqcache"
 	"apiguard/services"
 
+	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
 var (
-	version     string
-	buildDate   string
-	gitCommit   string
-	versionInfo = services.VersionInfo{
+	defaultConfigPath string
+	version           string
+	buildDate         string
+	gitCommit         string
+	versionInfo       = services.VersionInfo{
 		Version:   version,
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
@@ -58,17 +59,18 @@ type CmdOptions struct {
 	LogPath           string
 	LogLevel          string
 	MaxAgeDays        int
-	BanSecs           int
+	BanDurationStr    string
 	IgnoreStoredState bool
 }
 
-func coreMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if w.Header().Get("Content-Type") == "" {
-			w.Header().Add("Content-Type", "application/json")
-		}
-		next.ServeHTTP(w, r)
-	})
+func (opts CmdOptions) BanDuration() (time.Duration, error) {
+	return datetime.ParseDuration(opts.BanDurationStr)
+}
+
+func init() {
+	if defaultConfigPath == "" {
+		defaultConfigPath = "/usr/local/etc/apiguard.json"
+	}
 }
 
 func setupLog(path, level string) {
@@ -161,8 +163,18 @@ func init() {
 	gob.Register(&services.ProxiedResponse{})
 }
 
+func determineConfigPath(argPos int) string {
+	v := flag.Arg(argPos)
+	if v != "" {
+		return v
+	}
+	fmt.Fprintf(os.Stderr, "using default config in %s\n", defaultConfigPath)
+	return defaultConfigPath
+}
+
 func main() {
 	rand.Seed(time.Now().Unix())
+
 	cmdOpts := new(CmdOptions)
 	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on")
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on")
@@ -171,7 +183,7 @@ func main() {
 	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")
 	flag.StringVar(&cmdOpts.LogLevel, "log-level", "", "A log level (debug, info, warn/warning, error)")
 	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 0, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
-	flag.IntVar(&cmdOpts.BanSecs, "ban-secs", 0, "Number of seconds to ban an IP address")
+	flag.StringVar(&cmdOpts.BanDurationStr, "ban-duration", "0", "A duration for the ban (e.g. 90s, 2d, 8h30m)")
 	flag.BoolVar(&cmdOpts.IgnoreStoredState, "ignore-stored-state", false, "If used then no alarm state will be loaded from a configured location. This is usefull e.g. in case of an application configuration change.")
 
 	flag.Usage = func() {
@@ -204,7 +216,7 @@ func main() {
 			versionInfo.Version, versionInfo.BuildDate, versionInfo.GitCommit)
 		return
 	case "start":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		globalCtx := createGlobalCtx(conf)
 		log.Info().
 			Str("version", versionInfo.Version).
@@ -214,25 +226,25 @@ func main() {
 		userTableProps := conf.CNCDB.ApplyOverrides()
 		runService(&globalCtx, conf, userTableProps)
 	case "cleanup":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		runCleanup(db, conf)
 	case "ipban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.IPBanTTLSecs); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "ipunban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
 		if err := delayLog.RemoveIPBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "userban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		now := time.Now().In(conf.TimezoneLocation())
 		userID, err := common.Str2UserID(flag.Arg(1))
@@ -249,7 +261,7 @@ func main() {
 			log.Info().Msgf("Banned user %d for %d hours", userID, banHours)
 		}
 	case "userunban":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
 		userID, err := strconv.Atoi(flag.Arg(1))
 		if err != nil {
@@ -263,11 +275,11 @@ func main() {
 			log.Info().Msgf("Unbanned user %d", userID)
 		}
 	case "status":
-		conf := findAndLoadConfig(flag.Arg(2), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		globalCtx := createGlobalCtx(conf)
 		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
-		conf := findAndLoadConfig(flag.Arg(1), cmdOpts)
+		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		globalCtx := createGlobalCtx(conf)
 		runLearn(globalCtx, conf)
 	default:

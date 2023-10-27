@@ -75,7 +75,7 @@ func applyDefaults(conf *config.Configuration) {
 	}
 }
 
-func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
+func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) error {
 	if cmdConf.Host != "" {
 		origConf.ServerHost = cmdConf.Host
 
@@ -132,8 +132,12 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		)
 		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
 	}
-	if cmdConf.BanSecs > 0 {
-		origConf.IPBanTTLSecs = cmdConf.BanSecs
+	banDuration, err := cmdConf.BanDuration()
+	if err != nil {
+		return err
+	}
+	if banDuration > 0 {
+		origConf.IPBanTTLSecs = int(banDuration.Seconds())
 
 	} else if origConf.IPBanTTLSecs == 0 {
 		log.Warn().Msgf(
@@ -146,5 +150,5 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) {
 		log.Warn().Msg("Based on a request, stored alarm/counter state will not be loaded")
 		origConf.IgnoreStoredState = cmdConf.IgnoreStoredState
 	}
-
+	return nil
 }

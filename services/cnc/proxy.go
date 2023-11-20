@@ -260,7 +260,9 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(ctx.Request) {
-			passedHeaders[backend.HeaderAPIKey] = []string{services.GetCookieValue(ctx.Request, kp.conf.ExternalSessionCookieName)}
+			passedHeaders[backend.HeaderAPIKey] = []string{
+				services.GetCookieValue(ctx.Request, kp.conf.ExternalSessionCookieName),
+			}
 
 		} else {
 			passedHeaders[backend.HeaderAPIKey] = []string{
@@ -315,6 +317,18 @@ func (kp *CoreProxy) CreateDefaultArgs(reqProps services.ReqProperties) defaults
 	return make(defaults.Args)
 }
 
+func (kp *CoreProxy) debugLogResponse(req *http.Request, res services.BackendResponse, err error) {
+	evt := log.Debug()
+	evt.Str("url", req.URL.String())
+	evt.Err(err)
+	for hk, hv := range res.GetHeaders() {
+		if len(hv) > 0 {
+			evt.Str(hk, hv[0])
+		}
+	}
+	evt.Msg("received proxied response")
+}
+
 func (kp *CoreProxy) makeRequest(
 	req *http.Request,
 	reqProps services.ReqProperties,
@@ -332,6 +346,7 @@ func (kp *CoreProxy) makeRequest(
 			req.Header,
 			req.Body,
 		)
+		kp.debugLogResponse(req, resp, err)
 		err = kp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
 			resp = &services.ProxiedResponse{Err: err}

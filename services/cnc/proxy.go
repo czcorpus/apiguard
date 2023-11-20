@@ -329,10 +329,22 @@ func (kp *CoreProxy) debugLogResponse(req *http.Request, res services.BackendRes
 	evt.Msg("received proxied response")
 }
 
+func (kp *CoreProxy) debugLogRequest(req *http.Request) {
+	evt := log.Debug()
+	evt.Str("url", req.URL.String())
+	for hk, hv := range req.Header {
+		if len(hv) > 0 {
+			evt.Str(hk, hv[0])
+		}
+	}
+	evt.Msg("about to proxy received request")
+}
+
 func (kp *CoreProxy) makeRequest(
 	req *http.Request,
 	reqProps services.ReqProperties,
 ) services.BackendResponse {
+	kp.debugLogRequest(req)
 	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.ExternalSessionCookieName}
 	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {

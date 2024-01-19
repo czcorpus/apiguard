@@ -111,12 +111,13 @@ func (kua *CNCUserAnalyzer) getUserCNCSessionCookie(req *http.Request) *http.Coo
 	return cookie
 }
 
-func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) string {
+func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) (string, string) {
 	v := services.GetCookieValue(req, kua.internalSessionCookie)
 	if v != "" {
-		return strings.SplitN(v, "-", 2)[0]
+		split := strings.SplitN(v, "-", 2)
+		return split[0], split[1]
 	}
-	return v
+	return "", ""
 }
 
 // UserInternalCookieStatus tests whether CNC authentication
@@ -131,8 +132,8 @@ func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
 	if kua.db == nil || cookie == nil {
 		return common.InvalidUserID, nil
 	}
-	internalSessionID := kua.getUserCNCSessionID(req)
-	userID, err := cncdb.FindUserBySession(kua.db, internalSessionID)
+	internalSessionID, validator := kua.getUserCNCSessionID(req)
+	userID, err := cncdb.FindUserBySession(kua.db, internalSessionID, validator)
 	if err != nil {
 		return common.InvalidUserID, err
 	}

@@ -29,6 +29,16 @@
             "alarm": {
                 "recipients": ["tomas.machalek@gmail.com"]
             }
+        },
+        "kwords": {
+            "internalUrl": "http://localhost:8082",
+            "externalUrl": "http://localhost:3010/service/kwords",
+            "limits": [
+                {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+            ],
+            "alarm": {
+                "recipients": ["tomas.machalek@gmail.com"]
+            }
         }
     },
     "mail": {

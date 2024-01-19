@@ -168,9 +168,9 @@ func (kp *CoreProxy) Login(ctx *gin.Context) {
 	for _, cookie := range cookies {
 		cCopy := *cookie
 		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.ExternalSessionCookieName != "" {
-			var err error
-			userId, err = cncdb.FindUserBySession(kp.globalCtx.CNCDB, cCopy.Value)
-			if err != nil {
+			split := strings.SplitN(cCopy.Value, "-", 2)
+			userId, err := cncdb.FindUserBySession(kp.globalCtx.CNCDB, split[0], split[1])
+			if err != nil || userId == common.InvalidUserID {
 				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
 			}
 			cCopy.Name = kp.conf.ExternalSessionCookieName

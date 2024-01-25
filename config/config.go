@@ -15,6 +15,7 @@ import (
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
+	"apiguard/services/backend/kwords"
 	"apiguard/services/backend/lguide"
 	"apiguard/services/backend/mquery"
 	"apiguard/services/backend/neomat"
@@ -56,6 +57,7 @@ type servicesSection struct {
 	Kontext       kontext.Conf `json:"kontext"`
 	MQuery        mquery.Conf  `json:"mquery"`
 	Treq          treq.Conf    `json:"treq"`
+	KWords        kwords.Conf  `json:"kwords"`
 }
 
 type CNCAuthConf struct {
@@ -88,6 +90,19 @@ func (services *servicesSection) validate() error {
 	if services.Treq.IdleConnTimeoutSecs == 0 {
 		services.Treq.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
 		log.Warn().Msgf("missing services.treq.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+	}
+	if services.KWords.InternalURL != "" {
+		if services.KWords.ExternalURL == "" {
+			return errors.New("missing externalUrl configuration for KWords")
+		}
+	}
+	if services.KWords.ReqTimeoutSecs == 0 {
+		services.KWords.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
+		log.Warn().Msgf("missing services.kwords.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
+	}
+	if services.KWords.IdleConnTimeoutSecs == 0 {
+		services.KWords.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
+		log.Warn().Msgf("missing services.kwords.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
 	}
 	return nil
 }

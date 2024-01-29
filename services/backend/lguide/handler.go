@@ -8,9 +8,9 @@ package lguide
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cnc/guard"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"

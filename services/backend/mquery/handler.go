@@ -8,8 +8,8 @@ package mquery
 
 import (
 	"apiguard/alarms"
-	"apiguard/cnc/guard"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/services/cnc"
 )
 

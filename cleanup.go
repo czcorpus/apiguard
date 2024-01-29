@@ -7,8 +7,8 @@
 package main
 
 import (
-	"apiguard/cnc/guard"
 	"apiguard/config"
+	"apiguard/guard"
 	"database/sql"
 	"encoding/json"
 

@@ -8,15 +8,15 @@ package cnc
 
 import (
 	"apiguard/alarms"
-	"apiguard/cnc/guard"
-	"apiguard/cnc/session"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
 	"apiguard/services/defaults"
+	"apiguard/session"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"

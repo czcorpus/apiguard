@@ -7,8 +7,8 @@
 package cnc
 
 import (
-	"apiguard/cnc/guard"
 	"apiguard/common"
+	"apiguard/guard"
 	"database/sql"
 	"net/http"
 	"strconv"

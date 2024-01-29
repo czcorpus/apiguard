@@ -7,7 +7,7 @@
 package requests
 
 import (
-	"apiguard/cnc/guard"
+	"apiguard/guard"
 	"strconv"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"

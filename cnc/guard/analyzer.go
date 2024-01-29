@@ -4,11 +4,12 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package analyzer
+package guard
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cncdb"
+	"apiguard/cnc/session"
+	"apiguard/cnc/users"
 	"apiguard/common"
 	"apiguard/services"
 	"apiguard/services/logging"
@@ -30,9 +31,9 @@ import (
 // (SessionCookieNames)
 type CNCUserAnalyzer struct {
 	db             *sql.DB
-	delayStats     *cncdb.DelayStats
+	delayStats     *DelayStats
 	location       *time.Location
-	userTableProps cncdb.UserTableProps
+	userTableProps users.UserTableProps
 
 	// internalSessionCookie is a cookie used between APIGuard and API (e.g. KonText-API)
 	// Please note that CNC central authentication cookie is typically the same
@@ -65,7 +66,7 @@ func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, er
 		Delay: time.Duration(0),
 		IsBan: false,
 	}
-	isBanned, err := cncdb.TestIPBan(kua.db, net.ParseIP(ip), kua.location)
+	isBanned, err := TestIPBan(kua.db, net.ParseIP(ip), kua.location)
 	if err != nil {
 		return delayInfo, err
 	}
@@ -111,13 +112,11 @@ func (kua *CNCUserAnalyzer) getUserCNCSessionCookie(req *http.Request) *http.Coo
 	return cookie
 }
 
-func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) (string, string) {
+func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
 	v := services.GetCookieValue(req, kua.internalSessionCookie)
-	if v != "" {
-		split := strings.SplitN(v, "-", 2)
-		return split[0], split[1]
-	}
-	return "", ""
+	ans := session.CNCSessionValue{}
+	ans.UpdateFrom(v)
+	return ans
 }
 
 // UserInternalCookieStatus tests whether CNC authentication
@@ -132,8 +131,8 @@ func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
 	if kua.db == nil || cookie == nil {
 		return common.InvalidUserID, nil
 	}
-	internalSessionID, validator := kua.getUserCNCSessionID(req)
-	userID, err := cncdb.FindUserBySession(kua.db, internalSessionID, validator)
+	sessionVal := kua.getUserCNCSessionID(req)
+	userID, err := FindUserBySession(kua.db, sessionVal)
 	if err != nil {
 		return common.InvalidUserID, err
 	}
@@ -173,7 +172,7 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 		}
 	}
 	sessionID := analyzer.GetSessionID(req)
-	banned, userID, err := cncdb.FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
+	banned, userID, err := FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
 	if err == sql.ErrNoRows || userID == analyzer.AnonymousUserID || !userID.IsValid() {
 		log.Debug().Msgf("failed to find session %s in database", sessionID)
 		return services.ReqProperties{
@@ -197,9 +196,9 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 
 func NewCNCUserAnalyzer(
 	db *sql.DB,
-	delayStats *cncdb.DelayStats,
+	delayStats *DelayStats,
 	location *time.Location,
-	userTableProps cncdb.UserTableProps,
+	userTableProps users.UserTableProps,
 	internalSessionCookie string,
 	externalSessionCookie string,
 	anonymousUserID common.UserID,

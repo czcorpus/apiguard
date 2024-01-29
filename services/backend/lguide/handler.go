@@ -8,7 +8,7 @@ package lguide
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/monitoring"
@@ -189,7 +189,7 @@ func NewLanguageGuideActions(
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 	readTimeoutSecs int,
-	db *cncdb.DelayStats,
+	db *guard.DelayStats,
 	analyzer *botwatch.Analyzer,
 ) *LanguageGuideActions {
 	wdog := botwatch.NewLGWatchdog(botwatchConf, telemetryConf, db)

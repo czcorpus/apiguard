@@ -4,11 +4,11 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package cncdb
+package guard
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cncdb/rdelay"
+	"apiguard/cnc/rdelay"
 	"apiguard/services"
 	"apiguard/services/telemetry"
 	"database/sql"

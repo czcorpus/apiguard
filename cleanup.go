@@ -7,7 +7,7 @@
 package main
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"apiguard/config"
 	"database/sql"
 	"encoding/json"
@@ -17,7 +17,7 @@ import (
 
 func runCleanup(db *sql.DB, conf *config.Configuration) {
 	log.Info().Msg("running cleanup procedure")
-	delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
+	delayLog := guard.NewDelayStats(db, conf.TimezoneLocation())
 	ans := delayLog.CleanOldData(conf.CleanupMaxAgeDays)
 	if ans.Error != nil {
 		log.Fatal().Err(ans.Error).Msg("failed to cleanup old records")

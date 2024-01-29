@@ -7,7 +7,7 @@
 package alarms
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/users"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
@@ -42,12 +42,12 @@ type AlarmReport struct {
 	Created     time.Time   `json:"created"`
 	Reviewed    time.Time   `json:"reviewed"`
 	ReviewCode  string      `json:"reviewCode"`
-	UserInfo    *cncdb.User `json:"userInfo"`
+	UserInfo    *users.User `json:"userInfo"`
 	Reviews     []Reviewer  `json:"reviews"`
 	location    *time.Location
 }
 
-func (report *AlarmReport) AttachUserInfo(table *cncdb.UsersTable) error {
+func (report *AlarmReport) AttachUserInfo(table *users.UsersTable) error {
 	userInfo, err := table.UserInfo(report.RequestInfo.UserID)
 	if err == nil && userInfo != nil {
 		report.UserInfo = userInfo
@@ -72,7 +72,7 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 			Created     time.Time   `json:"created"`
 			Reviewed    *time.Time  `json:"reviewed"`
 			ReviewCode  string      `json:"reviewCode"`
-			UserInfo    *cncdb.User `json:"userInfo,omitempty"`
+			UserInfo    *users.User `json:"userInfo,omitempty"`
 			Reviewers   []string    `json:"reviewers"`
 		}{
 			RequestInfo: report.RequestInfo,

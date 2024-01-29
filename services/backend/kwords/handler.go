@@ -8,7 +8,7 @@ package kwords
 
 import (
 	"apiguard/alarms"
-	"apiguard/cncdb/analyzer"
+	"apiguard/cnc/guard"
 	"apiguard/ctx"
 	"apiguard/services"
 	"apiguard/services/cnc"
@@ -22,7 +22,7 @@ import (
 type KWordsProxy struct {
 	cnc.CoreProxy
 	defaults *collections.ConcurrentMap[string, defaults.Args]
-	analyzer *analyzer.CNCUserAnalyzer
+	analyzer *guard.CNCUserAnalyzer
 }
 
 func (kp *KWordsProxy) CreateDefaultArgs(reqProps services.ReqProperties) defaults.Args {
@@ -64,7 +64,7 @@ func NewKWordsProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	analyzer *analyzer.CNCUserAnalyzer,
+	analyzer *guard.CNCUserAnalyzer,
 	reqCounter chan<- alarms.RequestInfo,
 ) *KWordsProxy {
 	return &KWordsProxy{

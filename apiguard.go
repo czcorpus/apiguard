@@ -19,7 +19,8 @@ import (
 	"time"
 
 	"apiguard/alarms"
-	"apiguard/cncdb"
+	"apiguard/cnc"
+	"apiguard/cnc/guard"
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/ctx"
@@ -96,8 +97,8 @@ func setupLog(path, level string) {
 	}
 }
 
-func openCNCDatabase(conf *cncdb.Conf) *sql.DB {
-	cncDB, err := cncdb.OpenDB(conf)
+func openCNCDatabase(conf *cnc.Conf) *sql.DB {
+	cncDB, err := cnc.OpenDB(conf)
 	if err != nil {
 		log.Fatal().Err(err).Send()
 	}
@@ -232,14 +233,14 @@ func main() {
 	case "ipban":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
-		delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
+		delayLog := guard.NewDelayStats(db, conf.TimezoneLocation())
 		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.IPBanTTLSecs); err != nil {
 			log.Fatal().Err(err).Send()
 		}
 	case "ipunban":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
-		delayLog := cncdb.NewDelayStats(db, conf.TimezoneLocation())
+		delayLog := guard.NewDelayStats(db, conf.TimezoneLocation())
 		if err := delayLog.RemoveIPBan(net.ParseIP(flag.Arg(1))); err != nil {
 			log.Fatal().Err(err).Send()
 		}
@@ -252,7 +253,7 @@ func main() {
 			log.Fatal().Err(err).Send()
 		}
 		banHours := 24
-		_, err = cncdb.BanUser(
+		_, err = guard.BanUser(
 			db, conf.TimezoneLocation(), userID, nil, now, now.Add(time.Duration(banHours)*time.Hour))
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to ban user")
@@ -267,7 +268,7 @@ func main() {
 		if err != nil {
 			log.Fatal().Err(err).Send()
 		}
-		_, err = cncdb.UnbanUser(db, conf.TimezoneLocation(), userID)
+		_, err = guard.UnbanUser(db, conf.TimezoneLocation(), userID)
 		if err != nil {
 			log.Error().Err(err).Msg("Failed to unban user")
 

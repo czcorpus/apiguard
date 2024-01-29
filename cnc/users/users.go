@@ -4,13 +4,20 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package cncdb
+package users
 
 import (
 	"apiguard/common"
 	"database/sql"
 	"fmt"
 )
+
+type UserTableProps struct {
+	UserTableName    string
+	UsernameColName  string
+	FirstnameColName string
+	LastnameColName  string
+}
 
 type User struct {
 	ID          common.UserID `json:"id"`

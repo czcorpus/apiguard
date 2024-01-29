@@ -9,7 +9,7 @@ package config
 import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
-	"apiguard/cncdb"
+	"apiguard/cnc"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -122,7 +122,7 @@ type Configuration struct {
 	LogLevel               string                `json:"logLevel"`
 	CleanupMaxAgeDays      int                   `json:"cleanupMaxAgeDays"`
 	IPBanTTLSecs           int                   `json:"IpBanTtlSecs"`
-	CNCDB                  cncdb.Conf            `json:"cncDb"`
+	CNCDB                  cnc.Conf              `json:"cncDb"`
 	Mail                   alarms.MailConf       `json:"mail"`
 	CNCAuth                CNCAuthConf           `json:"cncAuth"`
 	StatusDataDir          string                `json:"statusDataDir"`

@@ -8,7 +8,7 @@ package treq
 
 import (
 	"apiguard/alarms"
-	"apiguard/cncdb/analyzer"
+	"apiguard/cnc/guard"
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/monitoring"
@@ -35,7 +35,7 @@ type TreqProxy struct {
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
-	analyzer        *analyzer.CNCUserAnalyzer
+	analyzer        *guard.CNCUserAnalyzer
 	apiProxy        services.APIProxy
 	reporting       chan<- services.ProxyProcReport
 
@@ -193,7 +193,7 @@ func NewTreqProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	cncAuthCookie string,
-	analyzer *analyzer.CNCUserAnalyzer,
+	analyzer *guard.CNCUserAnalyzer,
 	readTimeoutSecs int,
 	reqCounter chan<- alarms.RequestInfo,
 ) *TreqProxy {

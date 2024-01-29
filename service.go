@@ -9,8 +9,9 @@ package main
 import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
-	"apiguard/cncdb"
-	"apiguard/cncdb/analyzer"
+	internalCNC "apiguard/cnc"
+	"apiguard/cnc/guard"
+	"apiguard/cnc/users"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/services/backend/assc"
@@ -28,7 +29,6 @@ import (
 	"apiguard/services/defaults"
 	"apiguard/services/requests"
 	"apiguard/services/tstorage"
-	"apiguard/users"
 	"context"
 	"fmt"
 	"net/http"
@@ -53,7 +53,7 @@ const (
 func runService(
 	globalCtx *ctx.GlobalContext,
 	conf *config.Configuration,
-	userTableProps cncdb.UserTableProps,
+	userTableProps users.UserTableProps,
 ) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -98,7 +98,7 @@ func runService(
 	engine.POST("/alarms/clean", alarm.HandleCleanAction)
 
 	// telemetry analyzer
-	delayStats := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
+	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
@@ -215,7 +215,7 @@ func runService(
 	// KonText (API) proxy
 
 	if conf.Services.Kontext.ExternalURL != "" {
-		cnca := analyzer.NewCNCUserAnalyzer(
+		cnca := guard.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -263,7 +263,7 @@ func runService(
 	// MQuery proxy
 
 	if conf.Services.MQuery.ExternalURL != "" {
-		cnca := analyzer.NewCNCUserAnalyzer(
+		cnca := guard.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -310,7 +310,7 @@ func runService(
 	// Treq (API) proxy
 
 	if conf.Services.Treq.ExternalURL != "" {
-		cnca := analyzer.NewCNCUserAnalyzer(
+		cnca := guard.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -338,7 +338,7 @@ func runService(
 	// KWords (API) proxy
 
 	if conf.Services.KWords.ExternalURL != "" {
-		cnca := analyzer.NewCNCUserAnalyzer(
+		cnca := guard.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -385,7 +385,7 @@ func runService(
 
 	// user handling
 
-	usersActions := users.NewActions(&users.Conf{}, globalCtx.CNCDB, conf.TimezoneLocation())
+	usersActions := internalCNC.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
 
 	engine.GET("/user/:userID/ban", usersActions.BanInfo)
 

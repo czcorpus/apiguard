@@ -7,7 +7,8 @@
 package alarms
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
+	"apiguard/cnc/users"
 	"apiguard/common"
 	"apiguard/ctx"
 	"database/sql"
@@ -71,7 +72,7 @@ type AlarmTicker struct {
 	counter        chan RequestInfo
 	reports        []*AlarmReport //save
 	location       *time.Location
-	userTableProps cncdb.UserTableProps
+	userTableProps users.UserTableProps
 	statusDataDir  string
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
 	monitoring     *influx.RecordWriter[alarmStatus]
@@ -156,10 +157,10 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 				continue
 			}
 
-			err := newReport.AttachUserInfo(cncdb.NewUsersTable(
+			err := newReport.AttachUserInfo(users.NewUsersTable(
 				aticker.db, aticker.userTableProps))
 			if err != nil {
-				newReport.UserInfo = &cncdb.User{
+				newReport.UserInfo = &users.User{
 					ID:          common.InvalidUserID,
 					Username:    "invalid",
 					FirstName:   "-",
@@ -185,7 +186,7 @@ func (aticker *AlarmTicker) loadAllowList() {
 	aticker.allowListUsers = collections.NewConcurrentMap[string, []common.UserID]()
 	var total int
 	aticker.clients.ForEach(func(serviceID string, se *serviceEntry) {
-		v, err := cncdb.GetAllowlistUsers(aticker.db, serviceID)
+		v, err := guard.GetAllowlistUsers(aticker.db, serviceID)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -350,7 +351,7 @@ func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
 			var banID int64
 			if qry.BanHours > 0 {
 				now := time.Now().In(aticker.location)
-				banID, err = cncdb.BanUser(
+				banID, err = guard.BanUser(
 					aticker.db,
 					aticker.location,
 					report.RequestInfo.UserID,
@@ -387,7 +388,7 @@ func NewAlarmTicker(
 	ctx *ctx.GlobalContext,
 	loc *time.Location,
 	alarmConf MailConf,
-	userTableProps cncdb.UserTableProps,
+	userTableProps users.UserTableProps,
 	statusDataDir string,
 ) *AlarmTicker {
 	return &AlarmTicker{

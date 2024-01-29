@@ -8,7 +8,7 @@ package main
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"apiguard/config"
 	"apiguard/ctx"
 
@@ -16,7 +16,7 @@ import (
 )
 
 func runLearn(globalCtx ctx.GlobalContext, conf *config.Configuration) {
-	delayLog := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
+	delayLog := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	telemetryAnalyzer, err := botwatch.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,

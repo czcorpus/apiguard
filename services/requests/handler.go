@@ -7,7 +7,7 @@
 package requests
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"strconv"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -15,7 +15,7 @@ import (
 )
 
 type Actions struct {
-	db *cncdb.DelayStats
+	db *guard.DelayStats
 }
 
 func (a *Actions) List(ctx *gin.Context) {
@@ -48,6 +48,6 @@ func (a *Actions) List(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, items)
 }
 
-func NewActions(db *cncdb.DelayStats) *Actions {
+func NewActions(db *guard.DelayStats) *Actions {
 	return &Actions{db: db}
 }

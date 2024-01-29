@@ -7,8 +7,8 @@
 package guard
 
 import (
-	"apiguard/cnc/session"
 	"apiguard/common"
+	"apiguard/session"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"

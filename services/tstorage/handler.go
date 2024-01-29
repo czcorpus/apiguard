@@ -7,7 +7,7 @@
 package tstorage
 
 import (
-	"apiguard/cnc/guard"
+	"apiguard/guard"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"encoding/json"

@@ -7,7 +7,7 @@
 package alarms
 
 import (
-	"apiguard/cnc/users"
+	"apiguard/users"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"

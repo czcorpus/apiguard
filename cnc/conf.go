@@ -7,8 +7,8 @@
 package cnc
 
 import (
-	"apiguard/cnc/users"
 	"apiguard/common"
+	"apiguard/users"
 	"database/sql"
 	"fmt"
 	"time"

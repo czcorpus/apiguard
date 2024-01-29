@@ -7,7 +7,7 @@
 package alarms
 
 import (
-	"apiguard/cnc/guard"
+	"apiguard/guard"
 	"fmt"
 	"html/template"
 	"path"

@@ -8,8 +8,8 @@ package kwords
 
 import (
 	"apiguard/alarms"
-	"apiguard/cnc/guard"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/services"
 	"apiguard/services/cnc"
 	"apiguard/services/defaults"

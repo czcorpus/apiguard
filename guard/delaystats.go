@@ -8,7 +8,6 @@ package guard
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cnc/rdelay"
 	"apiguard/services"
 	"apiguard/services/telemetry"
 	"database/sql"
@@ -531,8 +530,8 @@ func (c *DelayStats) LoadCountingRules() ([]*telemetry.CountingRule, error) {
 	return ans, nil
 }
 
-func (c *DelayStats) CleanOldData(maxAgeDays int) rdelay.DataCleanupResult {
-	ans := rdelay.DataCleanupResult{}
+func (c *DelayStats) CleanOldData(maxAgeDays int) DataCleanupResult {
+	ans := DataCleanupResult{}
 	tx, err := c.StartTx()
 	if err != nil {
 		ans.Error = err

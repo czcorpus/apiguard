@@ -7,10 +7,10 @@
 package alarms
 
 import (
-	"apiguard/cnc/guard"
-	"apiguard/cnc/users"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
+	"apiguard/users"
 	"database/sql"
 	"encoding/json"
 	"fmt"

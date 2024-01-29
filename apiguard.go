@@ -20,10 +20,10 @@ import (
 
 	"apiguard/alarms"
 	"apiguard/cnc"
-	"apiguard/cnc/guard"
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/reqcache"
 	"apiguard/services"
 

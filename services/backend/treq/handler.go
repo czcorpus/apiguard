@@ -8,9 +8,9 @@ package treq
 
 import (
 	"apiguard/alarms"
-	"apiguard/cnc/guard"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services"

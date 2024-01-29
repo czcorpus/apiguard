@@ -8,11 +8,11 @@ package guard
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cnc/session"
-	"apiguard/cnc/users"
 	"apiguard/common"
 	"apiguard/services"
 	"apiguard/services/logging"
+	"apiguard/session"
+	"apiguard/users"
 	"database/sql"
 	"fmt"
 	"net"

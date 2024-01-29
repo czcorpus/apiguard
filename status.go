@@ -8,9 +8,9 @@ package main
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cnc/guard"
 	"apiguard/config"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/services/logging"
 	"fmt"
 	"net"

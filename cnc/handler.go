@@ -4,10 +4,10 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package users
+package cnc
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"apiguard/common"
 	"database/sql"
 	"net/http"
@@ -19,7 +19,6 @@ import (
 )
 
 type Actions struct {
-	conf     *Conf
 	location *time.Location
 	cncDB    *sql.DB
 }
@@ -34,7 +33,7 @@ func (a *Actions) BanInfo(ctx *gin.Context) {
 		)
 		return
 	}
-	ban, err := cncdb.MostRecentActiveBan(a.cncDB, a.location, userID)
+	ban, err := guard.MostRecentActiveBan(a.cncDB, a.location, userID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -84,8 +83,8 @@ func (a *Actions) SetBan(ctx *gin.Context) {
 		return
 	}
 	now := time.Now().In(a.location)
-	newID, err := cncdb.BanUser(a.cncDB, a.location, userID, nil, now, now.Add(banLen))
-	if err == cncdb.ErrorUserAlreadyBannned {
+	newID, err := guard.BanUser(a.cncDB, a.location, userID, nil, now, now.Add(banLen))
+	if err == guard.ErrorUserAlreadyBannned {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionErrorFrom(err),
@@ -113,7 +112,7 @@ func (a *Actions) DisableBan(ctx *gin.Context) {
 		)
 		return
 	}
-	numBans, err := cncdb.UnbanUser(a.cncDB, a.location, userID)
+	numBans, err := guard.UnbanUser(a.cncDB, a.location, userID)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
@@ -126,9 +125,8 @@ func (a *Actions) DisableBan(ctx *gin.Context) {
 
 }
 
-func NewActions(conf *Conf, cncDB *sql.DB, loc *time.Location) *Actions {
+func NewActions(cncDB *sql.DB, loc *time.Location) *Actions {
 	return &Actions{
-		conf:     conf,
 		cncDB:    cncDB,
 		location: loc,
 	}

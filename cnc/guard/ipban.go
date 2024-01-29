@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package cncdb
+package guard
 
 import (
 	"database/sql"

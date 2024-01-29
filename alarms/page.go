@@ -7,7 +7,7 @@
 package alarms
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"fmt"
 	"html/template"
 	"path"
@@ -33,7 +33,7 @@ type reportPageData struct {
 	Error           error
 	ReviewerMail    string
 	Report          *AlarmReport
-	Ban             *cncdb.UserBan
+	Ban             *guard.UserBan
 }
 
 func (aticker *AlarmTicker) HandleConfirmationPage(ctx *gin.Context) {
@@ -58,7 +58,7 @@ func (aticker *AlarmTicker) HandleConfirmationPage(ctx *gin.Context) {
 		log.Error().Err(data.Error).Send()
 
 	} else {
-		ban, err := cncdb.FindBanByReport(
+		ban, err := guard.FindBanByReport(
 			aticker.db,
 			aticker.location,
 			alarmID,

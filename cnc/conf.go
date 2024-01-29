@@ -4,9 +4,10 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package cncdb
+package cnc
 
 import (
+	"apiguard/cnc/users"
 	"apiguard/common"
 	"database/sql"
 	"fmt"
@@ -80,13 +81,6 @@ const (
 	DfltLastnameColName  = "surname"
 )
 
-type UserTableProps struct {
-	UserTableName    string
-	UsernameColName  string
-	FirstnameColName string
-	LastnameColName  string
-}
-
 type Conf struct {
 	Name                     string        `json:"name"`
 	Host                     string        `json:"host"`
@@ -119,8 +113,8 @@ func (conf *Conf) Validate(context string) error {
 	return nil
 }
 
-func (conf *Conf) ApplyOverrides() UserTableProps {
-	var ans UserTableProps
+func (conf *Conf) ApplyOverrides() users.UserTableProps {
+	var ans users.UserTableProps
 	ans.UserTableName = DfltUsersTableName
 	if conf.OverrideUserTableName != "" {
 		ans.UserTableName = conf.OverrideUserTableName

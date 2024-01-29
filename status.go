@@ -8,7 +8,7 @@ package main
 
 import (
 	"apiguard/botwatch"
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/services/logging"
@@ -21,7 +21,7 @@ import (
 )
 
 func runStatus(globalCtx ctx.GlobalContext, conf *config.Configuration, ident string) {
-	delayLog := cncdb.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
+	delayLog := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {

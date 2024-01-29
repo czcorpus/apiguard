@@ -7,7 +7,7 @@
 package tstorage
 
 import (
-	"apiguard/cncdb"
+	"apiguard/cnc/guard"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"encoding/json"
@@ -33,7 +33,7 @@ type payload struct {
 }
 
 type Actions struct {
-	db *cncdb.DelayStats
+	db *guard.DelayStats
 }
 
 func (a *Actions) Store(ctx *gin.Context) {
@@ -86,6 +86,6 @@ func (a *Actions) Store(ctx *gin.Context) {
 
 }
 
-func NewActions(db *cncdb.DelayStats) *Actions {
+func NewActions(db *guard.DelayStats) *Actions {
 	return &Actions{db: db}
 }

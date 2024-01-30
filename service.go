@@ -9,7 +9,6 @@ package main
 import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
-	internalCNC "apiguard/cnc"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
@@ -29,6 +28,7 @@ import (
 	"apiguard/services/requests"
 	"apiguard/services/tstorage"
 	"apiguard/users"
+	userHandlers "apiguard/users/handlers"
 	"context"
 	"fmt"
 	"net/http"
@@ -385,7 +385,7 @@ func runService(
 
 	// user handling
 
-	usersActions := internalCNC.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
+	usersActions := userHandlers.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
 
 	engine.GET("/user/:userID/ban", usersActions.BanInfo)
 

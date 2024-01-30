@@ -7,9 +7,9 @@
 package mquery
 
 import (
-	"apiguard/alarms"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/userdb"
 	"apiguard/services/cnc"
 )
 
@@ -21,8 +21,8 @@ func NewMQueryProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	analyzer *guard.CNCUserAnalyzer,
-	reqCounter chan<- alarms.RequestInfo,
+	analyzer *userdb.CNCUserAnalyzer,
+	reqCounter chan<- guard.RequestInfo,
 ) *MQueryProxy {
 	return &MQueryProxy{
 		CoreProxy: *cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter),

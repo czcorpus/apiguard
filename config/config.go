@@ -8,8 +8,8 @@ package config
 
 import (
 	"apiguard/alarms"
-	"apiguard/botwatch"
 	"apiguard/cnc"
+	"apiguard/guard"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -113,7 +113,7 @@ type Configuration struct {
 	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
 	TimeZone               string                `json:"timeZone"`
-	Botwatch               botwatch.Conf         `json:"botwatch"`
+	Botwatch               guard.Conf            `json:"botwatch"`
 	Telemetry              telemetry.Conf        `json:"telemetry"`
 	Services               servicesSection       `json:"services"`
 	Cache                  reqcache.Conf         `json:"cache"`

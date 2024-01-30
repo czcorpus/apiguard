@@ -7,8 +7,6 @@
 package guard
 
 import (
-	"apiguard/botwatch"
-	"apiguard/services"
 	"apiguard/services/telemetry"
 	"database/sql"
 	"fmt"
@@ -89,7 +87,7 @@ type DelayStats struct {
 	location *time.Location
 }
 
-func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProcData, error) {
+func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*IPProcData, error) {
 	if maxAgeSecs <= 0 {
 		maxAgeSecs = 3600 * 24
 	}
@@ -99,11 +97,11 @@ func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProc
 		WHERE last_request >= current_timestamp - INTERVAL ? SECOND
 		ORDER BY cnt DESC LIMIT ?`, maxAgeSecs, maxItems)
 	if err != nil {
-		return []*botwatch.IPProcData{}, nil
+		return []*IPProcData{}, nil
 	}
-	ans := make([]*botwatch.IPProcData, 0, maxItems)
+	ans := make([]*IPProcData, 0, maxItems)
 	for result.Next() {
-		var item botwatch.IPProcData
+		var item IPProcData
 		var sessionID sql.NullString
 		scanErr := result.Scan(
 			&sessionID,
@@ -115,7 +113,7 @@ func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProc
 			&item.LastAccess,
 		)
 		if scanErr != nil {
-			return []*botwatch.IPProcData{}, nil
+			return []*IPProcData{}, nil
 		}
 		if sessionID.Valid {
 			item.SessionID = sessionID.String
@@ -127,7 +125,7 @@ func (c *DelayStats) LoadStatsList(maxItems, maxAgeSecs int) ([]*botwatch.IPProc
 
 // LoadStats loads statistics for a specified IP and sessionID. In case nothing is found,
 // a new record is inserted.
-func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*botwatch.IPProcData, error) {
+func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error) {
 	tx, err := c.StartTx()
 	if err != nil {
 		return nil, err
@@ -139,7 +137,7 @@ func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, inser
 		current_timestamp - INTERVAL ? SECOND < last_request`,
 		string2NullString(sessionID), string2NullString(sessionID), clientIP, maxAgeSecs,
 	)
-	var data botwatch.IPProcData
+	var data IPProcData
 	var dbSessionID sql.NullString
 	scanErr := ans.Scan(&dbSessionID, &data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
 	if ans.Err() != nil {
@@ -148,7 +146,7 @@ func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, inser
 	}
 	if scanErr == sql.ErrNoRows {
 		dt := time.Now()
-		newData := &botwatch.IPProcData{
+		newData := &IPProcData{
 			SessionID:   sessionID,
 			ClientIP:    clientIP,
 			Count:       0,
@@ -181,7 +179,7 @@ func (c *DelayStats) LoadStats(clientIP, sessionID string, maxAgeSecs int, inser
 	return &data, nil
 }
 
-func (c *DelayStats) ResetStats(data *botwatch.IPProcData) error {
+func (c *DelayStats) ResetStats(data *IPProcData) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
@@ -195,7 +193,7 @@ func (c *DelayStats) ResetStats(data *botwatch.IPProcData) error {
 	return err
 }
 
-func (c *DelayStats) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
+func (c *DelayStats) resetStats(tx *sql.Tx, data *IPProcData) error {
 	ns := string2NullString(data.SessionID)
 	_, err := tx.Exec(
 		`INSERT INTO apiguard_client_stats (session_id, client_ip, mean, m2, cnt, stdev, first_request, last_request)
@@ -208,7 +206,7 @@ func (c *DelayStats) resetStats(tx *sql.Tx, data *botwatch.IPProcData) error {
 	return nil
 }
 
-func (c *DelayStats) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPAggData, error) {
+func (c *DelayStats) LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error) {
 	ans := c.conn.QueryRow(
 		`SELECT cs.client_ip, SUM(cs.mean), SUM(cs.m2), SUM(cs.cnt),
 		 MIN(cs.first_request), MAX(cs.last_request)
@@ -219,13 +217,13 @@ func (c *DelayStats) LoadIPStats(clientIP string, maxAgeSecs int) (*botwatch.IPA
 		GROUP BY cs.client_ip `,
 		clientIP, maxAgeSecs,
 	)
-	var data botwatch.IPAggData
+	var data IPAggData
 	scanErr := ans.Scan(&data.ClientIP, &data.Mean, &data.M2, &data.Count, &data.FirstAccess, &data.LastAccess)
 	if ans.Err() != nil {
 		return nil, ans.Err()
 	}
 	if scanErr == sql.ErrNoRows {
-		return &botwatch.IPAggData{
+		return &IPAggData{
 			ClientIP: clientIP,
 			Count:    0,
 			Mean:     0,
@@ -258,7 +256,7 @@ func (c *DelayStats) GetSessionIP(sessionID string) (net.IP, error) {
 }
 
 func (c *DelayStats) UpdateStats(
-	data *botwatch.IPProcData,
+	data *IPProcData,
 ) error {
 	ns := string2NullString(data.SessionID)
 	curr := c.conn.QueryRow(
@@ -609,7 +607,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error {
+func (c *DelayStats) LogAppliedDelay(delayInfo DelayInfo, clientIP string) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err

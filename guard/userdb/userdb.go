@@ -4,13 +4,12 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package guard
+package userdb
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
+	"apiguard/guard"
 	"apiguard/proxy"
-	"apiguard/services"
 	"apiguard/services/logging"
 	"apiguard/session"
 	"apiguard/users"
@@ -32,7 +31,7 @@ import (
 // (SessionCookieNames)
 type CNCUserAnalyzer struct {
 	db             *sql.DB
-	delayStats     *DelayStats
+	delayStats     *guard.DelayStats
 	location       *time.Location
 	userTableProps users.UserTableProps
 
@@ -59,27 +58,29 @@ type CNCUserAnalyzer struct {
 	AnonymousUserID       common.UserID
 }
 
-// CalcDelay calculates a delay user deserves. CNCUserAnalyzer
-// returns 0.
-func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
+// CalcDelay calculates a delay user deserves.
+// CNCUserAnalyzer applies only two delays:
+// 1) zero for non-banned users
+// 2) guard.UltraDuration which is basically a ban
+func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 	ip, _ := logging.ExtractRequestIdentifiers(req)
-	delayInfo := services.DelayInfo{
+	delayInfo := guard.DelayInfo{
 		Delay: time.Duration(0),
 		IsBan: false,
 	}
-	isBanned, err := TestIPBan(kua.db, net.ParseIP(ip), kua.location)
+	isBanned, err := guard.TestIPBan(kua.db, net.ParseIP(ip), kua.location)
 	if err != nil {
 		return delayInfo, err
 	}
 	if isBanned {
-		delayInfo.Delay = botwatch.UltraDuration
+		delayInfo.Delay = guard.UltraDuration
 		delayInfo.IsBan = true
 		return delayInfo, nil
 	}
 	return delayInfo, nil
 }
 
-func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo, clientIP string) error {
+func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
 	err := kua.delayStats.LogAppliedDelay(respDelay, clientIP)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
@@ -133,7 +134,7 @@ func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
 		return common.InvalidUserID, nil
 	}
 	sessionVal := kua.getUserCNCSessionID(req)
-	userID, err := FindUserBySession(kua.db, sessionVal)
+	userID, err := guard.FindUserBySession(kua.db, sessionVal)
 	if err != nil {
 		return common.InvalidUserID, err
 	}
@@ -149,10 +150,10 @@ func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
 func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 	req *http.Request,
 	serviceName string,
-) services.ReqProperties {
+) guard.ReqProperties {
 
 	if analyzer.db == nil {
-		return services.ReqProperties{
+		return guard.ReqProperties{
 			ProposedStatus: http.StatusOK,
 			UserID:         common.InvalidUserID,
 			SessionID:      "",
@@ -165,7 +166,7 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 			Str("internalCookie", analyzer.internalSessionCookie).
 			Str("externalCookie", analyzer.externalSessionCookie).
 			Msgf("failed to find authentication cookies")
-		return services.ReqProperties{
+		return guard.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         common.InvalidUserID,
 			SessionID:      "",
@@ -173,10 +174,10 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 		}
 	}
 	sessionID := analyzer.GetSessionID(req)
-	banned, userID, err := FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
+	banned, userID, err := guard.FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
 	if err == sql.ErrNoRows || userID == analyzer.AnonymousUserID || !userID.IsValid() {
 		log.Debug().Msgf("session %s not present in database", sessionID)
-		return services.ReqProperties{
+		return guard.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         common.InvalidUserID,
 			SessionID:      "",
@@ -187,7 +188,7 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 	if banned {
 		status = http.StatusForbidden
 	}
-	return services.ReqProperties{
+	return guard.ReqProperties{
 		ProposedStatus: status,
 		UserID:         userID,
 		SessionID:      sessionID,
@@ -197,7 +198,7 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 
 func NewCNCUserAnalyzer(
 	db *sql.DB,
-	delayStats *DelayStats,
+	delayStats *guard.DelayStats,
 	location *time.Location,
 	userTableProps users.UserTableProps,
 	internalSessionCookie string,

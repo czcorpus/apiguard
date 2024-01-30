@@ -7,14 +7,13 @@
 package treq
 
 import (
-	"apiguard/alarms"
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/userdb"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"apiguard/services/backend"
 	"fmt"
 	"net/http"
@@ -36,14 +35,14 @@ type TreqProxy struct {
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
-	analyzer        *guard.CNCUserAnalyzer
+	analyzer        *userdb.CNCUserAnalyzer
 	apiProxy        proxy.APIProxy
 	reporting       chan<- proxy.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
 	// (in such case, nothing is sent)
-	reqCounter chan<- alarms.RequestInfo
+	reqCounter chan<- guard.RequestInfo
 }
 
 func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -60,7 +59,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool) {
 		if tp.reqCounter != nil {
-			tp.reqCounter <- alarms.RequestInfo{
+			tp.reqCounter <- guard.RequestInfo{
 				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      *currUserID,
@@ -99,7 +98,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	services.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.analyzer)
+	guard.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.analyzer)
 
 	passedHeaders := ctx.Request.Header
 	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
@@ -194,9 +193,9 @@ func NewTreqProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	cncAuthCookie string,
-	analyzer *guard.CNCUserAnalyzer,
+	analyzer *userdb.CNCUserAnalyzer,
 	readTimeoutSecs int,
-	reqCounter chan<- alarms.RequestInfo,
+	reqCounter chan<- guard.RequestInfo,
 ) *TreqProxy {
 	reporting := make(chan proxy.ProxyProcReport)
 	go func() {

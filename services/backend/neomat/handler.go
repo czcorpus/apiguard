@@ -7,13 +7,12 @@
 package neomat
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -32,7 +31,7 @@ type NeomatActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *botwatch.Analyzer
+	analyzer        *guard.Analyzer
 }
 
 type Response struct {
@@ -70,7 +69,7 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err = services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err = guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -111,7 +110,7 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.
 func NewNeomatActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *botwatch.Analyzer,
+	analyzer *guard.Analyzer,
 	readTimeoutSecs int,
 ) *NeomatActions {
 	return &NeomatActions{

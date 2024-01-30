@@ -8,10 +8,11 @@ package main
 
 import (
 	"apiguard/alarms"
-	"apiguard/botwatch"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/simple"
+	"apiguard/guard/userdb"
 	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -39,6 +40,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
+	"github.com/czcorpus/cnc-gokit/httpclient"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -99,7 +101,7 @@ func runService(
 
 	// telemetry analyzer
 	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
-	telemetryAnalyzer, err := botwatch.NewAnalyzer(
+	telemetryAnalyzer, err := guard.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		globalCtx.InfluxDB,
@@ -215,7 +217,7 @@ func runService(
 	// KonText (API) proxy
 
 	if conf.Services.Kontext.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
+		cnca := userdb.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -225,7 +227,7 @@ func runService(
 			conf.CNCDB.AnonymousUserID,
 		)
 
-		var kontextReqCounter chan<- alarms.RequestInfo
+		var kontextReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Kontext.Limits) > 0 {
 			kontextReqCounter = alarm.Register(
 				"kontext", conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
@@ -263,7 +265,7 @@ func runService(
 	// MQuery proxy
 
 	if conf.Services.MQuery.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
+		cnca := userdb.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -273,7 +275,7 @@ func runService(
 			conf.CNCDB.AnonymousUserID,
 		)
 
-		var mqueryReqCounter chan<- alarms.RequestInfo
+		var mqueryReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.MQuery.Limits) > 0 {
 			mqueryReqCounter = alarm.Register(
 				"mquery", conf.Services.MQuery.Alarm, conf.Services.MQuery.Limits)
@@ -310,7 +312,7 @@ func runService(
 	// Treq (API) proxy
 
 	if conf.Services.Treq.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
+		cnca := userdb.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -319,7 +321,7 @@ func runService(
 			conf.Services.Treq.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
 		)
-		var treqReqCounter chan<- alarms.RequestInfo
+		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
 			treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
 		}
@@ -345,7 +347,18 @@ func runService(
 					"kwords", conf.Services.KWords.Alarm, conf.Services.KWords.Limits)
 			}
 		*/
-		kwordsActions := proxy.NewPublicAPIProxy()
+		client := httpclient.New(
+			httpclient.WithFollowRedirects(),
+			httpclient.WithInsecureSkipVerify(),
+			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
+		)
+		analyzer := simple.NewSimpleRequestAnalyzer(conf.CNCAuth.SessionCookieName)
+		kwordsActions := proxy.NewPublicAPIProxy(
+			client,
+			proxy.NewAPIProxy(conf.Services.KWords.GetCoreConf()),
+			analyzer.ExposeAsCounter(),
+			analyzer,
+		)
 		/*
 				globalCtx,
 				&conf.Services.KWords,

@@ -4,11 +4,10 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package botwatch
+package guard
 
 import (
 	"apiguard/common"
-	"apiguard/services"
 
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -27,12 +26,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	// UltraDuration is a reasonably high request delay which
-	// can be considered an "infinite wait".
-	UltraDuration = time.Duration(24) * time.Hour
-)
-
 type Backend interface {
 	Learn() error
 
@@ -48,7 +41,7 @@ type StatsStorage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
 	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error
+	LogAppliedDelay(delayInfo DelayInfo, clientIP string) error
 }
 
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
@@ -81,8 +74,8 @@ func (a *Analyzer) Learn() error {
 	return a.backend.Learn()
 }
 
-func (a *Analyzer) UserInducedResponseStatus(req *http.Request, serviceName string) services.ReqProperties {
-	return services.ReqProperties{
+func (a *Analyzer) UserInducedResponseStatus(req *http.Request, serviceName string) ReqProperties {
+	return ReqProperties{
 		UserID:         common.InvalidUserID,
 		SessionID:      "",
 		ProposedStatus: http.StatusOK,
@@ -90,9 +83,9 @@ func (a *Analyzer) UserInducedResponseStatus(req *http.Request, serviceName stri
 	}
 }
 
-func (a *Analyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
+func (a *Analyzer) CalcDelay(req *http.Request) (DelayInfo, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	delayInfo := services.DelayInfo{
+	delayInfo := DelayInfo{
 		Delay: time.Duration(0),
 		IsBan: false,
 	}
@@ -153,7 +146,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (services.DelayInfo, error) {
 	}
 }
 
-func (a *Analyzer) LogAppliedDelay(delayInfo services.DelayInfo, clientIP string) error {
+func (a *Analyzer) LogAppliedDelay(delayInfo DelayInfo, clientIP string) error {
 	err := a.storage.LogAppliedDelay(delayInfo, clientIP)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")

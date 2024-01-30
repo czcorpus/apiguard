@@ -7,13 +7,12 @@
 package cja
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,7 +30,7 @@ type CJAActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *botwatch.Analyzer
+	analyzer        *guard.Analyzer
 }
 
 type Response struct {
@@ -62,7 +61,7 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -112,7 +111,7 @@ func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request
 func NewCJAActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *botwatch.Analyzer,
+	analyzer *guard.Analyzer,
 	readTimeoutSecs int,
 ) *CJAActions {
 	return &CJAActions{

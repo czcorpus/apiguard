@@ -14,14 +14,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/httpclient"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-)
-
-const (
-	TransportMaxIdleConns        = 100
-	TransportMaxConnsPerHost     = 100
-	TransportMaxIdleConnsPerHost = 80
 )
 
 func GetCookieValue(req *http.Request, cookieName string) string {
@@ -173,9 +168,9 @@ func (proxy *APIProxy) Request(
 
 func NewAPIProxy(conf GeneralProxyConf) *APIProxy {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
-	transport.MaxIdleConns = TransportMaxIdleConns
-	transport.MaxConnsPerHost = TransportMaxConnsPerHost
-	transport.MaxIdleConnsPerHost = TransportMaxIdleConnsPerHost
+	transport.MaxIdleConns = httpclient.TransportMaxIdleConns
+	transport.MaxConnsPerHost = httpclient.TransportMaxConnsPerHost
+	transport.MaxIdleConnsPerHost = httpclient.TransportMaxIdleConnsPerHost
 	transport.IdleConnTimeout = time.Duration(conf.IdleConnTimeoutSecs) * time.Second
 	return &APIProxy{
 		InternalURL: conf.InternalURL,

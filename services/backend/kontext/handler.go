@@ -7,10 +7,9 @@
 package kontext
 
 import (
-	"apiguard/alarms"
 	"apiguard/ctx"
 	"apiguard/guard"
-	"apiguard/services"
+	"apiguard/guard/userdb"
 	"apiguard/services/cnc"
 	"apiguard/services/defaults"
 	"errors"
@@ -22,10 +21,10 @@ import (
 type KonTextProxy struct {
 	cnc.CoreProxy
 	defaults *collections.ConcurrentMap[string, defaults.Args]
-	analyzer *guard.CNCUserAnalyzer
+	analyzer *userdb.CNCUserAnalyzer
 }
 
-func (kp *KonTextProxy) CreateDefaultArgs(reqProps services.ReqProperties) defaults.Args {
+func (kp *KonTextProxy) CreateDefaultArgs(reqProps guard.ReqProperties) defaults.Args {
 	dfltArgs, ok := kp.defaults.GetWithTest(reqProps.SessionID)
 	if !ok {
 		dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")
@@ -64,8 +63,8 @@ func NewKontextProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	analyzer *guard.CNCUserAnalyzer,
-	reqCounter chan<- alarms.RequestInfo,
+	analyzer *userdb.CNCUserAnalyzer,
+	reqCounter chan<- guard.RequestInfo,
 ) *KonTextProxy {
 	return &KonTextProxy{
 		CoreProxy: *cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter),

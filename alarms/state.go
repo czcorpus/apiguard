@@ -19,7 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// this file contains GOB encoding/decoding routies for AlarmTicker and types in involves
+// this file contains GOB encoding/decoding routines for AlarmTicker and types in involves
 
 // aticker:
 

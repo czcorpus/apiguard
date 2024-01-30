@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
@@ -69,7 +68,7 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 		}
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return &SimpleResponse{
 			Body: []byte{},
@@ -147,7 +146,7 @@ func (proxy *APIProxy) Request(
 		}
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	log.Debug().
 		Str("url", targetURL).
 		Err(err).

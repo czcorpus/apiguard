@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package botwatch
+package lguide
 
 import (
 	"fmt"
@@ -14,22 +14,23 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/rs/zerolog/log"
 
+	"apiguard/botwatch"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 )
 
 type StoreHandler interface {
-	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
-	ResetStats(data *IPProcData) error
-	UpdateStats(data *IPProcData) error
+	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*botwatch.IPProcData, error)
+	ResetStats(data *botwatch.IPProcData) error
+	UpdateStats(data *botwatch.IPProcData) error
 	CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error)
 	InsertBotLikeTelemetry(clientIP, sessionID string) error
 }
 
 type Watchdog[T logging.AnyRequestRecord] struct {
-	statistics     *collections.ConcurrentMap[string, *IPProcData]
-	suspicions     *collections.ConcurrentMap[string, IPProcData]
-	conf           *Conf
+	statistics     *collections.ConcurrentMap[string, *botwatch.IPProcData]
+	suspicions     *collections.ConcurrentMap[string, botwatch.IPProcData]
+	conf           *botwatch.Conf
 	telemetryConf  *telemetry.Conf
 	onlineAnalysis chan T
 	db             StoreHandler
@@ -37,7 +38,7 @@ type Watchdog[T logging.AnyRequestRecord] struct {
 
 func (wd *Watchdog[T]) PrintStatistics() string {
 	buff := strings.Builder{}
-	wd.statistics.ForEach(func(ip string, stats *IPProcData) {
+	wd.statistics.ForEach(func(ip string, stats *botwatch.IPProcData) {
 		buff.WriteString(fmt.Sprintf("%v:\n", ip))
 		buff.WriteString(fmt.Sprintf("\tcount: %d\n", stats.Count))
 		buff.WriteString(fmt.Sprintf("\tmean: %01.2f\n", stats.Mean))
@@ -61,15 +62,15 @@ func (wd *Watchdog[T]) Close() {
 }
 
 func (wd *Watchdog[T]) ResetAll() {
-	wd.statistics = collections.NewConcurrentMap[string, *IPProcData]()
-	wd.suspicions = collections.NewConcurrentMap[string, IPProcData]()
+	wd.statistics = collections.NewConcurrentMap[string, *botwatch.IPProcData]()
+	wd.suspicions = collections.NewConcurrentMap[string, botwatch.IPProcData]()
 }
 
 func (wd *Watchdog[T]) ResetBotCandidates() {
-	wd.suspicions = collections.NewConcurrentMap[string, IPProcData]()
+	wd.suspicions = collections.NewConcurrentMap[string, botwatch.IPProcData]()
 }
 
-func (wd *Watchdog[T]) Conf() *Conf {
+func (wd *Watchdog[T]) Conf() *botwatch.Conf {
 	return wd.conf
 }
 
@@ -125,9 +126,9 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 	}
 }
 
-func (wd *Watchdog[T]) GetSuspiciousRecords() []IPStats {
-	ans := make([]IPStats, 0, wd.suspicions.Len())
-	wd.suspicions.ForEach(func(ip string, rec IPProcData) {
+func (wd *Watchdog[T]) GetSuspiciousRecords() []botwatch.IPStats {
+	ans := make([]botwatch.IPStats, 0, wd.suspicions.Len())
+	wd.suspicions.ForEach(func(ip string, rec botwatch.IPProcData) {
 		ans = append(ans, rec.ToIPStats(ip))
 	})
 	return ans
@@ -153,14 +154,14 @@ func (wd *Watchdog[T]) assertTelemetry(rec *logging.LGRequestRecord) {
 }
 
 func NewLGWatchdog(
-	conf *Conf,
+	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 	db StoreHandler,
 ) *Watchdog[*logging.LGRequestRecord] {
 	analysis := make(chan *logging.LGRequestRecord)
 	wd := &Watchdog[*logging.LGRequestRecord]{
-		statistics:     collections.NewConcurrentMap[string, *IPProcData](),
-		suspicions:     collections.NewConcurrentMap[string, IPProcData](),
+		statistics:     collections.NewConcurrentMap[string, *botwatch.IPProcData](),
+		suspicions:     collections.NewConcurrentMap[string, botwatch.IPProcData](),
 		conf:           conf,
 		telemetryConf:  telemetryConf,
 		onlineAnalysis: analysis,

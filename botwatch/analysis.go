@@ -28,6 +28,8 @@ import (
 )
 
 const (
+	// UltraDuration is a reasonably high request delay which
+	// can be considered an "infinite wait".
 	UltraDuration = time.Duration(24) * time.Hour
 )
 

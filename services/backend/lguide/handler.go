@@ -42,7 +42,7 @@ type LanguageGuideActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
+	watchdog        *Watchdog[*logging.LGRequestRecord]
 	analyzer        *botwatch.Analyzer
 }
 
@@ -193,7 +193,7 @@ func NewLanguageGuideActions(
 	db *guard.DelayStats,
 	analyzer *botwatch.Analyzer,
 ) *LanguageGuideActions {
-	wdog := botwatch.NewLGWatchdog(botwatchConf, telemetryConf, db)
+	wdog := NewLGWatchdog(botwatchConf, telemetryConf, db)
 	return &LanguageGuideActions{
 		globalCtx:       globalCtx,
 		conf:            conf,

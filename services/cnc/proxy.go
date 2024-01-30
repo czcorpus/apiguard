@@ -162,6 +162,36 @@ func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
 	}
 }
 
+// applyLoginRespCookies applies respose cookies as obtained
+// from a login request. The method does not care whether the
+// response represents a successful login or not.
+// The method also tries to find matching user ID and sets
+func (kp *CoreProxy) applyLoginRespCookies(
+	ctx *gin.Context,
+	resp loginResponse,
+) (userID common.UserID) {
+	for _, cookie := range resp.cookies {
+		cCopy := *cookie
+		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.ExternalSessionCookieName != "" {
+			var err error
+			var sessionID session.CNCSessionValue
+			sessionID.UpdateFrom(cCopy.Value)
+			userID, err = guard.FindUserBySession(kp.globalCtx.CNCDB, sessionID)
+			if err != nil {
+				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
+			}
+			cCopy.Name = kp.conf.ExternalSessionCookieName
+			log.Debug().
+				Str("internalCookie", kp.rConf.CNCAuthCookie).
+				Str("externalCookie", kp.conf.ExternalSessionCookieName).
+				Str("value", cCopy.Value).
+				Msg("login action - mapping back internal cookie")
+		}
+		http.SetCookie(ctx.Writer, &cCopy)
+	}
+	return
+}
+
 // Login is a custom Proxy for CNC portals' central login action.
 // We use it in situations where we need a "hidden" API login using
 // a special user account for unauthorized users. Without additional
@@ -199,25 +229,7 @@ func (kp *CoreProxy) Login(ctx *gin.Context) {
 		return
 	}
 
-	for _, cookie := range resp.cookies {
-		cCopy := *cookie
-		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.ExternalSessionCookieName != "" {
-			var err error
-			var sessionID session.CNCSessionValue
-			sessionID.UpdateFrom(cCopy.Value)
-			userId, err = guard.FindUserBySession(kp.globalCtx.CNCDB, sessionID)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
-			}
-			cCopy.Name = kp.conf.ExternalSessionCookieName
-			log.Debug().
-				Str("internalCookie", kp.rConf.CNCAuthCookie).
-				Str("externalCookie", kp.conf.ExternalSessionCookieName).
-				Str("value", cCopy.Value).
-				Msg("login action - mapping back internal cookie")
-		}
-		http.SetCookie(ctx.Writer, &cCopy)
-	}
+	userId = kp.applyLoginRespCookies(ctx, resp)
 	uniresp.WriteJSONResponse(ctx.Writer, resp.message)
 }
 
@@ -292,6 +304,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	if passedHeaders.Get(backend.HeaderIndirectCall) != "" {
 		indirectAPICall = true
+	}
+
+	if kp.conf.UserIDPassHeader != "" {
+		passedHeaders[kp.conf.UserIDPassHeader] = []string{userID.String()}
 	}
 
 	if kp.conf.UseHeaderXApiKey {

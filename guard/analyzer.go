@@ -25,7 +25,7 @@ import (
 )
 
 // CNCUserAnalyzer provides access to user request and is able
-// too access CNC session database to evaluate user permissions.
+// to access CNC session database to evaluate user permissions.
 // Because of possible cookie mapping for some of services, the
 // analyzer may look into more than one cookie. But it is up
 // to a consumer to configure proper order of cookie lookup
@@ -175,7 +175,7 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 	sessionID := analyzer.GetSessionID(req)
 	banned, userID, err := FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
 	if err == sql.ErrNoRows || userID == analyzer.AnonymousUserID || !userID.IsValid() {
-		log.Debug().Msgf("failed to find session %s in database", sessionID)
+		log.Debug().Msgf("session %s not present in database", sessionID)
 		return services.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         common.InvalidUserID,

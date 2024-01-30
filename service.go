@@ -12,11 +12,11 @@ import (
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
-	"apiguard/services/backend/kwords"
 	"apiguard/services/backend/lguide"
 	"apiguard/services/backend/mquery"
 	"apiguard/services/backend/neomat"
@@ -338,48 +338,31 @@ func runService(
 	// KWords (API) proxy
 
 	if conf.Services.KWords.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
-			globalCtx.CNCDB,
-			delayStats,
-			conf.TimezoneLocation(),
-			userTableProps,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.KWords.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
-		)
-
-		var kwordsReqCounter chan<- alarms.RequestInfo
-		if len(conf.Services.KWords.Limits) > 0 {
-			kwordsReqCounter = alarm.Register(
-				"kwords", conf.Services.KWords.Alarm, conf.Services.KWords.Limits)
-		}
-		kwordsActions := kwords.NewKWordsProxy(
-			globalCtx,
-			&conf.Services.KWords,
-			&cnc.EnvironConf{
-				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
-				AuthTokenEntry:    authTokenEntry,
-				ServicePath:       "/service/kwords",
-				ServiceName:       "kwords",
-				CNCPortalLoginURL: cncPortalLoginURL,
-				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
-			},
-			cnca,
-			kwordsReqCounter,
-		)
-
-		engine.Any("/service/kwords/*path", func(ctx *gin.Context) {
-			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
-				kwordsActions.Login(ctx)
-
-			} else if ctx.Param("path") == "/preflight" {
-				kwordsActions.Preflight(ctx)
-
-			} else {
-				kwordsActions.AnyPath(ctx)
+		/*
+			var kwordsReqCounter chan<- alarms.RequestInfo
+			if len(conf.Services.KWords.Limits) > 0 {
+				kwordsReqCounter = alarm.Register(
+					"kwords", conf.Services.KWords.Alarm, conf.Services.KWords.Limits)
 			}
-		})
-		servicesDefaults["kwords"] = kwordsActions
+		*/
+		kwordsActions := proxy.NewPublicAPIProxy()
+		/*
+				globalCtx,
+				&conf.Services.KWords,
+				&cnc.EnvironConf{
+					CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
+					AuthTokenEntry:    authTokenEntry,
+					ServicePath:       "/service/kwords",
+					ServiceName:       "kwords",
+					CNCPortalLoginURL: cncPortalLoginURL,
+					ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
+				},
+				cnca,
+				kwordsReqCounter,
+			)
+		*/
+
+		engine.Any("/service/kwords/*path", kwordsActions.AnyPath)
 		log.Info().Msg("Service KWords enabled")
 	}
 

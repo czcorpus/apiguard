@@ -12,6 +12,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -49,8 +50,8 @@ type CoreProxy struct {
 	conf      *ProxyConf
 	rConf     *EnvironConf
 	analyzer  *guard.CNCUserAnalyzer
-	apiProxy  *services.APIProxy
-	reporting chan<- services.ProxyProcReport
+	apiProxy  *proxy.APIProxy
+	reporting chan<- proxy.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -296,12 +297,12 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(ctx.Request) {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				services.GetCookieValue(ctx.Request, kp.conf.ExternalSessionCookieName),
+				proxy.GetCookieValue(ctx.Request, kp.conf.ExternalSessionCookieName),
 			}
 
 		} else {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				services.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
+				proxy.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
 			}
 		}
 
@@ -325,7 +326,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.makeRequest(ctx.Request, reqProps)
-	kp.reporting <- services.ProxyProcReport{
+	kp.reporting <- proxy.ProxyProcReport{
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  kp.rConf.ServiceName,
@@ -352,7 +353,7 @@ func (kp *CoreProxy) CreateDefaultArgs(reqProps services.ReqProperties) defaults
 	return make(defaults.Args)
 }
 
-func (kp *CoreProxy) debugLogResponse(req *http.Request, res services.BackendResponse, err error) {
+func (kp *CoreProxy) debugLogResponse(req *http.Request, res proxy.BackendResponse, err error) {
 	evt := log.Debug()
 	evt.Str("url", req.URL.String())
 	evt.Err(err)
@@ -378,7 +379,7 @@ func (kp *CoreProxy) debugLogRequest(req *http.Request) {
 func (kp *CoreProxy) makeRequest(
 	req *http.Request,
 	reqProps services.ReqProperties,
-) services.BackendResponse {
+) proxy.BackendResponse {
 	kp.debugLogRequest(req)
 	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.ExternalSessionCookieName}
 	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
@@ -396,12 +397,12 @@ func (kp *CoreProxy) makeRequest(
 		kp.debugLogResponse(req, resp, err)
 		err = kp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
-			resp = &services.ProxiedResponse{Err: err}
+			resp = &proxy.ProxiedResponse{Err: err}
 		}
 		return resp
 	}
 	if err != nil {
-		return &services.ProxiedResponse{Err: err}
+		return &proxy.ProxiedResponse{Err: err}
 	}
 	return resp
 }
@@ -413,7 +414,7 @@ func NewCoreProxy(
 	analyzer *guard.CNCUserAnalyzer,
 	reqCounter chan<- alarms.RequestInfo,
 ) *CoreProxy {
-	reporting := make(chan services.ProxyProcReport)
+	reporting := make(chan proxy.ProxyProcReport)
 	go func() {
 		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
@@ -422,7 +423,7 @@ func NewCoreProxy(
 		conf:       conf,
 		rConf:      gConf,
 		analyzer:   analyzer,
-		apiProxy:   services.NewAPIProxy(conf.GetCoreConf()),
+		apiProxy:   proxy.NewAPIProxy(conf.GetCoreConf()),
 		reqCounter: reqCounter,
 		reporting:  reporting,
 	}

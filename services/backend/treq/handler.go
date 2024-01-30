@@ -12,6 +12,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/backend"
@@ -36,8 +37,8 @@ type TreqProxy struct {
 	cncAuthCookie   string
 	readTimeoutSecs int
 	analyzer        *guard.CNCUserAnalyzer
-	apiProxy        services.APIProxy
-	reporting       chan<- services.ProxyProcReport
+	apiProxy        proxy.APIProxy
+	reporting       chan<- proxy.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -141,7 +142,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
-	tp.reporting <- services.ProxyProcReport{
+	tp.reporting <- proxy.ProxyProcReport{
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  ServiceName,
@@ -164,7 +165,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	ctx.Writer.Write(serviceResp.GetBody())
 }
 
-func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
+func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 	cacheApplCookies := []string{tp.conf.ExternalSessionCookieName, tp.cncAuthCookie}
 	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
@@ -179,12 +180,12 @@ func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
 		)
 		err := tp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
-			return &services.ProxiedResponse{Err: err}
+			return &proxy.ProxiedResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.ProxiedResponse{Err: err}
+		return &proxy.ProxiedResponse{Err: err}
 	}
 	return resp
 }
@@ -197,7 +198,7 @@ func NewTreqProxy(
 	readTimeoutSecs int,
 	reqCounter chan<- alarms.RequestInfo,
 ) *TreqProxy {
-	reporting := make(chan services.ProxyProcReport)
+	reporting := make(chan proxy.ProxyProcReport)
 	go func() {
 		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
@@ -207,7 +208,7 @@ func NewTreqProxy(
 		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
-		apiProxy:        *services.NewAPIProxy(conf.GetCoreConf()),
+		apiProxy:        *proxy.NewAPIProxy(conf.GetCoreConf()),
 		reqCounter:      reqCounter,
 		reporting:       reporting,
 	}

@@ -11,6 +11,7 @@ import (
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"fmt"
@@ -98,18 +99,18 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 	})
 }
 
-func (aa *PSJCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := aa.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
-		resp := services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp := proxy.GetRequest(url, aa.conf.ClientUserAgent)
 		err = aa.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
-			return &services.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.SimpleResponse{Err: err}
+		return &proxy.SimpleResponse{Err: err}
 	}
 	return resp
 }

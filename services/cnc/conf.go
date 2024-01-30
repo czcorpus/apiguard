@@ -8,7 +8,7 @@ package cnc
 
 import (
 	"apiguard/alarms"
-	"apiguard/services"
+	"apiguard/proxy"
 	"fmt"
 )
 
@@ -48,8 +48,8 @@ func (c *ProxyConf) Validate(context string) error {
 	return nil
 }
 
-func (c *ProxyConf) GetCoreConf() services.GeneralProxyConf {
-	return services.GeneralProxyConf{
+func (c *ProxyConf) GetCoreConf() proxy.GeneralProxyConf {
+	return proxy.GeneralProxyConf{
 		InternalURL:         c.InternalURL,
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,

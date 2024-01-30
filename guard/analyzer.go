@@ -9,6 +9,7 @@ package guard
 import (
 	"apiguard/botwatch"
 	"apiguard/common"
+	"apiguard/proxy"
 	"apiguard/services"
 	"apiguard/services/logging"
 	"apiguard/session"
@@ -87,11 +88,11 @@ func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay services.DelayInfo, client
 }
 
 func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {
-	cookieValue := services.GetCookieValue(req, kua.externalSessionCookie)
+	cookieValue := proxy.GetCookieValue(req, kua.externalSessionCookie)
 	if cookieValue != "" {
 		return cookieValue
 	}
-	cookieValue = services.GetCookieValue(req, kua.internalSessionCookie)
+	cookieValue = proxy.GetCookieValue(req, kua.internalSessionCookie)
 	return cookieValue
 }
 
@@ -113,7 +114,7 @@ func (kua *CNCUserAnalyzer) getUserCNCSessionCookie(req *http.Request) *http.Coo
 }
 
 func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
-	v := services.GetCookieValue(req, kua.internalSessionCookie)
+	v := proxy.GetCookieValue(req, kua.internalSessionCookie)
 	ans := session.CNCSessionValue{}
 	ans.UpdateFrom(v)
 	return ans
@@ -160,7 +161,7 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 	}
 	cookieValue := analyzer.getSessionValue(req)
 	if cookieValue == "" {
-		services.LogCookies(req, log.Debug()).
+		proxy.LogCookies(req, log.Debug()).
 			Str("internalCookie", analyzer.internalSessionCookie).
 			Str("externalCookie", analyzer.externalSessionCookie).
 			Msgf("failed to find authentication cookies")

@@ -7,17 +7,17 @@
 package reqcache
 
 import (
-	"apiguard/services"
+	"apiguard/proxy"
 	"net/http"
 )
 
 type NullCache struct{}
 
-func (rc *NullCache) Get(req *http.Request, respectCookies []string) (services.BackendResponse, error) {
+func (rc *NullCache) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
 	return nil, ErrCacheMiss
 }
 
-func (rc *NullCache) Set(req *http.Request, resp services.BackendResponse, respectCookies []string) error {
+func (rc *NullCache) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
 	return nil
 }
 

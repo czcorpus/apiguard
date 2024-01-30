@@ -7,7 +7,7 @@
 package reqcache
 
 import (
-	"apiguard/services"
+	"apiguard/proxy"
 	"bytes"
 	"context"
 	"encoding/gob"
@@ -24,12 +24,12 @@ type RedisReqCache struct {
 	redisContext context.Context
 }
 
-func (rrc *RedisReqCache) createCacheID(req *http.Request, resp services.BackendResponse, respectCookies []string) string {
+func (rrc *RedisReqCache) createCacheID(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
 	cacheID := generateCacheId(req, resp, respectCookies)
 	return fmt.Sprintf("apiguard:cache:%x", cacheID)
 }
 
-func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (services.BackendResponse, error) {
+func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
 	cacheID := rrc.createCacheID(req, nil, respectCookies)
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
@@ -43,7 +43,7 @@ func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (servi
 	}
 	reader := bytes.NewReader([]byte(val))
 	decoder := gob.NewDecoder(reader)
-	var ans services.BackendResponse
+	var ans proxy.BackendResponse
 	err = decoder.Decode(&ans)
 	if err == nil {
 		ans.MarkCached()
@@ -51,7 +51,7 @@ func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (servi
 	return ans, err
 }
 
-func (rrc *RedisReqCache) Set(req *http.Request, resp services.BackendResponse, respectCookies []string) error {
+func (rrc *RedisReqCache) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
 		cacheID := rrc.createCacheID(req, resp, respectCookies)

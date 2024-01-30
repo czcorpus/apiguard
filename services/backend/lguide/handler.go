@@ -12,6 +12,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/services/logging"
@@ -67,18 +68,18 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 	return string(body), nil
 }
 
-func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := lga.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
-		resp := services.GetRequest(url, lga.conf.ClientUserAgent)
+		resp := proxy.GetRequest(url, lga.conf.ClientUserAgent)
 		err = lga.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
-			return &services.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.SimpleResponse{Err: err}
+		return &proxy.SimpleResponse{Err: err}
 	}
 	return resp
 }
@@ -139,7 +140,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	var resp services.BackendResponse
+	var resp proxy.BackendResponse
 	direct := ctx.Request.URL.Query().Get("direct")
 	if direct == "1" {
 		resp = lga.createMainRequest(

@@ -8,7 +8,7 @@ package treq
 
 import (
 	"apiguard/alarms"
-	"apiguard/services"
+	"apiguard/proxy"
 	"fmt"
 )
 
@@ -46,8 +46,8 @@ func (c *Conf) Validate(context string) error {
 	return nil
 }
 
-func (c *Conf) GetCoreConf() services.GeneralProxyConf {
-	return services.GeneralProxyConf{
+func (c *Conf) GetCoreConf() proxy.GeneralProxyConf {
+	return proxy.GeneralProxyConf{
 		InternalURL:         c.InternalURL,
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,

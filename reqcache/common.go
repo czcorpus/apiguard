@@ -7,7 +7,7 @@
 package reqcache
 
 import (
-	"apiguard/services"
+	"apiguard/proxy"
 	"crypto/sha1"
 	"errors"
 	"net/http"
@@ -17,7 +17,7 @@ import (
 
 var ErrCacheMiss = errors.New("cache miss")
 
-func generateCacheId(req *http.Request, resp services.BackendResponse, respectCookies []string) []byte {
+func generateCacheId(req *http.Request, resp proxy.BackendResponse, respectCookies []string) []byte {
 	h := sha1.New()
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))

@@ -404,7 +404,8 @@ func (kp *CoreProxy) makeRequest(
 		dfltArgs.ApplyTo(urlArgs)
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
-			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):])+"?"+urlArgs.Encode(),
+			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
+			urlArgs,
 			req.Method,
 			req.Header,
 			req.Body,
@@ -428,18 +429,22 @@ func NewCoreProxy(
 	gConf *EnvironConf,
 	analyzer *userdb.CNCUserAnalyzer,
 	reqCounter chan<- guard.RequestInfo,
-) *CoreProxy {
+) (*CoreProxy, error) {
 	reporting := make(chan proxy.ProxyProcReport)
 	go func() {
 		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
+	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
+	}
 	return &CoreProxy{
 		globalCtx:  globalCtx,
 		conf:       conf,
 		rConf:      gConf,
 		analyzer:   analyzer,
-		apiProxy:   proxy.NewAPIProxy(conf.GetCoreConf()),
+		apiProxy:   proxy,
 		reqCounter: reqCounter,
 		reporting:  reporting,
-	}
+	}, nil
 }

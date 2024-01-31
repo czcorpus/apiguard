@@ -32,6 +32,22 @@ type RequestInfo struct {
 	UserID      common.UserID `json:"userId"`
 }
 
+type RequestIPCount struct {
+	CountStart time.Time
+	Num        int
+}
+
+func (ipc RequestIPCount) Inc() RequestIPCount {
+	cs := ipc.CountStart
+	if cs.IsZero() {
+		cs = time.Now()
+	}
+	return RequestIPCount{
+		CountStart: cs,
+		Num:        ipc.Num + 1,
+	}
+}
+
 type ReqProperties struct {
 	UserID         common.UserID
 	SessionID      string

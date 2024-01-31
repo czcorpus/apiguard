@@ -36,7 +36,7 @@ type TreqProxy struct {
 	cncAuthCookie   string
 	readTimeoutSecs int
 	analyzer        *userdb.CNCUserAnalyzer
-	apiProxy        proxy.APIProxy
+	apiProxy        *proxy.APIProxy
 	reporting       chan<- proxy.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
@@ -169,10 +169,9 @@ func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
-		urlArgs := req.URL.Query()
 		resp = tp.apiProxy.Request(
-			// TODO use some path builder here
-			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
+			path,
+			req.URL.Query(),
 			req.Method,
 			req.Header,
 			req.Body,
@@ -196,19 +195,23 @@ func NewTreqProxy(
 	analyzer *userdb.CNCUserAnalyzer,
 	readTimeoutSecs int,
 	reqCounter chan<- guard.RequestInfo,
-) *TreqProxy {
+) (*TreqProxy, error) {
 	reporting := make(chan proxy.ProxyProcReport)
 	go func() {
 		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
+	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
+	if err != nil {
+		return nil, err
+	}
 	return &TreqProxy{
 		globalCtx:       globalCtx,
 		conf:            conf,
 		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
-		apiProxy:        *proxy.NewAPIProxy(conf.GetCoreConf()),
+		apiProxy:        proxy,
 		reqCounter:      reqCounter,
 		reporting:       reporting,
-	}
+	}, nil
 }

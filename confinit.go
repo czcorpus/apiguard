@@ -57,7 +57,10 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 	log.Info().Msgf("loaded configuration from %s", explicitPath)
 	log.Info().Msgf("using logging level '%s'", conf.LogLevel)
 	applyDefaults(conf)
-	overrideConfWithCmd(conf, cmdOpts)
+	err := overrideConfWithCmd(conf, cmdOpts)
+	if err != nil {
+		log.Fatal().Err(err).Msg("failed to initialize configuration")
+	}
 	validErr := conf.Validate()
 	if validErr != nil {
 		log.Fatal().Err(validErr).Msg("")

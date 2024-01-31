@@ -33,6 +33,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -82,7 +83,6 @@ func runService(
 	if conf.Monitoring.IsConfigured() {
 		alarm.GoStartMonitoring()
 	}
-
 	if !conf.IgnoreStoredState {
 		err := alarms.LoadState(alarm)
 		if err != nil {
@@ -232,7 +232,7 @@ func runService(
 			kontextReqCounter = alarm.Register(
 				"kontext", conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
 		}
-		kontextActions := kontext.NewKontextProxy(
+		kontextActions, err := kontext.NewKontextProxy(
 			globalCtx,
 			&conf.Services.Kontext,
 			&cnc.EnvironConf{
@@ -246,6 +246,9 @@ func runService(
 			cnca,
 			kontextReqCounter,
 		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to start services")
+		}
 
 		engine.Any("/service/kontext/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
@@ -280,7 +283,7 @@ func runService(
 			mqueryReqCounter = alarm.Register(
 				"mquery", conf.Services.MQuery.Alarm, conf.Services.MQuery.Limits)
 		}
-		mqueryActions := mquery.NewMQueryProxy(
+		mqueryActions, err := mquery.NewMQueryProxy(
 			globalCtx,
 			&conf.Services.MQuery,
 			&cnc.EnvironConf{
@@ -294,6 +297,10 @@ func runService(
 			cnca,
 			mqueryReqCounter,
 		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to start services")
+			return
+		}
 
 		engine.Any("/service/mquery/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
@@ -325,7 +332,7 @@ func runService(
 		if len(conf.Services.Treq.Limits) > 0 {
 			treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
 		}
-		treqActions := treq.NewTreqProxy(
+		treqActions, err := treq.NewTreqProxy(
 			globalCtx,
 			&conf.Services.Treq,
 			conf.CNCAuth.SessionCookieName,
@@ -333,6 +340,10 @@ func runService(
 			conf.ServerReadTimeoutSecs,
 			treqReqCounter,
 		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize Treq proxy")
+			return
+		}
 		engine.Any("/service/treq/*path", treqActions.AnyPath)
 		log.Info().Msg("Service Treq enabled")
 	}
@@ -353,9 +364,28 @@ func runService(
 			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
 		)
 		analyzer := simple.NewSimpleRequestAnalyzer(conf.CNCAuth.SessionCookieName)
+		go analyzer.Run()
+		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			return
+		}
+		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			return
+		}
+		coreProxy, err := proxy.NewAPIProxy(conf.Services.KWords.GetCoreConf())
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize proxy")
+			return
+		}
 		kwordsActions := proxy.NewPublicAPIProxy(
+			internalURL,
+			externalURL,
+			conf.ServerReadTimeoutSecs,
+			coreProxy,
 			client,
-			proxy.NewAPIProxy(conf.Services.KWords.GetCoreConf()),
 			analyzer.ExposeAsCounter(),
 			analyzer,
 		)

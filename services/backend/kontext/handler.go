@@ -13,13 +13,14 @@ import (
 	"apiguard/services/cnc"
 	"apiguard/services/defaults"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 )
 
 type KonTextProxy struct {
-	cnc.CoreProxy
+	*cnc.CoreProxy
 	defaults *collections.ConcurrentMap[string, defaults.Args]
 	analyzer *userdb.CNCUserAnalyzer
 }
@@ -65,9 +66,13 @@ func NewKontextProxy(
 	gConf *cnc.EnvironConf,
 	analyzer *userdb.CNCUserAnalyzer,
 	reqCounter chan<- guard.RequestInfo,
-) *KonTextProxy {
-	return &KonTextProxy{
-		CoreProxy: *cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter),
-		defaults:  collections.NewConcurrentMap[string, defaults.Args](),
+) (*KonTextProxy, error) {
+	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create KonText proxy: %w", err)
 	}
+	return &KonTextProxy{
+		CoreProxy: proxy,
+		defaults:  collections.NewConcurrentMap[string, defaults.Args](),
+	}, nil
 }

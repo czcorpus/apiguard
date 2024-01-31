@@ -66,6 +66,11 @@ type CmdOptions struct {
 }
 
 func (opts CmdOptions) BanDuration() (time.Duration, error) {
+	// we test for '0' as the parser below does not like
+	// numbers without suffix ('d', 'h', 's', ...)
+	if opts.BanDurationStr == "" || opts.BanDurationStr == "0" {
+		return 0, nil
+	}
 	return datetime.ParseDuration(opts.BanDurationStr)
 }
 

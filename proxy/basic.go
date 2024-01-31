@@ -77,23 +77,14 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 }
 
 type APIProxy struct {
-	InternalURL string
-	ExternalURL string
+	InternalURL *url.URL
+	ExternalURL *url.URL
 	client      *http.Client
 }
 
 func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 	for name, vals := range headers {
 		if name == "Location" {
-			var err error
-			internalURL, err := url.Parse(proxy.InternalURL)
-			if err != nil {
-				return err
-			}
-			externalURL, err := url.Parse(proxy.ExternalURL)
-			if err != nil {
-				return err
-			}
 			redirectURL, err := url.Parse(vals[0])
 			if err != nil {
 				return err
@@ -103,8 +94,8 @@ func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 			// External KonText API URL is https://www.korpus.cz/kontext-api/v0.17
 			// Now KonText wants to redirect to https://localhost:8195/kontext-api/v0.17/query
 			// => we have to replace Host
-			if redirectURL.Host == internalURL.Host {
-				redirectURL.Host = externalURL.Host
+			if redirectURL.Host == proxy.InternalURL.Host {
+				redirectURL.Host = proxy.ExternalURL.Host
 			}
 			headers[name] = []string{redirectURL.String()}
 			break
@@ -114,14 +105,16 @@ func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 }
 
 func (proxy *APIProxy) Request(
-	urlPath,
+	urlPath string,
+	args url.Values,
 	method string,
 	headers http.Header,
 	rbody io.Reader,
 ) *ProxiedResponse {
 
-	targetURL := fmt.Sprintf("%s%s", proxy.InternalURL, urlPath)
-	req, err := http.NewRequest(method, targetURL, rbody)
+	targetURL := proxy.InternalURL.JoinPath(urlPath)
+	targetURL.RawQuery = args.Encode()
+	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
 		return &ProxiedResponse{
 			Body:       []byte{},
@@ -143,7 +136,7 @@ func (proxy *APIProxy) Request(
 	defer resp.Body.Close()
 	body, err := io.ReadAll(resp.Body)
 	log.Debug().
-		Str("url", targetURL).
+		Str("url", targetURL.String()).
 		Err(err).
 		Int("status", resp.StatusCode).
 		Msgf(">>> Proxy request >>>")
@@ -166,15 +159,23 @@ func (proxy *APIProxy) Request(
 	}
 }
 
-func NewAPIProxy(conf GeneralProxyConf) *APIProxy {
+func NewAPIProxy(conf GeneralProxyConf) (*APIProxy, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = httpclient.TransportMaxIdleConns
 	transport.MaxConnsPerHost = httpclient.TransportMaxConnsPerHost
 	transport.MaxIdleConnsPerHost = httpclient.TransportMaxIdleConnsPerHost
 	transport.IdleConnTimeout = time.Duration(conf.IdleConnTimeoutSecs) * time.Second
+	internalURL, err := url.Parse(conf.InternalURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create APIProxy: %w", err)
+	}
+	externalURL, err := url.Parse(conf.ExternalURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create APIProxy: %w", err)
+	}
 	return &APIProxy{
-		InternalURL: conf.InternalURL,
-		ExternalURL: conf.ExternalURL,
+		InternalURL: internalURL,
+		ExternalURL: externalURL,
 		client: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
@@ -182,5 +183,5 @@ func NewAPIProxy(conf GeneralProxyConf) *APIProxy {
 			Timeout:   time.Duration(conf.ReqTimeoutSecs) * time.Second,
 			Transport: transport,
 		},
-	}
+	}, nil
 }

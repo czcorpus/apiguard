@@ -351,13 +351,6 @@ func runService(
 	// KWords (API) proxy
 
 	if conf.Services.KWords.ExternalURL != "" {
-		/*
-			var kwordsReqCounter chan<- alarms.RequestInfo
-			if len(conf.Services.KWords.Limits) > 0 {
-				kwordsReqCounter = alarm.Register(
-					"kwords", conf.Services.KWords.Alarm, conf.Services.KWords.Limits)
-			}
-		*/
 		client := httpclient.New(
 			httpclient.WithFollowRedirects(),
 			httpclient.WithInsecureSkipVerify(),
@@ -381,30 +374,18 @@ func runService(
 			return
 		}
 		kwordsActions := proxy.NewPublicAPIProxy(
+			"kwords",
 			internalURL,
 			externalURL,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.KWords.UserIDPassHeader,
 			conf.ServerReadTimeoutSecs,
 			coreProxy,
 			client,
 			analyzer.ExposeAsCounter(),
 			analyzer,
+			globalCtx.CNCDB,
 		)
-		/*
-				globalCtx,
-				&conf.Services.KWords,
-				&cnc.EnvironConf{
-					CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
-					AuthTokenEntry:    authTokenEntry,
-					ServicePath:       "/service/kwords",
-					ServiceName:       "kwords",
-					CNCPortalLoginURL: cncPortalLoginURL,
-					ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
-				},
-				cnca,
-				kwordsReqCounter,
-			)
-		*/
-
 		engine.Any("/service/kwords/*path", kwordsActions.AnyPath)
 		log.Info().Msg("Service KWords enabled")
 	}

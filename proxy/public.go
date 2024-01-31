@@ -6,7 +6,10 @@
 package proxy
 
 import (
+	"apiguard/common"
 	"apiguard/guard"
+	"apiguard/session"
+	"database/sql"
 	"net/http"
 	"net/url"
 	"strings"
@@ -18,13 +21,32 @@ import (
 )
 
 type PublicAPIProxy struct {
-	InternalURL     *url.URL
-	ExternalURL     *url.URL
-	client          *http.Client
-	basicProxy      *APIProxy
-	readTimeoutSecs int
-	ipCounter       chan<- string
-	reqAnalyzer     guard.ReqAnalyzer
+	serviceName      string
+	InternalURL      *url.URL
+	ExternalURL      *url.URL
+	authCookieName   string
+	userIDHeaderName string
+	client           *http.Client
+	basicProxy       *APIProxy
+	readTimeoutSecs  int
+	ipCounter        chan<- string
+	reqAnalyzer      guard.ReqAnalyzer
+	db               *sql.DB
+}
+
+func (prox *PublicAPIProxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
+	cookie, err := req.Cookie(prox.authCookieName)
+	if err == http.ErrNoCookie {
+		return nil
+	}
+	return cookie
+}
+
+func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
+	v := GetCookieValue(req, prox.authCookieName)
+	ans := session.CNCSessionValue{}
+	ans.UpdateFrom(v)
+	return ans
 }
 
 func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context) error {
@@ -51,6 +73,23 @@ func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context) error {
 	return nil
 }
 
+func (prox *PublicAPIProxy) userInternalCookieStatus(
+	req *http.Request,
+	serviceName string,
+) (common.UserID, error) {
+
+	cookie := prox.getUserCNCSessionCookie(req)
+	if prox.db == nil || cookie == nil {
+		return common.InvalidUserID, nil
+	}
+	sessionVal := prox.getUserCNCSessionID(req)
+	userID, err := guard.FindUserBySession(prox.db, sessionVal)
+	if err != nil {
+		return common.InvalidUserID, err
+	}
+	return userID, nil
+}
+
 func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	path := ctx.Request.URL.Path
 	var internalPath string
@@ -60,7 +99,12 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 
 	prox.ipCounter <- ctx.RemoteIP()
 
-	err := prox.RestrictResponseTime(ctx)
+	humanID, err := prox.userInternalCookieStatus(ctx.Request, prox.serviceName)
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
+	}
+
+	err = prox.RestrictResponseTime(ctx)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 	}
@@ -77,28 +121,39 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	for k, v := range resp.GetHeaders() {
 		ctx.Writer.Header().Set(k, v[0])
 	}
+	ctx.Writer.Header().Set(prox.userIDHeaderName, humanID.String())
 	ctx.Writer.WriteHeader(resp.GetStatusCode())
 	ctx.Writer.Write(resp.GetBody())
 }
 
+// NewPublicAPIProxy
+// TODO: refactor - there is too much arguments in the function
 func NewPublicAPIProxy(
+	serviceName string,
 	internalURL *url.URL,
 	externalURL *url.URL,
+	authCookieName string,
+	userIDHeaderName string,
 	readTimeoutSecs int,
 	basicProxy *APIProxy,
 	client *http.Client,
 	ipCounter chan<- string,
 	reqAnalyzer guard.ReqAnalyzer,
+	db *sql.DB,
 
 ) *PublicAPIProxy {
 
 	return &PublicAPIProxy{
-		InternalURL:     internalURL,
-		ExternalURL:     externalURL,
-		readTimeoutSecs: readTimeoutSecs,
-		client:          client,
-		basicProxy:      basicProxy,
-		ipCounter:       ipCounter,
-		reqAnalyzer:     reqAnalyzer,
+		serviceName:      serviceName,
+		InternalURL:      internalURL,
+		ExternalURL:      externalURL,
+		authCookieName:   authCookieName,
+		userIDHeaderName: userIDHeaderName,
+		readTimeoutSecs:  readTimeoutSecs,
+		client:           client,
+		basicProxy:       basicProxy,
+		ipCounter:        ipCounter,
+		reqAnalyzer:      reqAnalyzer,
+		db:               db,
 	}
 }

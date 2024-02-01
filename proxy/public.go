@@ -44,6 +44,7 @@ type PublicAPIProxyOpts struct {
 
 type PublicAPIProxy struct {
 	serviceName      string
+	servicePath      string
 	InternalURL      *url.URL
 	ExternalURL      *url.URL
 	authCookieName   string
@@ -122,20 +123,18 @@ func (prox *PublicAPIProxy) userInternalCookieStatus(
 
 func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	path := ctx.Request.URL.Path
-	var internalPath string
-	if strings.HasPrefix(path, prox.InternalURL.Path) {
-		internalPath = strings.TrimPrefix(path, prox.InternalURL.Path)
-	}
 	log.Debug().
 		Str("internalURL", prox.InternalURL.String()).
 		Str("requestPath", path).
-		Str("transformedPath", internalPath).
-		Msg("transforming proxy paths (internalURL path must be a prefix of `path`)")
-	if internalPath == "" {
+		Str("servicePath", prox.servicePath).
+		Msg("transforming proxy paths (servicePath must be a prefix of requestPath)")
+
+	if !strings.HasPrefix(path, prox.servicePath) {
 		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("required path %s NOT FOUND", path), http.StatusNotFound)
+			ctx, fmt.Errorf("unknown service path (expected %s)", prox.servicePath), http.StatusNotFound)
 		return
 	}
+	internalPath := strings.TrimPrefix(path, prox.servicePath)
 
 	prox.ipCounter <- ctx.RemoteIP()
 
@@ -242,6 +241,7 @@ func NewPublicAPIProxy(
 	} else {
 		p.serviceName = opts.ServiceName
 	}
+	p.servicePath = fmt.Sprintf("/service/%s", p.serviceName)
 
 	if opts.UserIDHeaderName == "" {
 		log.Warn().Msg("UserIDHeaderName not set for public proxy, no CNC user ID will be passed via headers")

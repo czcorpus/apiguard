@@ -122,12 +122,17 @@ func (prox *PublicAPIProxy) userInternalCookieStatus(
 }
 
 func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
+	var humanID common.UserID
 	path := ctx.Request.URL.Path
-	log.Debug().
-		Str("internalURL", prox.InternalURL.String()).
-		Str("requestPath", path).
-		Str("servicePath", prox.servicePath).
-		Msg("transforming proxy paths (servicePath must be a prefix of requestPath)")
+
+	defer func(userID *common.UserID) {
+		log.Debug().
+			Str("internalURL", prox.InternalURL.String()).
+			Str("requestPath", path).
+			Str("servicePath", prox.servicePath).
+			Int("userID", int(humanID)).
+			Msg("asked to process proxy paths (deferred message)")
+	}(&humanID)
 
 	if !strings.HasPrefix(path, prox.servicePath) {
 		uniresp.RespondWithErrorJSON(
@@ -138,7 +143,6 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 
 	prox.ipCounter <- ctx.RemoteIP()
 
-	var humanID common.UserID
 	var err error
 	if prox.userIDHeaderName != "" {
 		humanID, err = prox.userInternalCookieStatus(ctx.Request, prox.serviceName)

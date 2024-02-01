@@ -10,6 +10,7 @@ import (
 	"apiguard/guard"
 	"apiguard/session"
 	"database/sql"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -122,8 +123,18 @@ func (prox *PublicAPIProxy) userInternalCookieStatus(
 func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	path := ctx.Request.URL.Path
 	var internalPath string
-	if strings.HasPrefix(path, prox.ExternalURL.Path) {
-		internalPath = strings.TrimLeft(path, prox.ExternalURL.Path)
+	if strings.HasPrefix(path, prox.InternalURL.Path) {
+		internalPath = strings.TrimLeft(path, prox.InternalURL.Path)
+	}
+	log.Debug().
+		Str("internalURL", prox.InternalURL.String()).
+		Str("requestPath", path).
+		Str("transformedPath", internalPath).
+		Msg("transforming proxy paths (path must be a prefix of internalURL path)")
+	if internalPath == "" {
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("required path %s NOT FOUND", path), http.StatusNotFound)
+		return
 	}
 
 	prox.ipCounter <- ctx.RemoteIP()

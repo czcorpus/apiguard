@@ -20,18 +20,47 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	DfltServiceName      = "public_proxy_service"
+	DfltAuthCookieName   = "cnc_toolbar_sid"
+	DfltUserIDHeaderName = "X-Api-User"
+	DfltReadTimeoutSecs  = 30
+)
+
+var (
+	DfltInternalURL = mustParseURL("http://127.0.0.1:8080/")
+	DfltExternalURL = mustParseURL("http://127.0.0.1/")
+)
+
+type PublicAPIProxyOpts struct {
+	ServiceName      string
+	InternalURL      *url.URL
+	ExternalURL      *url.URL
+	AuthCookieName   string
+	UserIDHeaderName string
+	ReadTimeoutSecs  int
+}
+
 type PublicAPIProxy struct {
 	serviceName      string
 	InternalURL      *url.URL
 	ExternalURL      *url.URL
 	authCookieName   string
 	userIDHeaderName string
+	readTimeoutSecs  int
 	client           *http.Client
 	basicProxy       *APIProxy
-	readTimeoutSecs  int
 	ipCounter        chan<- string
 	reqAnalyzer      guard.ReqAnalyzer
 	db               *sql.DB
+}
+
+func mustParseURL(rawUrl string) *url.URL {
+	u, err := url.Parse(rawUrl)
+	if err != nil {
+		panic(err)
+	}
+	return u
 }
 
 func (prox *PublicAPIProxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
@@ -127,33 +156,79 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 }
 
 // NewPublicAPIProxy
-// TODO: refactor - there is too much arguments in the function
+// note: all the options in `opts` are indeed optional but most of the time,
+// reasonable custom values are preferred. Also, any non-filled option is
+// logged as a warning providing also a respective fallback value.
 func NewPublicAPIProxy(
-	serviceName string,
-	internalURL *url.URL,
-	externalURL *url.URL,
-	authCookieName string,
-	userIDHeaderName string,
-	readTimeoutSecs int,
 	basicProxy *APIProxy,
 	client *http.Client,
 	ipCounter chan<- string,
 	reqAnalyzer guard.ReqAnalyzer,
 	db *sql.DB,
+	opts PublicAPIProxyOpts,
 
 ) *PublicAPIProxy {
 
-	return &PublicAPIProxy{
-		serviceName:      serviceName,
-		InternalURL:      internalURL,
-		ExternalURL:      externalURL,
-		authCookieName:   authCookieName,
-		userIDHeaderName: userIDHeaderName,
-		readTimeoutSecs:  readTimeoutSecs,
-		client:           client,
-		basicProxy:       basicProxy,
-		ipCounter:        ipCounter,
-		reqAnalyzer:      reqAnalyzer,
-		db:               db,
+	p := &PublicAPIProxy{
+
+		client:      client,
+		basicProxy:  basicProxy,
+		ipCounter:   ipCounter,
+		reqAnalyzer: reqAnalyzer,
+		db:          db,
 	}
+
+	if opts.AuthCookieName == "" {
+		p.authCookieName = DfltAuthCookieName
+		log.Warn().Str("value", DfltAuthCookieName).Msg("AuthCookieName not set for public proxy, using default")
+
+	} else {
+		p.authCookieName = opts.AuthCookieName
+	}
+
+	if opts.ExternalURL == nil {
+		p.ExternalURL = DfltExternalURL
+		log.Warn().Str("value", DfltExternalURL.String()).Msg("ExternalURL not set for public proxy, using default")
+
+	} else {
+		p.ExternalURL = opts.ExternalURL
+	}
+
+	if opts.InternalURL == nil {
+		p.InternalURL = DfltInternalURL
+		log.Warn().Str("value", DfltInternalURL.String()).Msg("InternalURL not set for public proxy, using default")
+
+	} else {
+		p.InternalURL = opts.InternalURL
+	}
+
+	if opts.ReadTimeoutSecs == 0 {
+		p.readTimeoutSecs = DfltReadTimeoutSecs
+		log.Warn().Int("value", DfltReadTimeoutSecs).Msg("ReadTimeoutSecs not set for public proxy, using default")
+
+	} else {
+		p.readTimeoutSecs = opts.ReadTimeoutSecs
+	}
+
+	if opts.AuthCookieName == "" {
+		p.authCookieName = DfltAuthCookieName
+		log.Warn().Str("value", DfltAuthCookieName).Msg("AuthCookieName not set for public proxy, using default")
+
+	} else {
+		p.authCookieName = opts.AuthCookieName
+	}
+
+	if opts.ServiceName == "" {
+		p.serviceName = DfltServiceName
+		log.Warn().Str("value", DfltServiceName).Msg("ServiceName not set for public proxy, using default")
+
+	} else {
+		p.serviceName = opts.ServiceName
+	}
+
+	if opts.UserIDHeaderName == "" {
+		log.Warn().Msg("UserIDHeaderName not set for public proxy, no CNC user ID will be passed via headers")
+	}
+
+	return p
 }

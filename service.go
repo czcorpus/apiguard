@@ -374,17 +374,19 @@ func runService(
 			return
 		}
 		kwordsActions := proxy.NewPublicAPIProxy(
-			"kwords",
-			internalURL,
-			externalURL,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.KWords.UserIDPassHeader,
-			conf.ServerReadTimeoutSecs,
 			coreProxy,
 			client,
 			analyzer.ExposeAsCounter(),
 			analyzer,
 			globalCtx.CNCDB,
+			proxy.PublicAPIProxyOpts{
+				ServiceName:      "kwords",
+				InternalURL:      internalURL,
+				ExternalURL:      externalURL,
+				AuthCookieName:   conf.CNCAuth.SessionCookieName,
+				UserIDHeaderName: conf.Services.KWords.UserIDPassHeader,
+				ReadTimeoutSecs:  conf.ServerReadTimeoutSecs,
+			},
 		)
 		engine.Any("/service/kwords/*path", kwordsActions.AnyPath)
 		log.Info().Msg("Service KWords enabled")

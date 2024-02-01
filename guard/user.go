@@ -12,6 +12,7 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
+	"fmt"
 )
 
 // FindUserBySession searches for user session in CNC database.
@@ -32,8 +33,8 @@ func FindUserBySession(db *sql.DB, sessionID session.CNCSessionValue) (common.Us
 		if _, err := hasher.Write([]byte(sessionID.Validator)); err != nil {
 			return common.InvalidUserID, err
 		}
-		hashedValidator := hasher.Sum(nil)
-		if subtle.ConstantTimeCompare(hashedValidator, []byte(nHashedValidator.String)) == 1 {
+		hashedValidator := fmt.Sprintf("%x", hasher.Sum(nil))
+		if subtle.ConstantTimeCompare([]byte(hashedValidator), []byte(nHashedValidator.String)) == 1 {
 			return common.UserID(nUserID.Int64), nil
 		}
 	}

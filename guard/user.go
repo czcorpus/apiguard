@@ -17,7 +17,7 @@ import (
 // FindUserBySession searches for user session in CNC database.
 // In case nothing is found, -1 is returned
 func FindUserBySession(db *sql.DB, sessionID session.CNCSessionValue) (common.UserID, error) {
-	row := db.QueryRow("SELECT user_id, hashed_validator FROM user_session WHERE selector = ? LIMIT 1", sessionID)
+	row := db.QueryRow("SELECT user_id, hashed_validator FROM user_session WHERE selector = ? LIMIT 1", sessionID.Selector)
 	var nUserID sql.NullInt64
 	var nHashedValidator sql.NullString
 	err := row.Scan(&nUserID, &nHashedValidator)

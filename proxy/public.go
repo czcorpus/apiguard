@@ -128,9 +128,13 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 
 	prox.ipCounter <- ctx.RemoteIP()
 
-	humanID, err := prox.userInternalCookieStatus(ctx.Request, prox.serviceName)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
+	var humanID common.UserID
+	var err error
+	if prox.userIDHeaderName != "" {
+		humanID, err = prox.userInternalCookieStatus(ctx.Request, prox.serviceName)
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
+		}
 	}
 
 	err = prox.RestrictResponseTime(ctx)
@@ -150,7 +154,9 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	for k, v := range resp.GetHeaders() {
 		ctx.Writer.Header().Set(k, v[0])
 	}
-	ctx.Writer.Header().Set(prox.userIDHeaderName, humanID.String())
+	if prox.userIDHeaderName != "" {
+		ctx.Writer.Header().Set(prox.userIDHeaderName, humanID.String())
+	}
 	ctx.Writer.WriteHeader(resp.GetStatusCode())
 	ctx.Writer.Write(resp.GetBody())
 }
@@ -228,6 +234,9 @@ func NewPublicAPIProxy(
 
 	if opts.UserIDHeaderName == "" {
 		log.Warn().Msg("UserIDHeaderName not set for public proxy, no CNC user ID will be passed via headers")
+
+	} else {
+		p.userIDHeaderName = opts.UserIDHeaderName
 	}
 
 	return p

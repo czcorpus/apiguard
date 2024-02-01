@@ -7,18 +7,17 @@
 package lguide
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"crypto/tls"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math"
 	"math/rand"
 	"net/http"
@@ -41,8 +40,8 @@ type LanguageGuideActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	watchdog        *botwatch.Watchdog[*logging.LGRequestRecord]
-	analyzer        *botwatch.Analyzer
+	watchdog        *Watchdog[*logging.LGRequestRecord]
+	analyzer        *guard.Analyzer
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -60,25 +59,25 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 		return "", err
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 	return string(body), nil
 }
 
-func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := lga.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
-		resp := services.GetRequest(url, lga.conf.ClientUserAgent)
+		resp := proxy.GetRequest(url, lga.conf.ClientUserAgent)
 		err = lga.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
-			return &services.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.SimpleResponse{Err: err}
+		return &proxy.SimpleResponse{Err: err}
 	}
 	return resp
 }
@@ -134,12 +133,12 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := services.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.analyzer)
 	if err != nil {
 		return
 	}
 
-	var resp services.BackendResponse
+	var resp proxy.BackendResponse
 	direct := ctx.Request.URL.Query().Get("direct")
 	if direct == "1" {
 		resp = lga.createMainRequest(
@@ -186,13 +185,13 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 func NewLanguageGuideActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	botwatchConf *botwatch.Conf,
+	botwatchConf *guard.Conf,
 	telemetryConf *telemetry.Conf,
 	readTimeoutSecs int,
 	db *guard.DelayStats,
-	analyzer *botwatch.Analyzer,
+	analyzer *guard.Analyzer,
 ) *LanguageGuideActions {
-	wdog := botwatch.NewLGWatchdog(botwatchConf, telemetryConf, db)
+	wdog := NewLGWatchdog(botwatchConf, telemetryConf, db)
 	return &LanguageGuideActions{
 		globalCtx:       globalCtx,
 		conf:            conf,

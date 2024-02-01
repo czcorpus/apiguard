@@ -7,12 +7,12 @@
 package neomat
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,7 +31,7 @@ type NeomatActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *botwatch.Analyzer
+	analyzer        *guard.Analyzer
 }
 
 type Response struct {
@@ -69,7 +69,7 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err = services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err = guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -91,18 +91,18 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, Response{Entries: entries})
 }
 
-func (aa *NeomatActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := aa.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
-		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
 		err = aa.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
-			return &services.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.SimpleResponse{Err: err}
+		return &proxy.SimpleResponse{Err: err}
 	}
 	return resp
 }
@@ -110,7 +110,7 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) servic
 func NewNeomatActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *botwatch.Analyzer,
+	analyzer *guard.Analyzer,
 	readTimeoutSecs int,
 ) *NeomatActions {
 	return &NeomatActions{

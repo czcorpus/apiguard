@@ -7,12 +7,12 @@
 package psjc
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,7 +30,7 @@ type PSJCActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *botwatch.Analyzer
+	analyzer        *guard.Analyzer
 }
 
 type Response struct {
@@ -63,7 +63,7 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -98,18 +98,18 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 	})
 }
 
-func (aa *PSJCActions) createMainRequest(url string, req *http.Request) services.BackendResponse {
+func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := aa.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
-		resp := services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp := proxy.GetRequest(url, aa.conf.ClientUserAgent)
 		err = aa.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
-			return &services.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.SimpleResponse{Err: err}
+		return &proxy.SimpleResponse{Err: err}
 	}
 	return resp
 }
@@ -117,7 +117,7 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) services
 func NewPSJCActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *botwatch.Analyzer,
+	analyzer *guard.Analyzer,
 	readTimeoutSecs int,
 ) *PSJCActions {
 	return &PSJCActions{

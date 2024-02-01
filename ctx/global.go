@@ -7,7 +7,7 @@
 package ctx
 
 import (
-	"apiguard/services"
+	"apiguard/proxy"
 	"database/sql"
 	"time"
 
@@ -22,5 +22,5 @@ type GlobalContext struct {
 	BackendLogger    *BackendLogger
 	CNCDB            *sql.DB
 	InfluxDB         *influx.InfluxDBAdapter
-	Cache            services.Cache
+	Cache            proxy.Cache
 }

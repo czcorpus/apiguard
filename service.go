@@ -8,16 +8,16 @@ package main
 
 import (
 	"apiguard/alarms"
-	"apiguard/botwatch"
-	internalCNC "apiguard/cnc"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/simple"
+	"apiguard/guard/userdb"
+	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
-	"apiguard/services/backend/kwords"
 	"apiguard/services/backend/lguide"
 	"apiguard/services/backend/mquery"
 	"apiguard/services/backend/neomat"
@@ -29,9 +29,11 @@ import (
 	"apiguard/services/requests"
 	"apiguard/services/tstorage"
 	"apiguard/users"
+	userHandlers "apiguard/users/handlers"
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -39,6 +41,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
+	"github.com/czcorpus/cnc-gokit/httpclient"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -80,7 +83,6 @@ func runService(
 	if conf.Monitoring.IsConfigured() {
 		alarm.GoStartMonitoring()
 	}
-
 	if !conf.IgnoreStoredState {
 		err := alarms.LoadState(alarm)
 		if err != nil {
@@ -99,7 +101,7 @@ func runService(
 
 	// telemetry analyzer
 	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
-	telemetryAnalyzer, err := botwatch.NewAnalyzer(
+	telemetryAnalyzer, err := guard.NewAnalyzer(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		globalCtx.InfluxDB,
@@ -215,7 +217,7 @@ func runService(
 	// KonText (API) proxy
 
 	if conf.Services.Kontext.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
+		cnca := userdb.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -225,12 +227,12 @@ func runService(
 			conf.CNCDB.AnonymousUserID,
 		)
 
-		var kontextReqCounter chan<- alarms.RequestInfo
+		var kontextReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Kontext.Limits) > 0 {
 			kontextReqCounter = alarm.Register(
 				"kontext", conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
 		}
-		kontextActions := kontext.NewKontextProxy(
+		kontextActions, err := kontext.NewKontextProxy(
 			globalCtx,
 			&conf.Services.Kontext,
 			&cnc.EnvironConf{
@@ -244,6 +246,9 @@ func runService(
 			cnca,
 			kontextReqCounter,
 		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to start services")
+		}
 
 		engine.Any("/service/kontext/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
@@ -263,7 +268,7 @@ func runService(
 	// MQuery proxy
 
 	if conf.Services.MQuery.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
+		cnca := userdb.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -273,12 +278,12 @@ func runService(
 			conf.CNCDB.AnonymousUserID,
 		)
 
-		var mqueryReqCounter chan<- alarms.RequestInfo
+		var mqueryReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.MQuery.Limits) > 0 {
 			mqueryReqCounter = alarm.Register(
 				"mquery", conf.Services.MQuery.Alarm, conf.Services.MQuery.Limits)
 		}
-		mqueryActions := mquery.NewMQueryProxy(
+		mqueryActions, err := mquery.NewMQueryProxy(
 			globalCtx,
 			&conf.Services.MQuery,
 			&cnc.EnvironConf{
@@ -292,6 +297,10 @@ func runService(
 			cnca,
 			mqueryReqCounter,
 		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to start services")
+			return
+		}
 
 		engine.Any("/service/mquery/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
@@ -310,7 +319,7 @@ func runService(
 	// Treq (API) proxy
 
 	if conf.Services.Treq.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
+		cnca := userdb.NewCNCUserAnalyzer(
 			globalCtx.CNCDB,
 			delayStats,
 			conf.TimezoneLocation(),
@@ -319,11 +328,11 @@ func runService(
 			conf.Services.Treq.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
 		)
-		var treqReqCounter chan<- alarms.RequestInfo
+		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
 			treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
 		}
-		treqActions := treq.NewTreqProxy(
+		treqActions, err := treq.NewTreqProxy(
 			globalCtx,
 			&conf.Services.Treq,
 			conf.CNCAuth.SessionCookieName,
@@ -331,6 +340,10 @@ func runService(
 			conf.ServerReadTimeoutSecs,
 			treqReqCounter,
 		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize Treq proxy")
+			return
+		}
 		engine.Any("/service/treq/*path", treqActions.AnyPath)
 		log.Info().Msg("Service Treq enabled")
 	}
@@ -338,54 +351,50 @@ func runService(
 	// KWords (API) proxy
 
 	if conf.Services.KWords.ExternalURL != "" {
-		cnca := guard.NewCNCUserAnalyzer(
-			globalCtx.CNCDB,
-			delayStats,
-			conf.TimezoneLocation(),
-			userTableProps,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.KWords.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
+		client := httpclient.New(
+			httpclient.WithFollowRedirects(),
+			httpclient.WithInsecureSkipVerify(),
+			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
 		)
-
-		var kwordsReqCounter chan<- alarms.RequestInfo
-		if len(conf.Services.KWords.Limits) > 0 {
-			kwordsReqCounter = alarm.Register(
-				"kwords", conf.Services.KWords.Alarm, conf.Services.KWords.Limits)
+		analyzer := simple.NewSimpleRequestAnalyzer(conf.CNCAuth.SessionCookieName)
+		go analyzer.Run()
+		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			return
 		}
-		kwordsActions := kwords.NewKWordsProxy(
-			globalCtx,
-			&conf.Services.KWords,
-			&cnc.EnvironConf{
-				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
-				AuthTokenEntry:    authTokenEntry,
-				ServicePath:       "/service/kwords",
-				ServiceName:       "kwords",
-				CNCPortalLoginURL: cncPortalLoginURL,
-				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
+		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			return
+		}
+		coreProxy, err := proxy.NewAPIProxy(conf.Services.KWords.GetCoreConf())
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize proxy")
+			return
+		}
+		kwordsActions := proxy.NewPublicAPIProxy(
+			coreProxy,
+			client,
+			analyzer.ExposeAsCounter(),
+			analyzer,
+			globalCtx.CNCDB,
+			proxy.PublicAPIProxyOpts{
+				ServiceName:      "kwords",
+				InternalURL:      internalURL,
+				ExternalURL:      externalURL,
+				AuthCookieName:   conf.CNCAuth.SessionCookieName,
+				UserIDHeaderName: conf.Services.KWords.UserIDPassHeader,
+				ReadTimeoutSecs:  conf.ServerReadTimeoutSecs,
 			},
-			cnca,
-			kwordsReqCounter,
 		)
-
-		engine.Any("/service/kwords/*path", func(ctx *gin.Context) {
-			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
-				kwordsActions.Login(ctx)
-
-			} else if ctx.Param("path") == "/preflight" {
-				kwordsActions.Preflight(ctx)
-
-			} else {
-				kwordsActions.AnyPath(ctx)
-			}
-		})
-		servicesDefaults["kwords"] = kwordsActions
+		engine.Any("/service/kwords/*path", kwordsActions.AnyPath)
 		log.Info().Msg("Service KWords enabled")
 	}
 
 	// user handling
 
-	usersActions := internalCNC.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
+	usersActions := userHandlers.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
 
 	engine.GET("/user/:userID/ban", usersActions.BanInfo)
 

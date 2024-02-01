@@ -7,12 +7,12 @@
 package cja
 
 import (
-	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/ctx"
+	"apiguard/guard"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,7 +30,7 @@ type CJAActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *botwatch.Analyzer
+	analyzer        *guard.Analyzer
 }
 
 type Response struct {
@@ -61,7 +61,7 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := services.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
 	if err != nil {
 		return
 	}
@@ -85,19 +85,19 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, response)
 }
 
-func (aa *CJAActions) createSubRequest(url string, req *http.Request) services.BackendResponse {
+func (aa *CJAActions) createSubRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := aa.globalCtx.Cache.Get(req, nil)
 	if err == reqcache.ErrCacheMiss {
-		resp = services.GetRequest(url, aa.conf.ClientUserAgent)
+		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
 		err = aa.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {
-			return &services.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{Err: err}
 		}
 	}
 	return resp
 }
 
-func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) services.BackendResponse {
+func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) proxy.BackendResponse {
 	resp := aa.createSubRequest(url1, req)
 	if resp.GetError() != nil {
 		return resp
@@ -111,7 +111,7 @@ func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request
 func NewCJAActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *botwatch.Analyzer,
+	analyzer *guard.Analyzer,
 	readTimeoutSecs int,
 ) *CJAActions {
 	return &CJAActions{

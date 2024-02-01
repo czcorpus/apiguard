@@ -7,6 +7,7 @@
 package alarms
 
 import (
+	"apiguard/guard"
 	"apiguard/users"
 	"crypto/sha1"
 	"encoding/hex"
@@ -36,14 +37,14 @@ type Reviewer struct {
 }
 
 type AlarmReport struct {
-	RequestInfo RequestInfo `json:"requestInfo"`
-	Alarm       AlarmConf   `json:"-"`
-	Rules       Limit       `json:"rules"`
-	Created     time.Time   `json:"created"`
-	Reviewed    time.Time   `json:"reviewed"`
-	ReviewCode  string      `json:"reviewCode"`
-	UserInfo    *users.User `json:"userInfo"`
-	Reviews     []Reviewer  `json:"reviews"`
+	RequestInfo guard.RequestInfo `json:"requestInfo"`
+	Alarm       AlarmConf         `json:"-"`
+	Rules       Limit             `json:"rules"`
+	Created     time.Time         `json:"created"`
+	Reviewed    time.Time         `json:"reviewed"`
+	ReviewCode  string            `json:"reviewCode"`
+	UserInfo    *users.User       `json:"userInfo"`
+	Reviews     []Reviewer        `json:"reviews"`
 	location    *time.Location
 }
 
@@ -67,13 +68,13 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		struct {
-			RequestInfo RequestInfo `json:"requestInfo"`
-			Rules       AlarmConf   `json:"rules"`
-			Created     time.Time   `json:"created"`
-			Reviewed    *time.Time  `json:"reviewed"`
-			ReviewCode  string      `json:"reviewCode"`
-			UserInfo    *users.User `json:"userInfo,omitempty"`
-			Reviewers   []string    `json:"reviewers"`
+			RequestInfo guard.RequestInfo `json:"requestInfo"`
+			Rules       AlarmConf         `json:"rules"`
+			Created     time.Time         `json:"created"`
+			Reviewed    *time.Time        `json:"reviewed"`
+			ReviewCode  string            `json:"reviewCode"`
+			UserInfo    *users.User       `json:"userInfo,omitempty"`
+			Reviewers   []string          `json:"reviewers"`
 		}{
 			RequestInfo: report.RequestInfo,
 			Rules:       report.Alarm,
@@ -145,7 +146,7 @@ func generateReviewCode() string {
 	return hex.EncodeToString(sum[:])
 }
 
-func NewAlarmReport(reqInfo RequestInfo, alarmConf AlarmConf, rules Limit, loc *time.Location) *AlarmReport {
+func NewAlarmReport(reqInfo guard.RequestInfo, alarmConf AlarmConf, rules Limit, loc *time.Location) *AlarmReport {
 	return &AlarmReport{
 		Reviews:     make([]Reviewer, 0, 5),
 		Created:     time.Now().In(loc),

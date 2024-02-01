@@ -8,7 +8,7 @@ package cnc
 
 import (
 	"apiguard/alarms"
-	"apiguard/services"
+	"apiguard/proxy"
 	"fmt"
 )
 
@@ -30,7 +30,18 @@ type ProxyConf struct {
 	// in the CNCAuth section where a central auth cookie is defined.
 	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
+	// IsPublic specifies a service which allows access to any
+	// client. It may still restrict non-logged clients by more
+	// limiting parameters of the service (e.g. num. of requests
+	// per time).
+	IsPublic bool `json:"isPublic"`
+
 	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
+
+	// UserIDPassHeader specifies a header name APIGuard will
+	// use to pass detected user ID to a configured guarded
+	// service. If empty then no user ID info will be passed.
+	UserIDPassHeader string `json:"userIdPassHeader"`
 
 	Limits []alarms.Limit `json:"limits"`
 
@@ -48,8 +59,8 @@ func (c *ProxyConf) Validate(context string) error {
 	return nil
 }
 
-func (c *ProxyConf) GetCoreConf() services.GeneralProxyConf {
-	return services.GeneralProxyConf{
+func (c *ProxyConf) GetCoreConf() proxy.GeneralProxyConf {
+	return proxy.GeneralProxyConf{
 		InternalURL:         c.InternalURL,
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,

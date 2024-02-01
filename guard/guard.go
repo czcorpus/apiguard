@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package services
+package guard
 
 import (
 	"apiguard/common"
@@ -15,6 +15,39 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	// UltraDuration is a reasonably high request delay which
+	// can be considered an "infinite wait".
+	UltraDuration = time.Duration(24) * time.Hour
+)
+
+type DelayInfo struct {
+	Delay time.Duration
+	IsBan bool
+}
+
+type RequestInfo struct {
+	Service     string        `json:"service"`
+	NumRequests int           `json:"numRequests"`
+	UserID      common.UserID `json:"userId"`
+}
+
+type RequestIPCount struct {
+	CountStart time.Time
+	Num        int
+}
+
+func (ipc RequestIPCount) Inc() RequestIPCount {
+	cs := ipc.CountStart
+	if cs.IsZero() {
+		cs = time.Now()
+	}
+	return RequestIPCount{
+		CountStart: cs,
+		Num:        ipc.Num + 1,
+	}
+}
+
 type ReqProperties struct {
 	UserID         common.UserID
 	SessionID      string
@@ -24,11 +57,6 @@ type ReqProperties struct {
 
 func (rp ReqProperties) ForbidsAccess() bool {
 	return rp.ProposedStatus >= 400 && rp.ProposedStatus < 500
-}
-
-type DelayInfo struct {
-	Delay time.Duration
-	IsBan bool
 }
 
 type ReqAnalyzer interface {

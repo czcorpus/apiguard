@@ -19,7 +19,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// this file contains GOB encoding/decoding routies for AlarmTicker and types in involves
+// this file contains GOB encoding/decoding routines for AlarmTicker and types in involves
 
 // aticker:
 
@@ -122,6 +122,14 @@ func LoadState(aticker *AlarmTicker) error {
 		return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 	}
 	if is_file {
+		fsize, err := fs.FileSize(file_path)
+		if err != nil {
+			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
+		}
+		if fsize == 0 {
+			log.Warn().Msg("encountered zero size state file, ignoring")
+			return nil
+		}
 		file, err := os.Open(file_path)
 		if err != nil {
 			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)

@@ -7,24 +7,29 @@
 package mquery
 
 import (
-	"apiguard/alarms"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/userdb"
 	"apiguard/services/cnc"
+	"fmt"
 )
 
 type MQueryProxy struct {
-	cnc.CoreProxy
+	*cnc.CoreProxy
 }
 
 func NewMQueryProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	analyzer *guard.CNCUserAnalyzer,
-	reqCounter chan<- alarms.RequestInfo,
-) *MQueryProxy {
-	return &MQueryProxy{
-		CoreProxy: *cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter),
+	analyzer *userdb.CNCUserAnalyzer,
+	reqCounter chan<- guard.RequestInfo,
+) (*MQueryProxy, error) {
+	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MQuery proxy: %w", err)
 	}
+	return &MQueryProxy{
+		CoreProxy: proxy,
+	}, nil
 }

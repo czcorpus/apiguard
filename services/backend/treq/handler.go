@@ -7,13 +7,13 @@
 package treq
 
 import (
-	"apiguard/alarms"
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/userdb"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reqcache"
-	"apiguard/services"
 	"apiguard/services/backend"
 	"fmt"
 	"net/http"
@@ -35,14 +35,14 @@ type TreqProxy struct {
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
-	analyzer        *guard.CNCUserAnalyzer
-	apiProxy        services.APIProxy
-	reporting       chan<- services.ProxyProcReport
+	analyzer        *userdb.CNCUserAnalyzer
+	apiProxy        *proxy.APIProxy
+	reporting       chan<- proxy.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
 	// (in such case, nothing is sent)
-	reqCounter chan<- alarms.RequestInfo
+	reqCounter chan<- guard.RequestInfo
 }
 
 func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -59,7 +59,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool) {
 		if tp.reqCounter != nil {
-			tp.reqCounter <- alarms.RequestInfo{
+			tp.reqCounter <- guard.RequestInfo{
 				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      *currUserID,
@@ -98,7 +98,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	services.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.analyzer)
+	guard.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.analyzer)
 
 	passedHeaders := ctx.Request.Header
 	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
@@ -141,7 +141,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
-	tp.reporting <- services.ProxyProcReport{
+	tp.reporting <- proxy.ProxyProcReport{
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  ServiceName,
@@ -164,27 +164,26 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	ctx.Writer.Write(serviceResp.GetBody())
 }
 
-func (tp *TreqProxy) makeRequest(req *http.Request) services.BackendResponse {
+func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 	cacheApplCookies := []string{tp.conf.ExternalSessionCookieName, tp.cncAuthCookie}
 	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(ServicePath):]
-		urlArgs := req.URL.Query()
 		resp = tp.apiProxy.Request(
-			// TODO use some path builder here
-			fmt.Sprintf("/%s?%s", path, urlArgs.Encode()),
+			path,
+			req.URL.Query(),
 			req.Method,
 			req.Header,
 			req.Body,
 		)
 		err := tp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
 		if err != nil {
-			return &services.ProxiedResponse{Err: err}
+			return &proxy.ProxiedResponse{Err: err}
 		}
 		return resp
 
 	} else if err != nil {
-		return &services.ProxiedResponse{Err: err}
+		return &proxy.ProxiedResponse{Err: err}
 	}
 	return resp
 }
@@ -193,22 +192,26 @@ func NewTreqProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	cncAuthCookie string,
-	analyzer *guard.CNCUserAnalyzer,
+	analyzer *userdb.CNCUserAnalyzer,
 	readTimeoutSecs int,
-	reqCounter chan<- alarms.RequestInfo,
-) *TreqProxy {
-	reporting := make(chan services.ProxyProcReport)
+	reqCounter chan<- guard.RequestInfo,
+) (*TreqProxy, error) {
+	reporting := make(chan proxy.ProxyProcReport)
 	go func() {
 		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()
+	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
+	if err != nil {
+		return nil, err
+	}
 	return &TreqProxy{
 		globalCtx:       globalCtx,
 		conf:            conf,
 		cncAuthCookie:   cncAuthCookie,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,
-		apiProxy:        *services.NewAPIProxy(conf.GetCoreConf()),
+		apiProxy:        proxy,
 		reqCounter:      reqCounter,
 		reporting:       reporting,
-	}
+	}, nil
 }

@@ -7,7 +7,7 @@
 package reqcache
 
 import (
-	"apiguard/services"
+	"apiguard/proxy"
 	"encoding/gob"
 	"fmt"
 	"net/http"
@@ -22,13 +22,13 @@ type FileReqCache struct {
 	conf *Conf
 }
 
-func (frc *FileReqCache) createItemPath(req *http.Request, resp services.BackendResponse, respectCookies []string) string {
+func (frc *FileReqCache) createItemPath(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
 	cacheID := generateCacheId(req, resp, respectCookies)
 	bs := fmt.Sprintf("%x.gob", cacheID)
 	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
 }
 
-func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (services.BackendResponse, error) {
+func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
 	filePath := rc.createItemPath(req, nil, respectCookies)
 	isFile, err := fs.IsFile(filePath)
 	if err != nil {
@@ -58,7 +58,7 @@ func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (service
 		return nil, err
 	}
 	dec := gob.NewDecoder(fr)
-	var ans services.BackendResponse
+	var ans proxy.BackendResponse
 	err = dec.Decode(&ans)
 	if err == nil {
 		ans.MarkCached()
@@ -66,7 +66,7 @@ func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (service
 	return ans, err
 }
 
-func (frc *FileReqCache) Set(req *http.Request, resp services.BackendResponse, respectCookies []string) error {
+func (frc *FileReqCache) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
 		targetPath := frc.createItemPath(req, resp, respectCookies)

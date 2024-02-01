@@ -24,6 +24,7 @@ import (
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/proxy"
 	"apiguard/reqcache"
 	"apiguard/services"
 
@@ -65,6 +66,11 @@ type CmdOptions struct {
 }
 
 func (opts CmdOptions) BanDuration() (time.Duration, error) {
+	// we test for '0' as the parser below does not like
+	// numbers without suffix ('d', 'h', 's', ...)
+	if opts.BanDurationStr == "" || opts.BanDurationStr == "0" {
+		return 0, nil
+	}
 	return datetime.ParseDuration(opts.BanDurationStr)
 }
 
@@ -136,7 +142,7 @@ func preExit(alarm *alarms.AlarmTicker) {
 func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
 	influxDB := openInfluxDB(&conf.Monitoring)
 
-	var cache services.Cache
+	var cache proxy.Cache
 	if conf.Cache.FileRootPath != "" {
 		cache = reqcache.NewFileReqCache(&conf.Cache)
 		log.Info().Msgf("using file request cache (path: %s)", conf.Cache.FileRootPath)
@@ -160,8 +166,8 @@ func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
 }
 
 func init() {
-	gob.Register(&services.SimpleResponse{})
-	gob.Register(&services.ProxiedResponse{})
+	gob.Register(&proxy.SimpleResponse{})
+	gob.Register(&proxy.ProxiedResponse{})
 }
 
 func determineConfigPath(argPos int) string {

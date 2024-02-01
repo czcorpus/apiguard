@@ -39,12 +39,6 @@ type reqCounterItem struct {
 	Created time.Time
 }
 
-type RequestInfo struct {
-	Service     string        `json:"service"`
-	NumRequests int           `json:"numRequests"`
-	UserID      common.UserID `json:"userId"`
-}
-
 type handleReviewPayload struct {
 	Reviewer string `json:"reviewer"`
 	BanHours int    `json:"banHours"`
@@ -69,7 +63,7 @@ type AlarmTicker struct {
 	db             *sql.DB
 	alarmConf      MailConf
 	clients        *collections.ConcurrentMap[string, *serviceEntry] //save
-	counter        chan RequestInfo
+	counter        chan guard.RequestInfo
 	reports        []*AlarmReport //save
 	location       *time.Location
 	userTableProps users.UserTableProps
@@ -141,7 +135,7 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 		log.Debug().Msgf("num requests since %s: %d", time.Duration(time.Duration(checkInterval)), numReq)
 		if numReq > limit && !counts.Reported[checkInterval] {
 			newReport := NewAlarmReport(
-				RequestInfo{
+				guard.RequestInfo{
 					Service:     service.Service,
 					NumRequests: numReq,
 					UserID:      userID,
@@ -233,7 +227,7 @@ func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
 		Msgf("Performed old requests cleanup. %s", cleanupSummary)
 }
 
-func (aticker *AlarmTicker) reqIsIgnorable(reqInfo RequestInfo) bool {
+func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guard.RequestInfo) bool {
 	alist := aticker.allowListUsers.Get(reqInfo.Service)
 	return collections.SliceContains(alist, reqInfo.UserID) || !reqInfo.UserID.IsValid()
 }
@@ -267,7 +261,7 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 					},
 				)
 			}
-			go func(item RequestInfo) {
+			go func(item guard.RequestInfo) {
 				aticker.checkServiceUsage(
 					aticker.clients.Get(item.Service),
 					item.UserID,
@@ -281,7 +275,7 @@ func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
 	}
 }
 
-func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- RequestInfo {
+func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- guard.RequestInfo {
 	if conf.RecCounterCleanupProbability == 0 {
 		log.Warn().Msgf(
 			"Service's recCounterCleanupProbability not set. Using default %0.2f",
@@ -394,7 +388,7 @@ func NewAlarmTicker(
 	return &AlarmTicker{
 		db:             ctx.CNCDB,
 		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
-		counter:        make(chan RequestInfo, 1000),
+		counter:        make(chan guard.RequestInfo, 1000),
 		location:       loc,
 		alarmConf:      alarmConf,
 		userTableProps: userTableProps,

@@ -59,10 +59,10 @@ func (rp ReqProperties) ForbidsAccess() bool {
 	return rp.ProposedStatus >= 400 && rp.ProposedStatus < 500
 }
 
-// ReqAnalyzer is an object which helps a proxy to decide
+// ServiceGuard is an object which helps a proxy to decide
 // how to deal with an incoming message in terms of
 // authentication, throttling or even banning.
-type ReqAnalyzer interface {
+type ServiceGuard interface {
 
 	// CalcDelay calculates how long should be the current
 	// request delayed based on request properties.
@@ -74,8 +74,8 @@ type ReqAnalyzer interface {
 	ClientInducedRespStatus(req *http.Request, serviceName string) ReqProperties
 }
 
-func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer ReqAnalyzer) error {
-	respDelay, err := analyzer.CalcDelay(req)
+func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, guard ServiceGuard) error {
+	respDelay, err := guard.CalcDelay(req)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
@@ -94,7 +94,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		)
 		return err
 	}
-	go analyzer.LogAppliedDelay(respDelay, req.RemoteAddr)
+	go guard.LogAppliedDelay(respDelay, req.RemoteAddr)
 	time.Sleep(respDelay.Delay)
 	return nil
 }

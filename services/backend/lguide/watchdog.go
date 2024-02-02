@@ -14,6 +14,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/rs/zerolog/log"
 
+	"apiguard/botwatch"
 	"apiguard/guard"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -30,7 +31,7 @@ type StoreHandler interface {
 type Watchdog[T logging.AnyRequestRecord] struct {
 	statistics     *collections.ConcurrentMap[string, *guard.IPProcData]
 	suspicions     *collections.ConcurrentMap[string, guard.IPProcData]
-	conf           *guard.Conf
+	conf           *botwatch.Conf
 	telemetryConf  *telemetry.Conf
 	onlineAnalysis chan T
 	db             StoreHandler
@@ -70,7 +71,7 @@ func (wd *Watchdog[T]) ResetBotCandidates() {
 	wd.suspicions = collections.NewConcurrentMap[string, guard.IPProcData]()
 }
 
-func (wd *Watchdog[T]) Conf() *guard.Conf {
+func (wd *Watchdog[T]) Conf() *botwatch.Conf {
 	return wd.conf
 }
 
@@ -154,7 +155,7 @@ func (wd *Watchdog[T]) assertTelemetry(rec *logging.LGRequestRecord) {
 }
 
 func NewLGWatchdog(
-	conf *guard.Conf,
+	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 	db StoreHandler,
 ) *Watchdog[*logging.LGRequestRecord] {

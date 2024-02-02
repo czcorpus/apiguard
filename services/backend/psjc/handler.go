@@ -30,7 +30,7 @@ type PSJCActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *guard.Analyzer
+	guard           guard.ServiceGuard
 }
 
 type Response struct {
@@ -63,7 +63,7 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard)
 	if err != nil {
 		return
 	}
@@ -117,13 +117,13 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewPSJCActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *guard.Analyzer,
+	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *PSJCActions {
 	return &PSJCActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		analyzer:        analyzer,
+		guard:           analyzer,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

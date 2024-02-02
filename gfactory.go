@@ -22,7 +22,7 @@ func NewGuard(
 	internalSessCookieName string,
 	externalSessCookieName string,
 	anonymousUserID common.UserID,
-) guard.ReqAnalyzer {
+) guard.ServiceGuard {
 	switch name {
 	case cnc.GuardTypeDefault:
 		return dflt.New(globalCtx.CNCDB, delayStats, externalSessCookieName)

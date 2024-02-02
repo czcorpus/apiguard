@@ -30,7 +30,7 @@ type SSJCActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *guard.Analyzer
+	analyzer        guard.ServiceGuard
 }
 
 type Entry struct {
@@ -155,7 +155,7 @@ func (aa *SSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewSSJCActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *guard.Analyzer,
+	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *SSJCActions {
 	return &SSJCActions{

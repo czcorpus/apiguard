@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package guard
+package botwatch
 
 import "fmt"
 

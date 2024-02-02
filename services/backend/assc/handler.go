@@ -10,6 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/telemetry"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
@@ -39,7 +40,7 @@ type ASSCActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *guard.Analyzer
+	analyzer        *telemetry.Guard
 }
 
 func (aa *ASSCActions) Query(ctx *gin.Context) {
@@ -115,7 +116,7 @@ func (aa *ASSCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewASSCActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *guard.Analyzer,
+	analyzer *telemetry.Guard,
 	readTimeoutSecs int,
 ) *ASSCActions {
 	return &ASSCActions{

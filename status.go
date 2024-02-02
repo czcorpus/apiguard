@@ -10,6 +10,7 @@ import (
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/telemetry"
 	"apiguard/services/logging"
 	"fmt"
 	"net"
@@ -36,7 +37,7 @@ func runStatus(globalCtx ctx.GlobalContext, conf *config.Configuration, ident st
 		}
 	}
 
-	telemetryAnalyzer, err := guard.NewAnalyzer(
+	telemetryAnalyzer, err := telemetry.New(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		globalCtx.InfluxDB,

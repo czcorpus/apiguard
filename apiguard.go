@@ -141,7 +141,6 @@ func preExit(alarm *alarms.AlarmTicker) {
 
 func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
 	influxDB := openInfluxDB(&conf.Monitoring)
-
 	var cache proxy.Cache
 	if conf.Cache.FileRootPath != "" {
 		cache = reqcache.NewFileReqCache(&conf.Cache)
@@ -162,6 +161,7 @@ func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
 		BackendLogger:    ctx.NewBackendLogger(influxDB, conf.TimezoneLocation()),
 		CNCDB:            openCNCDatabase(&conf.CNCDB),
 		Cache:            cache,
+		UserTableProps:   conf.CNCDB.ApplyOverrides(),
 	}
 }
 
@@ -230,8 +230,8 @@ func main() {
 			Str("buildDate", versionInfo.BuildDate).
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
-		userTableProps := conf.CNCDB.ApplyOverrides()
-		runService(&globalCtx, conf, userTableProps)
+
+		runService(&globalCtx, conf)
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)

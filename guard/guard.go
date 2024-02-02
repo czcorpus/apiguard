@@ -59,10 +59,19 @@ func (rp ReqProperties) ForbidsAccess() bool {
 	return rp.ProposedStatus >= 400 && rp.ProposedStatus < 500
 }
 
+// ReqAnalyzer is an object which helps a proxy to decide
+// how to deal with an incoming message in terms of
+// authentication, throttling or even banning.
 type ReqAnalyzer interface {
+
+	// CalcDelay calculates how long should be the current
+	// request delayed based on request properties.
+	// Ideally, this is zero for a new or good behaving client.
 	CalcDelay(req *http.Request) (DelayInfo, error)
+
 	LogAppliedDelay(respDelay DelayInfo, clientIP string) error
-	UserInducedResponseStatus(req *http.Request, serviceName string) ReqProperties
+
+	ClientInducedRespStatus(req *http.Request, serviceName string) ReqProperties
 }
 
 func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, analyzer ReqAnalyzer) error {

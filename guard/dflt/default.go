@@ -4,10 +4,11 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package simple
+package dflt
 
 import (
 	"apiguard/guard"
+	"database/sql"
 	"math"
 	"net/http"
 	"strings"
@@ -21,18 +22,23 @@ const (
 	dfltNumOKRequestsPerInterval = 10
 )
 
-type SimpleRequestAnalyzer struct {
+// Guard provides basic request protection
+// based on IP counting and with some advantages
+// for authenticated users.
+type Guard struct {
+	db                *sql.DB
+	delayStats        *guard.DelayStats
 	sessionCookieName string
 	numRequests       *collections.ConcurrentMap[string, guard.RequestIPCount]
 	ipCounter         chan string
 	cleanupInterval   time.Duration
 }
 
-func (sra *SimpleRequestAnalyzer) ExposeAsCounter() chan<- string {
+func (sra *Guard) ExposeAsCounter() chan<- string {
 	return sra.ipCounter
 }
 
-func (sra *SimpleRequestAnalyzer) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
+func (sra *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 	ip := strings.SplitN(req.RemoteAddr, ":", 2)[0]
 	num := sra.numRequests.Get(ip)
 	if num.Num <= dfltNumOKRequestsPerInterval {
@@ -46,17 +52,17 @@ func (sra *SimpleRequestAnalyzer) CalcDelay(req *http.Request) (guard.DelayInfo,
 		nil
 }
 
-func (sra *SimpleRequestAnalyzer) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
+func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
 	return nil
 }
 
-func (sra *SimpleRequestAnalyzer) UserInducedResponseStatus(req *http.Request, serviceName string) guard.ReqProperties {
+func (sra *Guard) ClientInducedRespStatus(req *http.Request, serviceName string) guard.ReqProperties {
 	return guard.ReqProperties{
 		ProposedStatus: http.StatusOK,
 	}
 }
 
-func (sra *SimpleRequestAnalyzer) Run() {
+func (sra *Guard) Run() {
 	for v := range sra.ipCounter {
 		newVal := sra.numRequests.Get(v).Inc() // we must Inc() so time is not zero
 		if newVal.CountStart.Before(time.Now().Add(-sra.cleanupInterval)) {
@@ -69,8 +75,10 @@ func (sra *SimpleRequestAnalyzer) Run() {
 	}
 }
 
-func NewSimpleRequestAnalyzer(sessionCookieName string) *SimpleRequestAnalyzer {
-	return &SimpleRequestAnalyzer{
+func New(db *sql.DB, delayStats *guard.DelayStats, sessionCookieName string) *Guard {
+	return &Guard{
+		db:                db,
+		delayStats:        delayStats,
 		sessionCookieName: sessionCookieName,
 		numRequests:       collections.NewConcurrentMap[string, guard.RequestIPCount](),
 		ipCounter:         make(chan string),

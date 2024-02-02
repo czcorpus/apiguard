@@ -9,16 +9,18 @@ package guard
 import (
 	"apiguard/common"
 	"apiguard/session"
-	"crypto/sha256"
-	"crypto/subtle"
 	"database/sql"
-	"fmt"
 )
 
 // FindUserBySession searches for user session in CNC database.
-// In case nothing is found, -1 is returned
+// In case nothing is found, `common.InvalidUserID` is returned
+// (and no error). Error is returned only in case of an actual fail
+// (e.g. failed db query).
 func FindUserBySession(db *sql.DB, sessionID session.CNCSessionValue) (common.UserID, error) {
-	row := db.QueryRow("SELECT user_id, hashed_validator FROM user_session WHERE selector = ? LIMIT 1", sessionID.Selector)
+	row := db.QueryRow(
+		"SELECT user_id, hashed_validator FROM user_session WHERE selector = ? LIMIT 1",
+		sessionID.Selector,
+	)
 	var nUserID sql.NullInt64
 	var nHashedValidator sql.NullString
 	err := row.Scan(&nUserID, &nHashedValidator)
@@ -29,14 +31,14 @@ func FindUserBySession(db *sql.DB, sessionID session.CNCSessionValue) (common.Us
 		return common.InvalidUserID, err
 
 	} else if nUserID.Valid && nHashedValidator.Valid {
-		hasher := sha256.New()
-		if _, err := hasher.Write([]byte(sessionID.Validator)); err != nil {
-			return common.InvalidUserID, err
-		}
-		hashedValidator := fmt.Sprintf("%x", hasher.Sum(nil))
-		if subtle.ConstantTimeCompare([]byte(hashedValidator), []byte(nHashedValidator.String)) == 1 {
+		match, err := sessionID.CompareWithHash(nHashedValidator.String)
+		if err != nil {
+			return common.InvalidUserID, nil
+
+		} else if match {
 			return common.UserID(nUserID.Int64), nil
 		}
+
 	}
 	return common.InvalidUserID, nil
 }

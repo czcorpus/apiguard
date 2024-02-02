@@ -9,7 +9,7 @@ package kontext
 import (
 	"apiguard/ctx"
 	"apiguard/guard"
-	"apiguard/guard/userdb"
+	"apiguard/guard/sessionmap"
 	"apiguard/services/cnc"
 	"apiguard/services/defaults"
 	"errors"
@@ -22,7 +22,7 @@ import (
 type KonTextProxy struct {
 	*cnc.CoreProxy
 	defaults *collections.ConcurrentMap[string, defaults.Args]
-	analyzer *userdb.CNCUserAnalyzer
+	analyzer *sessionmap.Guard
 }
 
 func (kp *KonTextProxy) CreateDefaultArgs(reqProps guard.ReqProperties) defaults.Args {
@@ -64,10 +64,10 @@ func NewKontextProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	analyzer *userdb.CNCUserAnalyzer,
+	guard *sessionmap.Guard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*KonTextProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, analyzer, reqCounter)
+	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KonText proxy: %w", err)
 	}

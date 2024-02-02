@@ -382,7 +382,6 @@ func NewAlarmTicker(
 	ctx *ctx.GlobalContext,
 	loc *time.Location,
 	alarmConf MailConf,
-	userTableProps users.UserTableProps,
 	statusDataDir string,
 ) *AlarmTicker {
 	return &AlarmTicker{
@@ -391,7 +390,7 @@ func NewAlarmTicker(
 		counter:        make(chan guard.RequestInfo, 1000),
 		location:       loc,
 		alarmConf:      alarmConf,
-		userTableProps: userTableProps,
+		userTableProps: ctx.UserTableProps,
 		statusDataDir:  statusDataDir,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
 		monitoring:     influx.NewRecordWriter[alarmStatus](ctx.InfluxDB),

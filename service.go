@@ -11,8 +11,8 @@ import (
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
-	"apiguard/guard/simple"
-	"apiguard/guard/userdb"
+	"apiguard/guard/dflt"
+	"apiguard/guard/sessionmap"
 	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -28,7 +28,6 @@ import (
 	"apiguard/services/defaults"
 	"apiguard/services/requests"
 	"apiguard/services/tstorage"
-	"apiguard/users"
 	userHandlers "apiguard/users/handlers"
 	"context"
 	"fmt"
@@ -56,7 +55,6 @@ const (
 func runService(
 	globalCtx *ctx.GlobalContext,
 	conf *config.Configuration,
-	userTableProps users.UserTableProps,
 ) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, os.Interrupt)
@@ -77,7 +75,6 @@ func runService(
 		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
-		userTableProps,
 		conf.StatusDataDir,
 	)
 	if conf.Monitoring.IsConfigured() {
@@ -99,7 +96,7 @@ func runService(
 	engine.GET("/alarms/list", alarm.HandleListAction)
 	engine.POST("/alarms/clean", alarm.HandleCleanAction)
 
-	// telemetry analyzer
+	// delay stats writer and telemetry analyzer
 	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	telemetryAnalyzer, err := guard.NewAnalyzer(
 		&conf.Botwatch,
@@ -217,11 +214,9 @@ func runService(
 	// KonText (API) proxy
 
 	if conf.Services.Kontext.ExternalURL != "" {
-		cnca := userdb.NewCNCUserAnalyzer(
-			globalCtx.CNCDB,
+		kontextGuard := sessionmap.New(
+			globalCtx,
 			delayStats,
-			conf.TimezoneLocation(),
-			userTableProps,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Kontext.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
@@ -243,7 +238,7 @@ func runService(
 				CNCPortalLoginURL: cncPortalLoginURL,
 				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
 			},
-			cnca,
+			kontextGuard,
 			kontextReqCounter,
 		)
 		if err != nil {
@@ -268,11 +263,9 @@ func runService(
 	// MQuery proxy
 
 	if conf.Services.MQuery.ExternalURL != "" {
-		cnca := userdb.NewCNCUserAnalyzer(
-			globalCtx.CNCDB,
+		cnca := sessionmap.New(
+			globalCtx,
 			delayStats,
-			conf.TimezoneLocation(),
-			userTableProps,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.MQuery.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
@@ -319,11 +312,9 @@ func runService(
 	// Treq (API) proxy
 
 	if conf.Services.Treq.ExternalURL != "" {
-		cnca := userdb.NewCNCUserAnalyzer(
-			globalCtx.CNCDB,
+		cnca := sessionmap.New(
+			globalCtx,
 			delayStats,
-			conf.TimezoneLocation(),
-			userTableProps,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Treq.ExternalSessionCookieName,
 			conf.CNCDB.AnonymousUserID,
@@ -356,7 +347,11 @@ func runService(
 			httpclient.WithInsecureSkipVerify(),
 			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
 		)
-		analyzer := simple.NewSimpleRequestAnalyzer(conf.CNCAuth.SessionCookieName)
+		analyzer := dflt.New(
+			globalCtx.CNCDB,
+			delayStats,
+			conf.CNCAuth.SessionCookieName,
+		)
 		go analyzer.Run()
 		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
 		if err != nil {

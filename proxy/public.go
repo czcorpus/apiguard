@@ -42,6 +42,10 @@ type PublicAPIProxyOpts struct {
 	ReadTimeoutSecs  int
 }
 
+// PublicAPIProxy is a service proxy which - in general - does not
+// forbid any user from accessing protected API. But it still
+// distinguishes between logged-in users and anonymous ones. And
+// it may throttle requests with some favouring of logged-in users.
 type PublicAPIProxy struct {
 	serviceName      string
 	servicePath      string

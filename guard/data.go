@@ -7,6 +7,7 @@
 package guard
 
 import (
+	"apiguard/botwatch"
 	"encoding/json"
 	"math"
 	"time"
@@ -71,7 +72,7 @@ func (ips *IPProcData) ReqPerSecod() float64 {
 	return float64(ips.Count) / ips.LastAccess.Sub(ips.LastAccess).Seconds()
 }
 
-func (ips *IPProcData) IsSuspicious(conf *Conf) bool {
+func (ips *IPProcData) IsSuspicious(conf *botwatch.Conf) bool {
 	return ips.Stdev()/ips.Mean <= conf.RSDThreshold && ips.Count >= conf.NumRequestsThreshold
 }
 

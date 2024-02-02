@@ -13,6 +13,7 @@ import (
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
+	"apiguard/guard/telemetry"
 	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -98,7 +99,7 @@ func runService(
 
 	// delay stats writer and telemetry analyzer
 	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
-	telemetryAnalyzer, err := guard.NewAnalyzer(
+	telemetryAnalyzer, err := telemetry.New(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		globalCtx.InfluxDB,

@@ -57,7 +57,7 @@ type PublicAPIProxy struct {
 	client           *http.Client
 	basicProxy       *APIProxy
 	ipCounter        chan<- string
-	reqAnalyzer      guard.ReqAnalyzer
+	reqAnalyzer      guard.ServiceGuard
 	db               *sql.DB
 }
 
@@ -187,7 +187,7 @@ func NewPublicAPIProxy(
 	basicProxy *APIProxy,
 	client *http.Client,
 	ipCounter chan<- string,
-	reqAnalyzer guard.ReqAnalyzer,
+	reqAnalyzer guard.ServiceGuard,
 	db *sql.DB,
 	opts PublicAPIProxyOpts,
 

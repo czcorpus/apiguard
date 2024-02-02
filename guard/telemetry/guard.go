@@ -4,10 +4,12 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package guard
+package telemetry
 
 import (
+	"apiguard/botwatch"
 	"apiguard/common"
+	"apiguard/guard"
 
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -38,10 +40,10 @@ type Backend interface {
 }
 
 type StatsStorage interface {
-	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
-	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
+	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*guard.IPProcData, error)
+	LoadIPStats(clientIP string, maxAgeSecs int) (*guard.IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(delayInfo DelayInfo, clientIP string) error
+	LogAppliedDelay(delayInfo guard.DelayInfo, clientIP string) error
 }
 
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
@@ -60,22 +62,22 @@ func penaltyFn3(x int) int {
 	return int(1000 * math.Pow(0.8*float64(x), 0.9))
 }
 
-type Analyzer struct {
+type Guard struct {
 	backend Backend
 	storage StatsStorage
-	conf    *Conf
+	conf    *botwatch.Conf
 }
 
-func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
+func (a *Guard) BotScore(req *http.Request) (float64, error) {
 	return a.backend.BotScore(req)
 }
 
-func (a *Analyzer) Learn() error {
+func (a *Guard) Learn() error {
 	return a.backend.Learn()
 }
 
-func (a *Analyzer) ClientInducedRespStatus(req *http.Request, serviceName string) ReqProperties {
-	return ReqProperties{
+func (a *Guard) ClientInducedRespStatus(req *http.Request, serviceName string) guard.ReqProperties {
+	return guard.ReqProperties{
 		UserID:         common.InvalidUserID,
 		SessionID:      "",
 		ProposedStatus: http.StatusOK,
@@ -83,9 +85,9 @@ func (a *Analyzer) ClientInducedRespStatus(req *http.Request, serviceName string
 	}
 }
 
-func (a *Analyzer) CalcDelay(req *http.Request) (DelayInfo, error) {
+func (a *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	delayInfo := DelayInfo{
+	delayInfo := guard.DelayInfo{
 		Delay: time.Duration(0),
 		IsBan: false,
 	}
@@ -94,7 +96,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (DelayInfo, error) {
 		return delayInfo, err
 	}
 	if isBanned {
-		delayInfo.Delay = UltraDuration
+		delayInfo.Delay = guard.UltraDuration
 		delayInfo.IsBan = true
 		return delayInfo, nil
 	}
@@ -146,7 +148,7 @@ func (a *Analyzer) CalcDelay(req *http.Request) (DelayInfo, error) {
 	}
 }
 
-func (a *Analyzer) LogAppliedDelay(delayInfo DelayInfo, clientIP string) error {
+func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientIP string) error {
 	err := a.storage.LogAppliedDelay(delayInfo, clientIP)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
@@ -154,22 +156,22 @@ func (a *Analyzer) LogAppliedDelay(delayInfo DelayInfo, clientIP string) error {
 	return err
 }
 
-func NewAnalyzer(
-	conf *Conf,
+func New(
+	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 	monitoringDB *influx.InfluxDBAdapter,
 	db backend.TelemetryStorage,
 	statsStorage StatsStorage,
-) (*Analyzer, error) {
+) (*Guard, error) {
 	switch telemetryConf.Analyzer {
 	case "counting":
-		return &Analyzer{
+		return &Guard{
 			conf:    conf,
 			backend: counting.NewAnalyzer(db),
 			storage: statsStorage,
 		}, nil
 	case "dumb":
-		return &Analyzer{
+		return &Guard{
 			conf:    conf,
 			backend: dumb.NewAnalyzer(db),
 			storage: statsStorage,
@@ -179,7 +181,7 @@ func NewAnalyzer(
 		if err != nil {
 			return nil, err
 		}
-		return &Analyzer{
+		return &Guard{
 			conf:    conf,
 			backend: backend,
 			storage: statsStorage,
@@ -192,7 +194,7 @@ func NewAnalyzer(
 		if err != nil {
 			return nil, err
 		}
-		return &Analyzer{
+		return &Guard{
 			conf:    conf,
 			backend: backend,
 			storage: statsStorage,

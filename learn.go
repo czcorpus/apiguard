@@ -10,13 +10,14 @@ import (
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
+	"apiguard/guard/telemetry"
 
 	"github.com/rs/zerolog/log"
 )
 
 func runLearn(globalCtx ctx.GlobalContext, conf *config.Configuration) {
 	delayLog := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
-	telemetryAnalyzer, err := guard.NewAnalyzer(
+	telemetryAnalyzer, err := telemetry.New(
 		&conf.Botwatch,
 		&conf.Telemetry,
 		globalCtx.InfluxDB,

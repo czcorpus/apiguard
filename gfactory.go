@@ -11,6 +11,7 @@ import (
 	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/guard/dflt"
+	"apiguard/guard/null"
 	"apiguard/guard/sessionmap"
 	"apiguard/services/cnc"
 )
@@ -30,7 +31,7 @@ func NewGuard(
 		return sessionmap.New(
 			globalCtx, delayStats, internalSessCookieName, externalSessCookieName, anonymousUserID)
 	case cnc.GuardTypeNull:
-		return nil // TODO implement NullGuard
+		return null.New()
 	}
 	return nil
 }

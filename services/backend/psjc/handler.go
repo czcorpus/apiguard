@@ -117,13 +117,13 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewPSJCActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer guard.ServiceGuard,
+	aGuard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *PSJCActions {
 	return &PSJCActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		guard:           analyzer,
+		guard:           aGuard,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

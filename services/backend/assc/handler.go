@@ -40,7 +40,7 @@ type ASSCActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *telemetry.Guard
+	guard           *telemetry.Guard
 }
 
 func (aa *ASSCActions) Query(ctx *gin.Context) {
@@ -68,7 +68,7 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard)
 	if err != nil {
 		return
 	}
@@ -116,13 +116,13 @@ func (aa *ASSCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewASSCActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *telemetry.Guard,
+	guard *telemetry.Guard,
 	readTimeoutSecs int,
 ) *ASSCActions {
 	return &ASSCActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		analyzer:        analyzer,
+		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

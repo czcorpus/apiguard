@@ -57,7 +57,7 @@ type PublicAPIProxy struct {
 	client           *http.Client
 	basicProxy       *APIProxy
 	ipCounter        chan<- string
-	reqAnalyzer      guard.ServiceGuard
+	guard            guard.ServiceGuard
 	db               *sql.DB
 }
 
@@ -85,7 +85,7 @@ func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.CNCSe
 }
 
 func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context) error {
-	respDelay, err := prox.reqAnalyzer.CalcDelay(ctx.Request)
+	respDelay, err := prox.guard.CalcDelay(ctx.Request)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
@@ -187,7 +187,7 @@ func NewPublicAPIProxy(
 	basicProxy *APIProxy,
 	client *http.Client,
 	ipCounter chan<- string,
-	reqAnalyzer guard.ServiceGuard,
+	aGuard guard.ServiceGuard,
 	db *sql.DB,
 	opts PublicAPIProxyOpts,
 
@@ -195,11 +195,11 @@ func NewPublicAPIProxy(
 
 	p := &PublicAPIProxy{
 
-		client:      client,
-		basicProxy:  basicProxy,
-		ipCounter:   ipCounter,
-		reqAnalyzer: reqAnalyzer,
-		db:          db,
+		client:     client,
+		basicProxy: basicProxy,
+		ipCounter:  ipCounter,
+		guard:      aGuard,
+		db:         db,
 	}
 
 	if opts.AuthCookieName == "" {

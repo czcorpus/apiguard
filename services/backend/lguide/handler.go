@@ -43,7 +43,7 @@ type LanguageGuideActions struct {
 	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *Watchdog[*logging.LGRequestRecord]
-	analyzer        *tlmGuard.Guard
+	guard           *tlmGuard.Guard
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -135,7 +135,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.guard)
 	if err != nil {
 		return
 	}
@@ -191,7 +191,7 @@ func NewLanguageGuideActions(
 	telemetryConf *telemetry.Conf,
 	readTimeoutSecs int,
 	db *guard.DelayStats,
-	analyzer *tlmGuard.Guard,
+	guard *tlmGuard.Guard,
 ) *LanguageGuideActions {
 	wdog := NewLGWatchdog(botwatchConf, telemetryConf, db)
 	return &LanguageGuideActions{
@@ -199,6 +199,6 @@ func NewLanguageGuideActions(
 		conf:            conf,
 		readTimeoutSecs: readTimeoutSecs,
 		watchdog:        wdog,
-		analyzer:        analyzer,
+		guard:           guard,
 	}
 }

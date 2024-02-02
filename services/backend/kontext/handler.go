@@ -22,7 +22,7 @@ import (
 type KonTextProxy struct {
 	*cnc.CoreProxy
 	defaults *collections.ConcurrentMap[string, defaults.Args]
-	analyzer *sessionmap.Guard
+	guard    *sessionmap.Guard
 }
 
 func (kp *KonTextProxy) CreateDefaultArgs(reqProps guard.ReqProperties) defaults.Args {
@@ -36,7 +36,7 @@ func (kp *KonTextProxy) CreateDefaultArgs(reqProps guard.ReqProperties) defaults
 }
 
 func (kp *KonTextProxy) SetDefault(req *http.Request, key, value string) error {
-	sessionID := kp.analyzer.GetSessionID(req)
+	sessionID := kp.guard.GetSessionID(req)
 	if sessionID == "" {
 		return errors.New("session not found")
 	}
@@ -45,7 +45,7 @@ func (kp *KonTextProxy) SetDefault(req *http.Request, key, value string) error {
 }
 
 func (kp *KonTextProxy) GetDefault(req *http.Request, key string) (string, error) {
-	sessionID := kp.analyzer.GetSessionID(req)
+	sessionID := kp.guard.GetSessionID(req)
 	if sessionID == "" {
 		return "", errors.New("session not found")
 	}
@@ -53,7 +53,7 @@ func (kp *KonTextProxy) GetDefault(req *http.Request, key string) (string, error
 }
 
 func (kp *KonTextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
-	sessionID := kp.analyzer.GetSessionID(req)
+	sessionID := kp.guard.GetSessionID(req)
 	if sessionID == "" {
 		return map[string][]string{}, errors.New("session not found")
 	}

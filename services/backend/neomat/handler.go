@@ -31,7 +31,7 @@ type NeomatActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        guard.ServiceGuard
+	guard           guard.ServiceGuard
 }
 
 type Response struct {
@@ -69,7 +69,7 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err = guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err = guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard)
 	if err != nil {
 		return
 	}
@@ -110,13 +110,13 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.
 func NewNeomatActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer guard.ServiceGuard,
+	aGuard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *NeomatActions {
 	return &NeomatActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		analyzer:        analyzer,
+		guard:           aGuard,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

@@ -31,7 +31,7 @@ type CJAActions struct {
 	globalCtx       *ctx.GlobalContext
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *telemetry.Guard
+	guard           *telemetry.Guard
 }
 
 type Response struct {
@@ -62,7 +62,7 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard)
 	if err != nil {
 		return
 	}
@@ -112,13 +112,13 @@ func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request
 func NewCJAActions(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
-	analyzer *telemetry.Guard,
+	guard *telemetry.Guard,
 	readTimeoutSecs int,
 ) *CJAActions {
 	return &CJAActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		analyzer:        analyzer,
+		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

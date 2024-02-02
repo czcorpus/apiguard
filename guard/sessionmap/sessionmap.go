@@ -68,7 +68,7 @@ type Guard struct {
 // SessionMappingGuard applies only two delays:
 // 1) zero for non-banned users
 // 2) guard.UltraDuration which is basically a ban
-func (kua *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
+func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
 	ip, _ := logging.ExtractRequestIdentifiers(req)
 	delayInfo := guard.DelayInfo{
 		Delay: time.Duration(0),
@@ -86,8 +86,8 @@ func (kua *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 	return delayInfo, nil
 }
 
-func (kua *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
-	err := kua.delayStats.LogAppliedDelay(respDelay, clientIP)
+func (kua *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
+	err := kua.delayStats.LogAppliedDelay(respDelay, clientID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
 	}

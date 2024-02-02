@@ -7,6 +7,7 @@
 package main
 
 import (
+	"apiguard/common"
 	"apiguard/config"
 	"apiguard/ctx"
 	"apiguard/guard"
@@ -60,7 +61,11 @@ func runStatus(globalCtx ctx.GlobalContext, conf *config.Configuration, ident st
 	fakeReq.RemoteAddr = ip.String()
 
 	if sessionID != "" {
-		delay, err := telemetryAnalyzer.CalcDelay(fakeReq)
+		clientID := common.ClientID{
+			IP:     ip.String(),
+			UserID: common.InvalidUserID,
+		}
+		delay, err := telemetryAnalyzer.CalcDelay(fakeReq, clientID)
 		if err != nil {
 			log.Fatal().Err(err).Msg("")
 		}

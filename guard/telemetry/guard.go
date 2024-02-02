@@ -43,7 +43,7 @@ type StatsStorage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*guard.IPProcData, error)
 	LoadIPStats(clientIP string, maxAgeSecs int) (*guard.IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(delayInfo guard.DelayInfo, clientIP string) error
+	LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.ClientID) error
 }
 
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
@@ -85,7 +85,7 @@ func (a *Guard) ClientInducedRespStatus(req *http.Request, serviceName string) g
 	}
 }
 
-func (a *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
+func (a *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
 	delayInfo := guard.DelayInfo{
 		Delay: time.Duration(0),
@@ -148,8 +148,8 @@ func (a *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 	}
 }
 
-func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientIP string) error {
-	err := a.storage.LogAppliedDelay(delayInfo, clientIP)
+func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.ClientID) error {
+	err := a.storage.LogAppliedDelay(delayInfo, clientID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
 	}

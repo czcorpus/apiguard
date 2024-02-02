@@ -67,15 +67,15 @@ type ServiceGuard interface {
 	// CalcDelay calculates how long should be the current
 	// request delayed based on request properties.
 	// Ideally, this is zero for a new or good behaving client.
-	CalcDelay(req *http.Request) (DelayInfo, error)
+	CalcDelay(req *http.Request, clientID common.ClientID) (DelayInfo, error)
 
-	LogAppliedDelay(respDelay DelayInfo, clientIP string) error
+	LogAppliedDelay(respDelay DelayInfo, clientID common.ClientID) error
 
 	ClientInducedRespStatus(req *http.Request, serviceName string) ReqProperties
 }
 
-func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, guard ServiceGuard) error {
-	respDelay, err := guard.CalcDelay(req)
+func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, guard ServiceGuard, client common.ClientID) error {
+	respDelay, err := guard.CalcDelay(req, client)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
@@ -94,7 +94,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 		)
 		return err
 	}
-	go guard.LogAppliedDelay(respDelay, req.RemoteAddr)
+	go guard.LogAppliedDelay(respDelay, client)
 	time.Sleep(respDelay.Delay)
 	return nil
 }

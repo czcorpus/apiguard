@@ -69,7 +69,11 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err = guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer)
+	clientID := common.ClientID{
+		IP:     ctx.RemoteIP(),
+		UserID: common.InvalidUserID,
+	}
+	err = guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer, clientID)
 	if err != nil {
 		return
 	}

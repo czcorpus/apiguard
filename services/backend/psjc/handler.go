@@ -63,7 +63,11 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard)
+	clientID := common.ClientID{
+		IP:     ctx.RemoteIP(),
+		UserID: common.InvalidUserID,
+	}
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard, clientID)
 	if err != nil {
 		return
 	}

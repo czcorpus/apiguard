@@ -7,6 +7,7 @@
 package null
 
 import (
+	"apiguard/common"
 	"apiguard/guard"
 	"net/http"
 )
@@ -14,11 +15,11 @@ import (
 // Null guard implements no restrictions
 type Guard struct{}
 
-func (sra *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
+func (sra *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
 	return guard.DelayInfo{}, nil
 }
 
-func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
+func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
 	return nil
 }
 

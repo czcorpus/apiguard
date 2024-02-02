@@ -7,11 +7,11 @@
 package dflt
 
 import (
+	"apiguard/common"
 	"apiguard/guard"
 	"database/sql"
 	"math"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -30,17 +30,16 @@ type Guard struct {
 	delayStats        *guard.DelayStats
 	sessionCookieName string
 	numRequests       *collections.ConcurrentMap[string, guard.RequestIPCount]
-	ipCounter         chan string
+	clientCounter     chan common.ClientID
 	cleanupInterval   time.Duration
 }
 
-func (sra *Guard) ExposeAsCounter() chan<- string {
-	return sra.ipCounter
+func (sra *Guard) ExposeAsCounter() chan<- common.ClientID {
+	return sra.clientCounter
 }
 
-func (sra *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
-	ip := strings.SplitN(req.RemoteAddr, ":", 2)[0]
-	num := sra.numRequests.Get(ip)
+func (sra *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
+	num := sra.numRequests.Get(clientID.GetKey())
 	if num.Num <= dfltNumOKRequestsPerInterval {
 		return guard.DelayInfo{}, nil
 	}
@@ -52,7 +51,7 @@ func (sra *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 		nil
 }
 
-func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
+func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
 	return nil
 }
 
@@ -63,15 +62,16 @@ func (sra *Guard) ClientInducedRespStatus(req *http.Request, serviceName string)
 }
 
 func (sra *Guard) Run() {
-	for v := range sra.ipCounter {
-		newVal := sra.numRequests.Get(v).Inc() // we must Inc() so time is not zero
+	for v := range sra.clientCounter {
+		key := v.GetKey()
+		newVal := sra.numRequests.Get(key).Inc() // we must Inc() so time is not zero
 		if newVal.CountStart.Before(time.Now().Add(-sra.cleanupInterval)) {
 			newVal = guard.RequestIPCount{
 				CountStart: time.Now(),
 				Num:        1,
 			}
 		}
-		sra.numRequests.Set(v, newVal)
+		sra.numRequests.Set(key, newVal)
 	}
 }
 
@@ -81,7 +81,7 @@ func New(db *sql.DB, delayStats *guard.DelayStats, sessionCookieName string) *Gu
 		delayStats:        delayStats,
 		sessionCookieName: sessionCookieName,
 		numRequests:       collections.NewConcurrentMap[string, guard.RequestIPCount](),
-		ipCounter:         make(chan string),
+		clientCounter:     make(chan common.ClientID),
 		cleanupInterval:   dfltCleanupInterval,
 	}
 }

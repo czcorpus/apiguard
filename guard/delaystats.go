@@ -7,6 +7,7 @@
 package guard
 
 import (
+	"apiguard/common"
 	"apiguard/services/telemetry"
 	"database/sql"
 	"fmt"
@@ -607,7 +608,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) LogAppliedDelay(delayInfo DelayInfo, clientIP string) error {
+func (c *DelayStats) LogAppliedDelay(delayInfo DelayInfo, clientID common.ClientID) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err
@@ -615,7 +616,7 @@ func (c *DelayStats) LogAppliedDelay(delayInfo DelayInfo, clientIP string) error
 
 	_, err = tx.Exec(
 		"INSERT INTO apiguard_delay_log (client_ip, delay, is_ban) VALUES (?, ?, ?)",
-		clientIP,
+		clientID.IP,
 		delayInfo.Delay.Seconds(),
 		delayInfo.IsBan,
 	)

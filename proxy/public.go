@@ -56,7 +56,7 @@ type PublicAPIProxy struct {
 	readTimeoutSecs  int
 	client           *http.Client
 	basicProxy       *APIProxy
-	ipCounter        chan<- string
+	clientCounter    chan<- common.ClientID
 	reqAnalyzer      guard.ServiceGuard
 	db               *sql.DB
 }
@@ -84,8 +84,8 @@ func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.CNCSe
 	return ans
 }
 
-func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context) error {
-	respDelay, err := prox.reqAnalyzer.CalcDelay(ctx.Request)
+func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {
+	respDelay, err := prox.reqAnalyzer.CalcDelay(ctx.Request, clientID)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
@@ -145,8 +145,6 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	}
 	internalPath := strings.TrimPrefix(path, prox.servicePath)
 
-	prox.ipCounter <- ctx.RemoteIP()
-
 	var err error
 	if prox.userIDHeaderName != "" {
 		humanID, err = prox.userInternalCookieStatus(ctx.Request, prox.serviceName)
@@ -155,7 +153,12 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 		}
 	}
 
-	err = prox.RestrictResponseTime(ctx)
+	clientID := common.ClientID{
+		IP:     ctx.RemoteIP(),
+		UserID: humanID,
+	}
+	prox.clientCounter <- clientID
+	err = prox.RestrictResponseTime(ctx, clientID)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 	}
@@ -186,7 +189,7 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 func NewPublicAPIProxy(
 	basicProxy *APIProxy,
 	client *http.Client,
-	ipCounter chan<- string,
+	clientCounter chan<- common.ClientID,
 	reqAnalyzer guard.ServiceGuard,
 	db *sql.DB,
 	opts PublicAPIProxyOpts,
@@ -195,11 +198,11 @@ func NewPublicAPIProxy(
 
 	p := &PublicAPIProxy{
 
-		client:      client,
-		basicProxy:  basicProxy,
-		ipCounter:   ipCounter,
-		reqAnalyzer: reqAnalyzer,
-		db:          db,
+		client:        client,
+		basicProxy:    basicProxy,
+		clientCounter: clientCounter,
+		reqAnalyzer:   reqAnalyzer,
+		db:            db,
 	}
 
 	if opts.AuthCookieName == "" {

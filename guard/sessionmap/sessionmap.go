@@ -4,10 +4,11 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package userdb
+package sessionmap
 
 import (
 	"apiguard/common"
+	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/services/logging"
@@ -23,13 +24,18 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-// CNCUserAnalyzer provides access to user request and is able
-// to access CNC session database to evaluate user permissions.
-// Because of possible cookie mapping for some of services, the
-// analyzer may look into more than one cookie. But it is up
-// to a consumer to configure proper order of cookie lookup
-// (SessionCookieNames)
-type CNCUserAnalyzer struct {
+// Guard analyzes user request and based on session,
+// detected user ID and IP address it can calculate suitable delay
+// and response status.
+//
+// Its key distinct property is that it can
+// handle configurations with user session remapping where some
+// outer session cookie (typically - cnc_toolbar_sid) which is used
+// for communication between a user and APIGuard is internally remapped
+// (during proxying) to a defined internal cookie which is used
+// in communication between APIGuard and protected application server.
+// This is used e.g. with WaG.
+type Guard struct {
 	db             *sql.DB
 	delayStats     *guard.DelayStats
 	location       *time.Location
@@ -59,10 +65,10 @@ type CNCUserAnalyzer struct {
 }
 
 // CalcDelay calculates a delay user deserves.
-// CNCUserAnalyzer applies only two delays:
+// SessionMappingGuard applies only two delays:
 // 1) zero for non-banned users
 // 2) guard.UltraDuration which is basically a ban
-func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
+func (kua *Guard) CalcDelay(req *http.Request) (guard.DelayInfo, error) {
 	ip, _ := logging.ExtractRequestIdentifiers(req)
 	delayInfo := guard.DelayInfo{
 		Delay: time.Duration(0),
@@ -80,7 +86,7 @@ func (kua *CNCUserAnalyzer) CalcDelay(req *http.Request) (guard.DelayInfo, error
 	return delayInfo, nil
 }
 
-func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
+func (kua *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientIP string) error {
 	err := kua.delayStats.LogAppliedDelay(respDelay, clientIP)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")
@@ -88,7 +94,7 @@ func (kua *CNCUserAnalyzer) LogAppliedDelay(respDelay guard.DelayInfo, clientIP 
 	return err
 }
 
-func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {
+func (kua *Guard) getSessionValue(req *http.Request) string {
 	cookieValue := proxy.GetCookieValue(req, kua.externalSessionCookie)
 	if cookieValue != "" {
 		return cookieValue
@@ -98,7 +104,7 @@ func (kua *CNCUserAnalyzer) getSessionValue(req *http.Request) string {
 }
 
 // GetSessionID extracts relevant user session ID from the provided Request.
-func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
+func (kua *Guard) GetSessionID(req *http.Request) string {
 	v := kua.getSessionValue(req)
 	if v != "" {
 		return strings.SplitN(v, "-", 2)[0]
@@ -106,7 +112,7 @@ func (kua *CNCUserAnalyzer) GetSessionID(req *http.Request) string {
 	return ""
 }
 
-func (kua *CNCUserAnalyzer) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
+func (kua *Guard) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
 	cookie, err := req.Cookie(kua.internalSessionCookie)
 	if err == http.ErrNoCookie {
 		return nil
@@ -114,7 +120,7 @@ func (kua *CNCUserAnalyzer) getUserCNCSessionCookie(req *http.Request) *http.Coo
 	return cookie
 }
 
-func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
+func (kua *Guard) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
 	v := proxy.GetCookieValue(req, kua.internalSessionCookie)
 	ans := session.CNCSessionValue{}
 	ans.UpdateFrom(v)
@@ -124,7 +130,7 @@ func (kua *CNCUserAnalyzer) getUserCNCSessionID(req *http.Request) session.CNCSe
 // UserInternalCookieStatus tests whether CNC authentication
 // cookie (internal cookie in our terms) provides a valid
 // non-anonymous user
-func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
+func (kua *Guard) UserInternalCookieStatus(
 	req *http.Request,
 	serviceName string,
 ) (common.UserID, error) {
@@ -141,13 +147,13 @@ func (kua *CNCUserAnalyzer) UserInternalCookieStatus(
 	return userID, nil
 }
 
-// UserInducedResponseStatus produces a HTTP response status
+// ClientInducedRespStatus produces a HTTP response status
 // proposal based on user activity.
 // The function prefers external cookie. I.e. if a client (e.g. WaG)
 // sends custom auth cookie, then the user identified by that cookie
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
-func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
+func (analyzer *Guard) ClientInducedRespStatus(
 	req *http.Request,
 	serviceName string,
 ) guard.ReqProperties {
@@ -196,21 +202,19 @@ func (analyzer *CNCUserAnalyzer) UserInducedResponseStatus(
 	}
 }
 
-func NewCNCUserAnalyzer(
-	db *sql.DB,
+func New(
+	globalCtx *ctx.GlobalContext,
 	delayStats *guard.DelayStats,
-	location *time.Location,
-	userTableProps users.UserTableProps,
 	internalSessionCookie string,
 	externalSessionCookie string,
 	anonymousUserID common.UserID,
 
-) *CNCUserAnalyzer {
-	return &CNCUserAnalyzer{
-		db:                    db,
+) *Guard {
+	return &Guard{
+		db:                    globalCtx.CNCDB,
 		delayStats:            delayStats,
-		location:              location,
-		userTableProps:        userTableProps,
+		location:              globalCtx.TimezoneLocation,
+		userTableProps:        globalCtx.UserTableProps,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,
 		AnonymousUserID:       anonymousUserID,

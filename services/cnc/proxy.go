@@ -10,7 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/guard"
-	"apiguard/guard/userdb"
+	"apiguard/guard/sessionmap"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
@@ -48,7 +48,7 @@ type CoreProxy struct {
 	globalCtx *ctx.GlobalContext
 	conf      *ProxyConf
 	rConf     *EnvironConf
-	analyzer  *userdb.CNCUserAnalyzer
+	guard     *sessionmap.Guard
 	apiProxy  *proxy.APIProxy
 	reporting chan<- proxy.ProxyProcReport
 
@@ -79,7 +79,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 		)
 	}(&userId)
 
-	reqProps := kp.analyzer.UserInducedResponseStatus(ctx.Request, kp.rConf.ServiceName)
+	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request, kp.rConf.ServiceName)
 	userId = reqProps.UserID
 	if reqProps.Error != nil {
 		http.Error(
@@ -247,7 +247,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 			}
 		}
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != kp.analyzer.AnonymousUserID {
+		if currHumanID.IsValid() && *currHumanID != kp.guard.AnonymousUserID {
 			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(
@@ -266,7 +266,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.analyzer.UserInducedResponseStatus(ctx.Request, kp.rConf.ServiceName)
+	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request, kp.rConf.ServiceName)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
@@ -282,7 +282,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	if err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.analyzer); err != nil {
+	if err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.guard); err != nil {
 		return
 	}
 
@@ -291,7 +291,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	if kp.rConf.CNCAuthCookie != kp.conf.ExternalSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = kp.analyzer.UserInternalCookieStatus(ctx.Request, kp.rConf.ServiceName)
+		humanID, err = kp.guard.UserInternalCookieStatus(ctx.Request, kp.rConf.ServiceName)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}
@@ -427,7 +427,7 @@ func NewCoreProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *ProxyConf,
 	gConf *EnvironConf,
-	analyzer *userdb.CNCUserAnalyzer,
+	guard *sessionmap.Guard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*CoreProxy, error) {
 	reporting := make(chan proxy.ProxyProcReport)
@@ -442,7 +442,7 @@ func NewCoreProxy(
 		globalCtx:  globalCtx,
 		conf:       conf,
 		rConf:      gConf,
-		analyzer:   analyzer,
+		guard:      guard,
 		apiProxy:   proxy,
 		reqCounter: reqCounter,
 		reporting:  reporting,

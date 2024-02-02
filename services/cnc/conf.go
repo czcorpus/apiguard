@@ -12,6 +12,26 @@ import (
 	"fmt"
 )
 
+const (
+	GuardTypeDefault    GuardType = "default"
+	GuardTypeSessionMap GuardType = "session-mapping"
+	GuardTypeNull       GuardType = "null"
+)
+
+type GuardType string
+
+func (gn GuardType) Validate() error {
+	if gn == GuardTypeDefault || gn == GuardTypeSessionMap ||
+		gn == GuardTypeNull {
+		return nil
+	}
+	return fmt.Errorf("invalid guard name: %s", gn)
+}
+
+func (gn GuardType) String() string {
+	return string(gn)
+}
+
 type ProxyConf struct {
 	// InternalURL is a URL where the backend is installed
 	// (typically something like "http://192.168.1.x:8080")
@@ -29,6 +49,9 @@ type ProxyConf struct {
 	// If defined, APIGuard will remap this cookie to the one used
 	// in the CNCAuth section where a central auth cookie is defined.
 	ExternalSessionCookieName string `json:"externalSessionCookieName"`
+
+	// GuardType specifies guard used along with the proxy
+	GuardType GuardType `json:"guardType"`
 
 	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
 

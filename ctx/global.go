@@ -8,6 +8,7 @@ package ctx
 
 import (
 	"apiguard/proxy"
+	"apiguard/users"
 	"database/sql"
 	"time"
 
@@ -23,4 +24,5 @@ type GlobalContext struct {
 	CNCDB            *sql.DB
 	InfluxDB         *influx.InfluxDBAdapter
 	Cache            proxy.Cache
+	UserTableProps   users.UserTableProps
 }

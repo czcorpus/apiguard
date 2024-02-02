@@ -10,7 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/ctx"
 	"apiguard/guard"
-	"apiguard/guard/userdb"
+	"apiguard/guard/sessionmap"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
@@ -35,7 +35,7 @@ type TreqProxy struct {
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
-	analyzer        *userdb.CNCUserAnalyzer
+	guard           *sessionmap.Guard
 	apiProxy        *proxy.APIProxy
 	reporting       chan<- proxy.ProxyProcReport
 
@@ -66,7 +66,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			}
 		}
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != tp.analyzer.AnonymousUserID {
+		if currHumanID.IsValid() && *currHumanID != tp.guard.AnonymousUserID {
 			loggedUserID = currHumanID
 		}
 		tp.globalCtx.BackendLogger.Log(
@@ -83,7 +83,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.analyzer.UserInducedResponseStatus(ctx.Request, ServiceName)
+	reqProps := tp.guard.ClientInducedRespStatus(ctx.Request, ServiceName)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
@@ -98,13 +98,13 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
 		return
 	}
-	guard.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.analyzer)
+	guard.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.guard)
 
 	passedHeaders := ctx.Request.Header
 	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = tp.analyzer.UserInternalCookieStatus(ctx.Request, ServiceName)
+		humanID, err = tp.guard.UserInternalCookieStatus(ctx.Request, ServiceName)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}
@@ -192,7 +192,7 @@ func NewTreqProxy(
 	globalCtx *ctx.GlobalContext,
 	conf *Conf,
 	cncAuthCookie string,
-	analyzer *userdb.CNCUserAnalyzer,
+	guard *sessionmap.Guard,
 	readTimeoutSecs int,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
@@ -208,7 +208,7 @@ func NewTreqProxy(
 		globalCtx:       globalCtx,
 		conf:            conf,
 		cncAuthCookie:   cncAuthCookie,
-		analyzer:        analyzer,
+		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,
 		apiProxy:        proxy,
 		reqCounter:      reqCounter,

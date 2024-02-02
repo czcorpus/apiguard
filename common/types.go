@@ -44,3 +44,12 @@ func Str2UserID(v string) (UserID, error) {
 	}
 	return UserID(tmp), nil
 }
+
+type ClientID struct {
+	IP     string
+	UserID UserID
+}
+
+func (c *ClientID) GetKey() string {
+	return fmt.Sprintf("%s:%d", c.IP, c.UserID)
+}

@@ -162,7 +162,7 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 	}
-	if prox.userIDHeaderName != "" {
+	if prox.userIDHeaderName != "" && humanID.IsValid() {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
 	resp := prox.basicProxy.Request(

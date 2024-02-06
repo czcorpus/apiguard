@@ -162,7 +162,9 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 	}
-
+	if prox.userIDHeaderName != "" {
+		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
+	}
 	resp := prox.basicProxy.Request(
 		// TODO use some path builder here
 		internalPath,
@@ -174,9 +176,6 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 
 	for k, v := range resp.GetHeaders() {
 		ctx.Writer.Header().Set(k, v[0])
-	}
-	if prox.userIDHeaderName != "" {
-		ctx.Writer.Header().Set(prox.userIDHeaderName, humanID.String())
 	}
 	ctx.Writer.WriteHeader(resp.GetStatusCode())
 	ctx.Writer.Write(resp.GetBody())

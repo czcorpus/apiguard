@@ -310,6 +310,55 @@ func runService(
 		log.Info().Msg("Service MQuery enabled")
 	}
 
+	// MQuery-GPT proxy
+
+	if conf.Services.MQueryGPT.ExternalURL != "" {
+		cnca := sessionmap.New(
+			globalCtx,
+			delayStats,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.MQueryGPT.ExternalSessionCookieName,
+			conf.CNCDB.AnonymousUserID,
+		)
+
+		var mqueryReqCounter chan<- guard.RequestInfo
+		if len(conf.Services.MQueryGPT.Limits) > 0 {
+			mqueryReqCounter = alarm.Register(
+				"mquery-gpt", conf.Services.MQueryGPT.Alarm, conf.Services.MQueryGPT.Limits)
+		}
+		mqueryActions, err := mquery.NewMQueryProxy(
+			globalCtx,
+			&conf.Services.MQueryGPT,
+			&cnc.EnvironConf{
+				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
+				AuthTokenEntry:    authTokenEntry,
+				ServicePath:       "/service/mquery-gpt",
+				ServiceName:       "mquery-gpt",
+				CNCPortalLoginURL: cncPortalLoginURL,
+				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
+			},
+			cnca,
+			mqueryReqCounter,
+		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to start services")
+			return
+		}
+
+		engine.Any("/service/mquery-gpt/*path", func(ctx *gin.Context) {
+			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+				mqueryActions.Login(ctx)
+
+			} else if ctx.Param("path") == "/preflight" {
+				mqueryActions.Preflight(ctx)
+
+			} else {
+				mqueryActions.AnyPath(ctx)
+			}
+		})
+		log.Info().Msg("Service MQuery-GPT enabled")
+	}
+
 	// Treq (API) proxy
 
 	if conf.Services.Treq.ExternalURL != "" {

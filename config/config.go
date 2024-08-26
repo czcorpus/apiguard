@@ -56,6 +56,7 @@ type servicesSection struct {
 	CJA           cja.Conf     `json:"cja"`
 	Kontext       kontext.Conf `json:"kontext"`
 	MQuery        mquery.Conf  `json:"mquery"`
+	MQueryGPT     mquery.Conf  `json:"mqueryGpt"`
 	Treq          treq.Conf    `json:"treq"`
 	KWords        kwords.Conf  `json:"kwords"`
 }

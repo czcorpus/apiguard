@@ -27,6 +27,29 @@ type BackendActionType string
 
 // -----
 
+type ProxyProcReport struct {
+	DateTime time.Time
+	ProcTime float32 `json:"procTime"`
+	Status   int     `json:"status"`
+	Service  string  `json:"service"`
+}
+
+func (report ProxyProcReport) ToInfluxDB() (map[string]string, map[string]any) {
+	return map[string]string{
+			"service": report.Service,
+		},
+		map[string]any{
+			"procTime": report.ProcTime,
+			"status":   report.Status,
+		}
+}
+
+func (report ProxyProcReport) GetTime() time.Time {
+	return report.DateTime
+}
+
+// -----
+
 type TelemetryEntropy struct {
 	Created                       time.Time
 	SessionID                     string

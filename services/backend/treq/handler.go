@@ -37,7 +37,7 @@ type TreqProxy struct {
 	readTimeoutSecs int
 	guard           *sessionmap.Guard
 	apiProxy        *proxy.APIProxy
-	reporting       chan<- proxy.ProxyProcReport
+	reporting       chan<- monitoring.ProxyProcReport
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -146,7 +146,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
-	tp.reporting <- proxy.ProxyProcReport{
+	tp.reporting <- monitoring.ProxyProcReport{
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  ServiceName,
@@ -201,7 +201,7 @@ func NewTreqProxy(
 	readTimeoutSecs int,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
-	reporting := make(chan proxy.ProxyProcReport)
+	reporting := make(chan monitoring.ProxyProcReport)
 	go func() {
 		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
 	}()

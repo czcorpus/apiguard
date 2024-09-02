@@ -147,6 +147,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
 	tp.reporting <- monitoring.ProxyProcReport{
+		DateTime: time.Now().In(tp.globalCtx.TimezoneLocation),
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  ServiceName,

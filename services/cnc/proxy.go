@@ -347,6 +347,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.makeRequest(ctx.Request, reqProps)
 	kp.reporting <- monitoring.ProxyProcReport{
+		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: float32(time.Since(rt0).Seconds()),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  kp.rConf.ServiceName,

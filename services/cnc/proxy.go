@@ -8,7 +8,7 @@ package cnc
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
 	"apiguard/monitoring"
@@ -45,7 +45,7 @@ func (resp loginResponse) isInvalidCredentials() bool {
 }
 
 type CoreProxy struct {
-	globalCtx *ctx.GlobalContext
+	globalCtx *globctx.Context
 	conf      *ProxyConf
 	rConf     *EnvironConf
 	guard     *sessionmap.Guard
@@ -429,7 +429,7 @@ func (kp *CoreProxy) makeRequest(
 }
 
 func NewCoreProxy(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *ProxyConf,
 	gConf *EnvironConf,
 	guard *sessionmap.Guard,

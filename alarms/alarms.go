@@ -8,7 +8,7 @@ package alarms
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/users"
 	"database/sql"
@@ -379,7 +379,7 @@ func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
 }
 
 func NewAlarmTicker(
-	ctx *ctx.GlobalContext,
+	ctx *globctx.Context,
 	loc *time.Location,
 	alarmConf MailConf,
 	statusDataDir string,

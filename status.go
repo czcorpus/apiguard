@@ -9,7 +9,7 @@ package main
 import (
 	"apiguard/common"
 	"apiguard/config"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/telemetry"
 	"apiguard/services/logging"
@@ -21,7 +21,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func runStatus(globalCtx ctx.GlobalContext, conf *config.Configuration, ident string) {
+func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident string) {
 	delayLog := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	ip := net.ParseIP(ident)
 	var sessionID string

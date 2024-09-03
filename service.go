@@ -9,7 +9,7 @@ package main
 import (
 	"apiguard/alarms"
 	"apiguard/config"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
@@ -54,7 +54,7 @@ const (
 )
 
 func runService(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *config.Configuration,
 ) {
 	syscallChan := make(chan os.Signal, 1)

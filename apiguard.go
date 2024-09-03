@@ -7,6 +7,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/gob"
 	"flag"
@@ -22,7 +23,7 @@ import (
 	"apiguard/cnc"
 	"apiguard/common"
 	"apiguard/config"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/reqcache"
@@ -139,7 +140,7 @@ func preExit(alarm *alarms.AlarmTicker) {
 	}
 }
 
-func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
+func createGlobalCtx(ctx context.Context, conf *config.Configuration) *globctx.Context {
 	influxDB := openInfluxDB(&conf.Monitoring)
 	var cache proxy.Cache
 	if conf.Cache.FileRootPath != "" {
@@ -155,14 +156,14 @@ func createGlobalCtx(conf *config.Configuration) ctx.GlobalContext {
 		log.Info().Msg("using NULL cache (path not specified)")
 	}
 
-	return ctx.GlobalContext{
-		TimezoneLocation: conf.TimezoneLocation(),
-		InfluxDB:         influxDB,
-		BackendLogger:    ctx.NewBackendLogger(influxDB, conf.TimezoneLocation()),
-		CNCDB:            openCNCDatabase(&conf.CNCDB),
-		Cache:            cache,
-		UserTableProps:   conf.CNCDB.ApplyOverrides(),
-	}
+	ans := globctx.NewGlobalContext(ctx)
+	ans.TimezoneLocation = conf.TimezoneLocation()
+	ans.InfluxDB = influxDB
+	ans.BackendLogger = globctx.NewBackendLogger(influxDB, conf.TimezoneLocation())
+	ans.CNCDB = openCNCDatabase(&conf.CNCDB)
+	ans.Cache = cache
+	ans.UserTableProps = conf.CNCDB.ApplyOverrides()
+	return ans
 }
 
 func init() {
@@ -224,14 +225,15 @@ func main() {
 		return
 	case "start":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
-		globalCtx := createGlobalCtx(conf)
+		ctx := context.TODO()
+		globalCtx := createGlobalCtx(ctx, conf)
 		log.Info().
 			Str("version", versionInfo.Version).
 			Str("buildDate", versionInfo.BuildDate).
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
 
-		runService(&globalCtx, conf)
+		runService(globalCtx, conf)
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
@@ -283,11 +285,13 @@ func main() {
 		}
 	case "status":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
-		globalCtx := createGlobalCtx(conf)
+		ctx := context.TODO()
+		globalCtx := createGlobalCtx(ctx, conf)
 		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
-		globalCtx := createGlobalCtx(conf)
+		ctx := context.TODO()
+		globalCtx := createGlobalCtx(ctx, conf)
 		runLearn(globalCtx, conf)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))

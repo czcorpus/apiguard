@@ -7,7 +7,7 @@
 package mquery
 
 import (
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
 	"apiguard/services/cnc"
@@ -19,7 +19,7 @@ type MQueryProxy struct {
 }
 
 func NewMQueryProxy(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
 	guard *sessionmap.Guard,

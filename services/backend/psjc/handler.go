@@ -8,7 +8,7 @@ package psjc
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/proxy"
@@ -27,7 +27,7 @@ const (
 )
 
 type PSJCActions struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
 	guard           guard.ServiceGuard
@@ -119,7 +119,7 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 }
 
 func NewPSJCActions(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,

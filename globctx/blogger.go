@@ -12,18 +12,15 @@ import (
 	"apiguard/services/logging"
 	"net/http"
 	"time"
-
-	"github.com/czcorpus/cnc-gokit/influx"
 )
 
 type BackendLogger struct {
-	stream           chan<- *monitoring.BackendRequest
-	timezoneLocation *time.Location
+	tDBWriter *monitoring.TimescaleDBWriter
 }
 
 // Log logs a service backend (e.g. KonText, Treq, some UJC server) access
 // using application logging (zerolog) and also by sending data to a monitoring
-// module (currently InfluxDB-based).
+// module (currently TimescaleDB).
 func (b *BackendLogger) Log(
 	req *http.Request,
 	service string,
@@ -34,7 +31,7 @@ func (b *BackendLogger) Log(
 	actionType monitoring.BackendActionType,
 ) {
 	bReq := &monitoring.BackendRequest{
-		Created:      time.Now().In(b.timezoneLocation),
+		Created:      time.Now(),
 		Service:      service,
 		ProcTime:     procTime.Seconds(),
 		IsCached:     cached,
@@ -42,18 +39,13 @@ func (b *BackendLogger) Log(
 		IndirectCall: indirectCall,
 		ActionType:   actionType,
 	}
-	b.stream <- bReq
+	b.tDBWriter.Write(bReq)
 	logging.LogServiceRequest(req, bReq)
 }
 
 // NewBackendLogger creates a new backend access logging service
-func NewBackendLogger(db *influx.InfluxDBAdapter, timezoneLocation *time.Location) *BackendLogger {
-	blstream := make(chan *monitoring.BackendRequest)
-	go func() {
-		influx.RunWriteConsumerSync(db, "state", blstream)
-	}()
+func NewBackendLogger(tDBWriter *monitoring.TimescaleDBWriter) *BackendLogger {
 	return &BackendLogger{
-		stream:           blstream,
-		timezoneLocation: timezoneLocation,
+		tDBWriter: tDBWriter,
 	}
 }

@@ -45,6 +45,7 @@ import (
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
 
@@ -53,13 +54,13 @@ const (
 	authTokenEntry    = "personal_access_token"
 )
 
-func runService(conf *config.Configuration) {
+func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, syscall.SIGHUP)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	globalCtx := createGlobalCtx(ctx, conf)
+	globalCtx := createGlobalCtx(ctx, conf, pgPool)
 
 	reloadChan := make(chan bool)
 	go func() {
@@ -87,10 +88,8 @@ func runService(conf *config.Configuration) {
 		conf.StatusDataDir,
 	)
 	go alarm.Run(reloadChan)
+	alarm.GoStartMonitoring()
 
-	if conf.Monitoring.IsConfigured() {
-		alarm.GoStartMonitoring()
-	}
 	if !conf.IgnoreStoredState {
 		err := alarms.LoadState(alarm)
 		if err != nil {
@@ -112,7 +111,7 @@ func runService(conf *config.Configuration) {
 	telemetryAnalyzer, err := telemetry.New(
 		&conf.Botwatch,
 		&conf.Telemetry,
-		globalCtx.InfluxDB,
+		globalCtx.TimescaleDBWriter,
 		delayStats,
 		delayStats,
 	)
@@ -538,6 +537,8 @@ func runService(conf *config.Configuration) {
 			log.Fatal().Err(err).Msg("server error")
 		}
 	}()
+
+	globalCtx.TimescaleDBWriter.LogErrors()
 
 	<-globalCtx.Done()
 	// now let's give subsystems some time to save state, clean-up etc.

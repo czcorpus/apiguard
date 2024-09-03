@@ -13,6 +13,11 @@ import (
 	"github.com/czcorpus/hltscl"
 )
 
+const ProxyMonitoringTable = "proxy_monitoring"
+const TelemetryMonitoringTable = "telemetry_monitoring"
+const BackendMonitoringTable = "backend_monitoring"
+const AlarmMonitoringTable = "alarm_monitoring"
+
 const BackendActionTypeQuery = "query"
 const BackendActionTypeLogin = "login"
 const BackendActionTypePreflight = "preflight"
@@ -30,20 +35,24 @@ type BackendActionType string
 
 type ProxyProcReport struct {
 	DateTime time.Time
-	ProcTime float32 `json:"procTime"`
-	Status   int     `json:"status"`
-	Service  string  `json:"service"`
+	ProcTime float64
+	Status   int
+	Service  string
 }
 
-func (report ProxyProcReport) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl.Entry {
+func (report *ProxyProcReport) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl.Entry {
 	return tableWriter.NewEntry(report.DateTime).
 		Str("service", report.Service).
-		Float("proc_time", float64(report.ProcTime)).
+		Float("proc_time", report.ProcTime).
 		Int("status", report.Status)
 }
 
-func (report ProxyProcReport) GetTime() time.Time {
+func (report *ProxyProcReport) GetTime() time.Time {
 	return report.DateTime
+}
+
+func (report *ProxyProcReport) GetTableName() string {
+	return ProxyMonitoringTable
 }
 
 // -----
@@ -72,6 +81,10 @@ func (te *TelemetryEntropy) GetTime() time.Time {
 	return te.Created
 }
 
+func (te *TelemetryEntropy) GetTableName() string {
+	return TelemetryMonitoringTable
+}
+
 // ----
 
 type BackendRequest struct {
@@ -95,4 +108,32 @@ func (br *BackendRequest) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl
 
 func (br *BackendRequest) GetTime() time.Time {
 	return br.Created
+}
+
+func (br *BackendRequest) GetTableName() string {
+	return BackendMonitoringTable
+}
+
+// ----
+
+type AlarmStatus struct {
+	Created     time.Time
+	Service     string
+	NumUsers    int
+	NumRequests int
+}
+
+func (status *AlarmStatus) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl.Entry {
+	return tableWriter.NewEntry(status.Created).
+		Str("service", status.Service).
+		Int("num_users", status.NumUsers).
+		Int("num_requests", status.NumRequests)
+}
+
+func (status *AlarmStatus) GetTime() time.Time {
+	return status.Created
+}
+
+func (status *AlarmStatus) GetTableName() string {
+	return AlarmMonitoringTable
 }

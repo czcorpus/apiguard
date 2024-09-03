@@ -24,12 +24,14 @@ import (
 	"apiguard/config"
 	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reqcache"
 	"apiguard/services"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
-	"github.com/czcorpus/cnc-gokit/influx"
+	"github.com/czcorpus/hltscl"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -116,24 +118,23 @@ func openCNCDatabase(conf *cnc.Conf) *sql.DB {
 	return cncDB
 }
 
-func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
-	errListen := make(chan error)
-	db := influx.ConnectAPI(conf, errListen)
-	go func() {
-		for err := range errListen {
-			log.Err(err).Msg("Failed to write measurement to InfluxDB")
-		}
-	}()
-	log.Info().
-		Str("host", conf.Server).
-		Str("organization", conf.Organization).
-		Str("bucket", conf.Bucket).
-		Msgf("Connected to InfluxDB (v2)")
-	return db
+func createPGPool(conf hltscl.PgConf) *pgxpool.Pool {
+	conn, err := hltscl.CreatePool(conf)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
+	return conn
 }
 
-func createGlobalCtx(ctx context.Context, conf *config.Configuration) *globctx.Context {
-	influxDB := openInfluxDB(&conf.Monitoring)
+func createGlobalCtx(ctx context.Context, conf *config.Configuration, pgPool *pgxpool.Pool) *globctx.Context {
+	ans := globctx.NewGlobalContext(ctx)
+
+	tDBWriter := monitoring.NewTimescaleDBWriter(pgPool, conf.TimezoneLocation(), ctx)
+	tDBWriter.AddTableWriter(monitoring.AlarmMonitoringTable)
+	tDBWriter.AddTableWriter(monitoring.BackendMonitoringTable)
+	tDBWriter.AddTableWriter(monitoring.ProxyMonitoringTable)
+	tDBWriter.AddTableWriter(monitoring.TelemetryMonitoringTable)
+
 	var cache proxy.Cache
 	if conf.Cache.FileRootPath != "" {
 		cache = reqcache.NewFileReqCache(&conf.Cache)
@@ -148,10 +149,9 @@ func createGlobalCtx(ctx context.Context, conf *config.Configuration) *globctx.C
 		log.Info().Msg("using NULL cache (path not specified)")
 	}
 
-	ans := globctx.NewGlobalContext(ctx)
 	ans.TimezoneLocation = conf.TimezoneLocation()
-	ans.InfluxDB = influxDB
-	ans.BackendLogger = globctx.NewBackendLogger(influxDB, conf.TimezoneLocation())
+	ans.TimescaleDBWriter = tDBWriter
+	ans.BackendLogger = globctx.NewBackendLogger(tDBWriter)
 	ans.CNCDB = openCNCDatabase(&conf.CNCDB)
 	ans.Cache = cache
 	ans.UserTableProps = conf.CNCDB.ApplyOverrides()
@@ -223,7 +223,8 @@ func main() {
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
 
-		runService(conf)
+		pgPool := createPGPool(conf.Monitoring.DB)
+		runService(conf, pgPool)
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
@@ -276,12 +277,14 @@ func main() {
 	case "status":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		ctx := context.TODO()
-		globalCtx := createGlobalCtx(ctx, conf)
+		pgPool := createPGPool(conf.Monitoring.DB)
+		globalCtx := createGlobalCtx(ctx, conf, pgPool)
 		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		ctx := context.TODO()
-		globalCtx := createGlobalCtx(ctx, conf)
+		pgPool := createPGPool(conf.Monitoring.DB)
+		globalCtx := createGlobalCtx(ctx, conf, pgPool)
 		runLearn(globalCtx, conf)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))

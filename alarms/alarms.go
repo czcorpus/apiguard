@@ -10,6 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/monitoring"
 	"apiguard/users"
 	"context"
 	"encoding/json"
@@ -20,7 +21,6 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/datetime"
-	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/mail"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -66,7 +66,7 @@ type AlarmTicker struct {
 	location       *time.Location
 	statusDataDir  string
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
-	monitoring     *influx.RecordWriter[alarmStatus]
+	tDBWriter      *monitoring.TimescaleDBWriter
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
@@ -407,6 +407,6 @@ func NewAlarmTicker(
 		alarmConf:      alarmConf,
 		statusDataDir:  statusDataDir,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
-		monitoring:     influx.NewRecordWriter[alarmStatus](ctx.InfluxDB),
+		tDBWriter:      ctx.TimescaleDBWriter,
 	}
 }

@@ -6,46 +6,23 @@
 
 package alarms
 
-import "time"
-
-type alarmStatus struct {
-	created     time.Time
-	service     string
-	numUsers    int
-	numRequests int
-}
-
-// ToInfluxDB defines a method providing data
-// to be written to a database. The first returned
-// value is for tags, the second one for fields.
-func (status alarmStatus) ToInfluxDB() (map[string]string, map[string]any) {
-	return map[string]string{
-			"service": status.service,
-		},
-		map[string]any{
-			"numUsers":    status.numUsers,
-			"numRequests": status.numRequests,
-		}
-}
-
-// GetTime provides a date and time when the record
-// was created.
-func (status alarmStatus) GetTime() time.Time {
-	return status.created
-}
+import (
+	"apiguard/monitoring"
+	"time"
+)
 
 func (aticker *AlarmTicker) GoStartMonitoring() {
 	ticker := time.NewTicker(monitoringSendInterval)
 	go func() {
 		for range ticker.C {
 			aticker.clients.ForEach(func(k string, service *serviceEntry) {
-				report := alarmStatus{
-					created:     time.Now().In(aticker.location),
-					service:     service.Service,
-					numUsers:    service.ClientRequests.Len(),
-					numRequests: service.ClientRequests.CountRequests(),
+				report := &monitoring.AlarmStatus{
+					Created:     time.Now(),
+					Service:     service.Service,
+					NumUsers:    service.ClientRequests.Len(),
+					NumRequests: service.ClientRequests.CountRequests(),
 				}
-				aticker.monitoring.AddRecord("alarms", report)
+				aticker.tDBWriter.Write(report)
 			})
 		}
 	}()

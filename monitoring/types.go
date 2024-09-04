@@ -13,10 +13,10 @@ import (
 	"github.com/czcorpus/hltscl"
 )
 
-const ProxyMonitoringTable = "proxy_monitoring"
-const TelemetryMonitoringTable = "telemetry_monitoring"
-const BackendMonitoringTable = "backend_monitoring"
-const AlarmMonitoringTable = "alarm_monitoring"
+const ProxyMonitoringTable = "apiguard_proxy_monitoring"
+const TelemetryMonitoringTable = "apiguard_telemetry_monitoring"
+const BackendMonitoringTable = "apiguard_backend_monitoring"
+const AlarmMonitoringTable = "apiguard_alarm_monitoring"
 
 const BackendActionTypeQuery = "query"
 const BackendActionTypeLogin = "login"

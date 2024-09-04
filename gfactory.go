@@ -8,7 +8,7 @@ package main
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/null"
@@ -19,7 +19,7 @@ import (
 func NewGuard(
 	name cnc.GuardType,
 	delayStats *guard.DelayStats,
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	internalSessCookieName string,
 	externalSessCookieName string,
 	anonymousUserID common.UserID,

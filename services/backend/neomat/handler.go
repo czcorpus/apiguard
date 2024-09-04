@@ -8,7 +8,7 @@ package neomat
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/proxy"
@@ -28,7 +28,7 @@ const (
 )
 
 type NeomatActions struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
 	analyzer        guard.ServiceGuard
@@ -112,7 +112,7 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.
 }
 
 func NewNeomatActions(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,

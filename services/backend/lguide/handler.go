@@ -9,7 +9,7 @@ package lguide
 import (
 	"apiguard/botwatch"
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	tlmGuard "apiguard/guard/telemetry"
 	"apiguard/monitoring"
@@ -39,7 +39,7 @@ const (
 )
 
 type LanguageGuideActions struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *Watchdog[*logging.LGRequestRecord]
@@ -189,7 +189,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 }
 
 func NewLanguageGuideActions(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,

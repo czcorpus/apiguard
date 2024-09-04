@@ -8,7 +8,7 @@ package kla
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/telemetry"
 	"apiguard/monitoring"
@@ -29,7 +29,7 @@ const (
 )
 
 type KLAActions struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
 	analyzer        *telemetry.Guard
@@ -129,7 +129,7 @@ func (aa *KLAActions) createMainRequest(url string, req *http.Request) proxy.Bac
 }
 
 func NewKLAActions(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	analyzer *telemetry.Guard,
 	readTimeoutSecs int,

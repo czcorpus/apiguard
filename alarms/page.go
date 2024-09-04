@@ -59,7 +59,7 @@ func (aticker *AlarmTicker) HandleConfirmationPage(ctx *gin.Context) {
 
 	} else {
 		ban, err := guard.FindBanByReport(
-			aticker.db,
+			aticker.ctx.CNCDB,
 			aticker.location,
 			alarmID,
 		)

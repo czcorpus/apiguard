@@ -8,7 +8,7 @@ package sessionmap
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/services/logging"
@@ -203,7 +203,7 @@ func (analyzer *Guard) ClientInducedRespStatus(
 }
 
 func New(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	delayStats *guard.DelayStats,
 	internalSessionCookie string,
 	externalSessionCookie string,

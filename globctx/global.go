@@ -4,25 +4,49 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package ctx
+package globctx
 
 import (
 	"apiguard/proxy"
 	"apiguard/users"
+	"context"
 	"database/sql"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/influx"
 )
 
-// GlobalContext provides access to shared resources and information needed by different
+// Context provides access to shared resources and information needed by different
 // part of the application. It is OK to pass it by value as the properties of the struct
 // are pointers themselves (if needed).
-type GlobalContext struct {
+// It also fulfills context.Context interface so it can be used along with some existing
+// context.
+type Context struct {
 	TimezoneLocation *time.Location
 	BackendLogger    *BackendLogger
 	CNCDB            *sql.DB
 	InfluxDB         *influx.InfluxDBAdapter
 	Cache            proxy.Cache
 	UserTableProps   users.UserTableProps
+	wCtx             context.Context
+}
+
+func (gc *Context) Deadline() (deadline time.Time, ok bool) {
+	return gc.wCtx.Deadline()
+}
+
+func (gc *Context) Done() <-chan struct{} {
+	return gc.wCtx.Done()
+}
+
+func (gc *Context) Err() error {
+	return gc.wCtx.Err()
+}
+
+func (gc *Context) Value(key any) any {
+	return gc.wCtx.Value(key)
+}
+
+func NewGlobalContext(ctx context.Context) *Context {
+	return &Context{wCtx: ctx}
 }

@@ -7,7 +7,7 @@
 package kontext
 
 import (
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
 	"apiguard/services/cnc"
@@ -61,7 +61,7 @@ func (kp *KonTextProxy) GetDefaults(req *http.Request) (defaults.Args, error) {
 }
 
 func NewKontextProxy(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
 	guard *sessionmap.Guard,

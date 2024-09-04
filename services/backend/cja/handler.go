@@ -8,7 +8,7 @@ package cja
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/telemetry"
 	"apiguard/monitoring"
@@ -28,7 +28,7 @@ const (
 )
 
 type CJAActions struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
 	analyzer        *telemetry.Guard
@@ -114,7 +114,7 @@ func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request
 }
 
 func NewCJAActions(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	analyzer *telemetry.Guard,
 	readTimeoutSecs int,

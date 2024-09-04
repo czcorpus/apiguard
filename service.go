@@ -9,7 +9,6 @@ package main
 import (
 	"apiguard/alarms"
 	"apiguard/config"
-	"apiguard/ctx"
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
@@ -37,6 +36,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -53,16 +53,24 @@ const (
 	authTokenEntry    = "personal_access_token"
 )
 
-func runService(
-	globalCtx *ctx.GlobalContext,
-	conf *config.Configuration,
-) {
+func runService(conf *config.Configuration) {
 	syscallChan := make(chan os.Signal, 1)
-	signal.Notify(syscallChan, os.Interrupt)
-	signal.Notify(syscallChan, syscall.SIGTERM)
-	signal.Notify(syscallChan, syscall.SIGINT)
 	signal.Notify(syscallChan, syscall.SIGHUP)
-	exitEvent := make(chan os.Signal)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	globalCtx := createGlobalCtx(ctx, conf)
+
+	reloadChan := make(chan bool)
+	go func() {
+		for evt := range syscallChan {
+			log.Warn().Str("signalName", evt.String()).Msg("received OS signal")
+			if evt == syscall.SIGHUP {
+				reloadChan <- true
+			}
+		}
+		close(reloadChan)
+	}()
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -78,6 +86,8 @@ func runService(
 		conf.Mail,
 		conf.StatusDataDir,
 	)
+	go alarm.Run(reloadChan)
+
 	if conf.Monitoring.IsConfigured() {
 		alarm.GoStartMonitoring()
 	}
@@ -514,22 +524,6 @@ func runService(
 		}
 	})
 
-	alarmSyscallChan := make(chan os.Signal, 1)
-
-	go func() {
-		for evt := range syscallChan {
-			log.Warn().Str("signalName", evt.String()).Msg("received OS signal")
-			if evt == syscall.SIGTERM || evt == syscall.SIGINT {
-				preExit(alarm)
-				exitEvent <- evt
-			}
-			alarmSyscallChan <- evt
-		}
-		close(exitEvent)
-	}()
-
-	go alarm.Run(alarmSyscallChan)
-
 	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 
 	srv := &http.Server{
@@ -540,18 +534,44 @@ func runService(
 	}
 
 	go func() {
-		err := srv.ListenAndServe()
-		if err != nil {
-			log.Error().Err(err).Msg("")
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("server error")
 		}
-		syscallChan <- syscall.SIGTERM
 	}()
 
-	<-exitEvent
+	<-globalCtx.Done()
+	// now let's give subsystems some time to save state, clean-up etc.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	err = srv.Shutdown(ctx)
-	if err != nil {
-		log.Error().Err(err).Msg("Shutdown request error")
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error().Err(err).Msg("HTTP server shutdown error")
+		}
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := alarm.Shutdown(ctx); err != nil {
+			log.Error().Err(err).Msg("AlarmTicker shutdown error")
+		}
+	}()
+
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		log.Info().Msg("Graceful shutdown completed")
+	case <-ctx.Done():
+		log.Warn().Msg("Shutdown timed out")
 	}
 }

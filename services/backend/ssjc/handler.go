@@ -8,7 +8,7 @@ package ssjc
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/proxy"
@@ -27,7 +27,7 @@ const (
 )
 
 type SSJCActions struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
 	analyzer        guard.ServiceGuard
@@ -157,7 +157,7 @@ func (aa *SSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 }
 
 func NewSSJCActions(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,

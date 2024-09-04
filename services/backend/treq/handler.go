@@ -8,7 +8,7 @@ package treq
 
 import (
 	"apiguard/common"
-	"apiguard/ctx"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
 	"apiguard/monitoring"
@@ -31,7 +31,7 @@ const (
 )
 
 type TreqProxy struct {
-	globalCtx       *ctx.GlobalContext
+	globalCtx       *globctx.Context
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
@@ -194,7 +194,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 }
 
 func NewTreqProxy(
-	globalCtx *ctx.GlobalContext,
+	globalCtx *globctx.Context,
 	conf *Conf,
 	cncAuthCookie string,
 	guard *sessionmap.Guard,

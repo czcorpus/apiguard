@@ -28,19 +28,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-/*
-Expected tables:
-
-create table mquery_operations_stats (
-  "time" timestamp with time zone NOT NULL,
-  num_jobs int,
-  num_errors int,
-  duration_secs float
-);
-
-select create_hypertable('mquery_operations_stats', 'time');
-*/
-
 // Timescalable represents any type which is able
 // to export its data in a format required by TimescaleDB writer.
 type Timescalable interface {

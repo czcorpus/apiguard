@@ -1,36 +1,36 @@
-create table proxy_monitoring (
+create table apiguard_proxy_monitoring (
   "time" timestamp with time zone NOT NULL,
-  service varchar(64),
+  service TEXT,
   proc_time float,
   status int
 );
-select create_hypertable('proxy_monitoring', 'time');
+select create_hypertable('apiguard_proxy_monitoring', 'time');
 
-create table telemetry_monitoring (
+create table apiguard_telemetry_monitoring (
   "time" timestamp with time zone NOT NULL,
-  session_id varchar(64),
-  client_ip varchar(64),
+  session_id TEXT,
+  client_ip TEXT,
   MAIN_TILE_DATA_LOADED float,
   MAIN_TILE_PARTIAL_DATA_LOADED float,
   MAIN_SET_TILE_RENDER_SIZE float,
   score float
 );
-select create_hypertable('telemetry_monitoring', 'time');
+select create_hypertable('apiguard_telemetry_monitoring', 'time');
 
-create table backend_monitoring (
+create table apiguard_backend_monitoring (
   "time" timestamp with time zone NOT NULL,
-  service varchar(64),
+  service TEXT,
   is_cached boolean,
-  action_type varchar(64),
+  action_type TEXT,
   proc_time float,
   indirect_call boolean
 );
-select create_hypertable('backend_monitoring', 'time');
+select create_hypertable('apiguard_backend_monitoring', 'time');
 
-create table alarm_monitoring (
+create table apiguard_alarm_monitoring (
   "time" timestamp with time zone NOT NULL,
-  service varchar(64),
+  service TEXT,
   num_users int,
   num_requests int
 );
-select create_hypertable('alarm_monitoring', 'time');
+select create_hypertable('apiguard_alarm_monitoring', 'time');

@@ -121,6 +121,14 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 
 	// ----------------------
 
+	engine.GET("/service/ping", func(ctx *gin.Context) {
+		globalCtx.TimescaleDBWriter.Write(&PingReport{
+			DateTime: time.Now(),
+			Status:   200,
+		})
+		uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"ok": true})
+	})
+
 	// --------------------
 
 	// "Jazyková příručka ÚJČ"

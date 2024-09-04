@@ -27,7 +27,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -50,7 +49,7 @@ type CoreProxy struct {
 	rConf     *EnvironConf
 	guard     *sessionmap.Guard
 	apiProxy  *proxy.APIProxy
-	reporting chan<- proxy.ProxyProcReport
+	tDBWriter *monitoring.TimescaleDBWriter
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -346,11 +345,12 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.makeRequest(ctx.Request, reqProps)
-	kp.reporting <- proxy.ProxyProcReport{
-		ProcTime: float32(time.Since(rt0).Seconds()),
+	kp.tDBWriter.Write(&monitoring.ProxyProcReport{
+		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
+		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  kp.rConf.ServiceName,
-	}
+	})
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
@@ -435,10 +435,6 @@ func NewCoreProxy(
 	guard *sessionmap.Guard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*CoreProxy, error) {
-	reporting := make(chan proxy.ProxyProcReport)
-	go func() {
-		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
-	}()
 	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
@@ -450,6 +446,6 @@ func NewCoreProxy(
 		guard:      guard,
 		apiProxy:   proxy,
 		reqCounter: reqCounter,
-		reporting:  reporting,
+		tDBWriter:  globalCtx.TimescaleDBWriter,
 	}, nil
 }

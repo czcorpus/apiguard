@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -37,7 +36,7 @@ type TreqProxy struct {
 	readTimeoutSecs int
 	guard           *sessionmap.Guard
 	apiProxy        *proxy.APIProxy
-	reporting       chan<- proxy.ProxyProcReport
+	tDBWriter       *monitoring.TimescaleDBWriter
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -146,11 +145,12 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
-	tp.reporting <- proxy.ProxyProcReport{
-		ProcTime: float32(time.Since(rt0).Seconds()),
+	tp.tDBWriter.Write(&monitoring.ProxyProcReport{
+		DateTime: time.Now().In(tp.globalCtx.TimezoneLocation),
+		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  ServiceName,
-	}
+	})
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
@@ -201,10 +201,6 @@ func NewTreqProxy(
 	readTimeoutSecs int,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
-	reporting := make(chan proxy.ProxyProcReport)
-	go func() {
-		influx.RunWriteConsumerSync(globalCtx.InfluxDB, "proxy", reporting)
-	}()
 	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
 	if err != nil {
 		return nil, err
@@ -217,6 +213,6 @@ func NewTreqProxy(
 		readTimeoutSecs: readTimeoutSecs,
 		apiProxy:        proxy,
 		reqCounter:      reqCounter,
-		reporting:       reporting,
+		tDBWriter:       globalCtx.TimescaleDBWriter,
 	}, nil
 }

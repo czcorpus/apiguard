@@ -7,13 +7,12 @@
 package globctx
 
 import (
+	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/users"
 	"context"
 	"database/sql"
 	"time"
-
-	"github.com/czcorpus/cnc-gokit/influx"
 )
 
 // Context provides access to shared resources and information needed by different
@@ -22,13 +21,13 @@ import (
 // It also fulfills context.Context interface so it can be used along with some existing
 // context.
 type Context struct {
-	TimezoneLocation *time.Location
-	BackendLogger    *BackendLogger
-	CNCDB            *sql.DB
-	InfluxDB         *influx.InfluxDBAdapter
-	Cache            proxy.Cache
-	UserTableProps   users.UserTableProps
-	wCtx             context.Context
+	TimezoneLocation  *time.Location
+	BackendLogger     *BackendLogger
+	CNCDB             *sql.DB
+	TimescaleDBWriter *monitoring.TimescaleDBWriter
+	Cache             proxy.Cache
+	UserTableProps    users.UserTableProps
+	wCtx              context.Context
 }
 
 func (gc *Context) Deadline() (deadline time.Time, ok bool) {

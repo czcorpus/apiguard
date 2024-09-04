@@ -1,6 +1,17 @@
 {
     "serverHost": "localhost",
     "serverPort": 8080,
+    "botwatch": {
+        "botDefsPath": "",
+        "watchedTimeWindowSecs": 30,
+        "numRequestsThreshold": 10,
+        "rsdThreshold": 0.2
+    },
+    "telemetry": {
+        "analyzer": "dumb",
+        "dataDelaySecs": 10,
+        "maxAgeSecsRelevant": 3600
+    },
     "services": {
         "languageGuide": {
             "baseURL": "https://prirucka.ujc.cas.cz",
@@ -41,33 +52,31 @@
             }
         }
     },
+    "cache": {
+        "fileRootPath": "",
+        "ttlSecs": 3600
+    },
+    "monitoring": {
+        "db": {
+            "user": "postgres",
+            "passwd": "password",
+            "host": "localhost",
+            "port": 5432,
+            "dbName": "postgres"
+        }
+    },
+    "cncDb": {
+        "name": "cnc_database_name",
+        "host": "10.0.3.130",
+        "user": "db_user_with_limited_rights (see cncdb/conf.go)",
+        "password": "******"
+    },
     "mail": {
         "sender": "apiguard@korpus.cz",
         "smtpServer": "smtp.korpus.cz:587",
         "smtpUsername": "some_user",
         "smtpPassword": "********",
         "confirmationBaseURL": "http://localhost:3010"
-    },
-    "botwatch": {
-        "botDefsPath": "",
-        "watchedTimeWindowSecs": 30,
-        "numRequestsThreshold": 10,
-        "rsdThreshold": 0.2
-    },
-    "telemetry": {
-        "analyzer": "dumb",
-        "dataDelaySecs": 10,
-        "maxAgeSecsRelevant": 3600
-    },
-    "storage": {
-        "host": "10.0.3.130",
-        "user": "db_user_with_limited_rights (see cncdb/conf.go)",
-        "password": "******",
-        "database": "cnc_database_name"
-    },
-    "cache": {
-        "fileRootPath": "",
-        "ttlSecs": 3600
     },
     "cncAuth": {
         "sessionCookieName": "cnc_toolbar_sid"

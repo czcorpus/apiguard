@@ -10,6 +10,7 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cnc"
+	"apiguard/monitoring"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -30,7 +31,6 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
-	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog/log"
 )
 
@@ -109,25 +109,25 @@ func (services *servicesSection) validate() error {
 }
 
 type Configuration struct {
-	ServerHost             string                `json:"serverHost"`
-	ServerPort             int                   `json:"serverPort"`
-	ServerReadTimeoutSecs  int                   `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                   `json:"serverWriteTimeoutSecs"`
-	TimeZone               string                `json:"timeZone"`
-	Botwatch               botwatch.Conf         `json:"botwatch"`
-	Telemetry              telemetry.Conf        `json:"telemetry"`
-	Services               servicesSection       `json:"services"`
-	Cache                  reqcache.Conf         `json:"cache"`
-	Monitoring             influx.ConnectionConf `json:"monitoring"`
-	LogPath                string                `json:"logPath"`
-	LogLevel               string                `json:"logLevel"`
-	CleanupMaxAgeDays      int                   `json:"cleanupMaxAgeDays"`
-	IPBanTTLSecs           int                   `json:"IpBanTtlSecs"`
-	CNCDB                  cnc.Conf              `json:"cncDb"`
-	Mail                   alarms.MailConf       `json:"mail"`
-	CNCAuth                CNCAuthConf           `json:"cncAuth"`
-	StatusDataDir          string                `json:"statusDataDir"`
-	IgnoreStoredState      bool                  `json:"-"`
+	ServerHost             string          `json:"serverHost"`
+	ServerPort             int             `json:"serverPort"`
+	ServerReadTimeoutSecs  int             `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int             `json:"serverWriteTimeoutSecs"`
+	TimeZone               string          `json:"timeZone"`
+	Botwatch               botwatch.Conf   `json:"botwatch"`
+	Telemetry              telemetry.Conf  `json:"telemetry"`
+	Services               servicesSection `json:"services"`
+	Cache                  reqcache.Conf   `json:"cache"`
+	Monitoring             monitoring.Conf `json:"monitoring"`
+	LogPath                string          `json:"logPath"`
+	LogLevel               string          `json:"logLevel"`
+	CleanupMaxAgeDays      int             `json:"cleanupMaxAgeDays"`
+	IPBanTTLSecs           int             `json:"IpBanTtlSecs"`
+	CNCDB                  cnc.Conf        `json:"cncDb"`
+	Mail                   alarms.MailConf `json:"mail"`
+	CNCAuth                CNCAuthConf     `json:"cncAuth"`
+	StatusDataDir          string          `json:"statusDataDir"`
+	IgnoreStoredState      bool            `json:"-"`
 }
 
 func (c *Configuration) Validate() error {

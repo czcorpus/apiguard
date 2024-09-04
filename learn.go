@@ -20,7 +20,7 @@ func runLearn(globalCtx *globctx.Context, conf *config.Configuration) {
 	telemetryAnalyzer, err := telemetry.New(
 		&conf.Botwatch,
 		&conf.Telemetry,
-		globalCtx.InfluxDB,
+		globalCtx.TimescaleDBWriter,
 		delayLog,
 		delayLog,
 	)

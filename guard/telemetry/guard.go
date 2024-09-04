@@ -10,6 +10,7 @@ import (
 	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/guard"
+	"apiguard/monitoring"
 
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -24,7 +25,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/czcorpus/cnc-gokit/influx"
 	"github.com/rs/zerolog/log"
 )
 
@@ -159,7 +159,7 @@ func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.Clien
 func New(
 	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
-	monitoringDB *influx.InfluxDBAdapter,
+	tDBWriter *monitoring.TimescaleDBWriter,
 	db backend.TelemetryStorage,
 	statsStorage StatsStorage,
 ) (*Guard, error) {
@@ -177,7 +177,7 @@ func New(
 			storage: statsStorage,
 		}, nil
 	case "entropy":
-		backend, err := entropy.NewAnalyzer(db, monitoringDB, telemetryConf)
+		backend, err := entropy.NewAnalyzer(db, tDBWriter, telemetryConf)
 		if err != nil {
 			return nil, err
 		}

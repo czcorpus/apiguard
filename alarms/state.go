@@ -99,12 +99,12 @@ func (se *serviceEntry) GobDecode(data []byte) error {
 func SaveState(aticker *AlarmTicker) error {
 	file, err := os.Create(path.Join(aticker.statusDataDir, alarmStatusFile))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
 	}
 	encoder := gob.NewEncoder(file)
 	err = encoder.Encode(aticker)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
 	}
 	err = file.Close()
 	if err == nil {

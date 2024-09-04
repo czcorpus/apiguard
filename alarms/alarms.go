@@ -11,13 +11,11 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/users"
-	"database/sql"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
-	"os"
-	"syscall"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -60,13 +58,12 @@ type handleReviewResponse struct {
 // It also listens for os signals and in case of exit it
 // serializes runtime values (e.g. the current counts).
 type AlarmTicker struct {
-	db             *sql.DB
+	ctx            *globctx.Context
 	alarmConf      MailConf
 	clients        *collections.ConcurrentMap[string, *serviceEntry] //save
 	counter        chan guard.RequestInfo
 	reports        []*AlarmReport //save
 	location       *time.Location
-	userTableProps users.UserTableProps
 	statusDataDir  string
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
 	monitoring     *influx.RecordWriter[alarmStatus]
@@ -152,7 +149,7 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 			}
 
 			err := newReport.AttachUserInfo(users.NewUsersTable(
-				aticker.db, aticker.userTableProps))
+				aticker.ctx.CNCDB, aticker.ctx.UserTableProps))
 			if err != nil {
 				newReport.UserInfo = &users.User{
 					ID:          common.InvalidUserID,
@@ -180,7 +177,7 @@ func (aticker *AlarmTicker) loadAllowList() {
 	aticker.allowListUsers = collections.NewConcurrentMap[string, []common.UserID]()
 	var total int
 	aticker.clients.ForEach(func(serviceID string, se *serviceEntry) {
-		v, err := guard.GetAllowlistUsers(aticker.db, serviceID)
+		v, err := guard.GetAllowlistUsers(aticker.ctx.CNCDB, serviceID)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -232,12 +229,30 @@ func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guard.RequestInfo) bool {
 	return collections.SliceContains(alist, reqInfo.UserID) || !reqInfo.UserID.IsValid()
 }
 
-func (aticker *AlarmTicker) Run(quitChan <-chan os.Signal) {
+func (aticker *AlarmTicker) Shutdown(ctx context.Context) error {
+	saveDone := make(chan bool)
+	var err error
+	go func() {
+		err = SaveState(aticker)
+		close(saveDone)
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-saveDone:
+		return err
+	}
+}
+
+func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 	aticker.loadAllowList()
 	for {
 		select {
-		case signal := <-quitChan:
-			if signal == syscall.SIGHUP {
+		case <-aticker.ctx.Done():
+			log.Debug().Msg("AlarmTicker got shutdown signal")
+			return
+		case reload := <-reloadChan:
+			if reload {
 				aticker.loadAllowList()
 			}
 		case reqInfo := <-aticker.counter:
@@ -346,7 +361,7 @@ func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
 			if qry.BanHours > 0 {
 				now := time.Now().In(aticker.location)
 				banID, err = guard.BanUser(
-					aticker.db,
+					aticker.ctx.CNCDB,
 					aticker.location,
 					report.RequestInfo.UserID,
 					&alarmID,
@@ -385,12 +400,11 @@ func NewAlarmTicker(
 	statusDataDir string,
 ) *AlarmTicker {
 	return &AlarmTicker{
-		db:             ctx.CNCDB,
+		ctx:            ctx,
 		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:        make(chan guard.RequestInfo, 1000),
 		location:       loc,
 		alarmConf:      alarmConf,
-		userTableProps: ctx.UserTableProps,
 		statusDataDir:  statusDataDir,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
 		monitoring:     influx.NewRecordWriter[alarmStatus](ctx.InfluxDB),

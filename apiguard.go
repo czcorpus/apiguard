@@ -19,7 +19,6 @@ import (
 	"strconv"
 	"time"
 
-	"apiguard/alarms"
 	"apiguard/cnc"
 	"apiguard/common"
 	"apiguard/config"
@@ -133,13 +132,6 @@ func openInfluxDB(conf *influx.ConnectionConf) *influx.InfluxDBAdapter {
 	return db
 }
 
-func preExit(alarm *alarms.AlarmTicker) {
-	err := alarms.SaveState(alarm)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to save alarm attributes")
-	}
-}
-
 func createGlobalCtx(ctx context.Context, conf *config.Configuration) *globctx.Context {
 	influxDB := openInfluxDB(&conf.Monitoring)
 	var cache proxy.Cache
@@ -225,15 +217,13 @@ func main() {
 		return
 	case "start":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
-		ctx := context.TODO()
-		globalCtx := createGlobalCtx(ctx, conf)
 		log.Info().
 			Str("version", versionInfo.Version).
 			Str("buildDate", versionInfo.BuildDate).
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
 
-		runService(globalCtx, conf)
+		runService(conf)
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)

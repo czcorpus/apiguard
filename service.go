@@ -8,11 +8,13 @@ package main
 
 import (
 	"apiguard/alarms"
+	"apiguard/common"
 	"apiguard/config"
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
 	"apiguard/guard/telemetry"
+	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -122,6 +124,18 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	// ----------------------
 
 	engine.GET("/service/ping", func(ctx *gin.Context) {
+		t0 := time.Now()
+		defer func() {
+			globalCtx.BackendLogger.Log(
+				ctx.Request,
+				"ping",
+				time.Since(t0),
+				false,
+				common.InvalidUserID,
+				false,
+				monitoring.BackendActionTypeQuery,
+			)
+		}()
 		globalCtx.TimescaleDBWriter.Write(&PingReport{
 			DateTime: time.Now(),
 			Status:   200,

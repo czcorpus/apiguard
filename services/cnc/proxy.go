@@ -237,9 +237,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
-	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool) {
+	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- guard.RequestInfo{
+				Created:     created,
 				Service:     kp.rConf.ServiceName,
 				NumRequests: 1,
 				UserID:      *currUserID,
@@ -258,7 +259,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 			*indirect,
 			monitoring.BackendActionTypeQuery,
 		)
-	}(&userID, &humanID, &indirectAPICall)
+	}(&userID, &humanID, &indirectAPICall, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, kp.rConf.ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")

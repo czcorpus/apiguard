@@ -31,6 +31,7 @@ const (
 	alarmStatusFile                = "alarm-status.gob"
 	dfltRecCountCleanupProbability = 0.5
 	monitoringSendInterval         = time.Duration(30) * time.Second
+	maxNumWatchedUserPrevReqs      = 5000
 )
 
 type reqCounterItem struct {
@@ -125,6 +126,27 @@ func (aticker *AlarmTicker) sendReport(
 	}
 }
 
+func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
+	aticker.clients.ForEach(func(k string, service *serviceEntry) {
+
+		// find longest check interval:
+		var maxInterval common.CheckInterval
+		for chint := range service.limits {
+			if chint > maxInterval {
+				maxInterval = chint
+			}
+		}
+		oldestTime := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
+
+		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *userLimitInfo) {
+			mostRecent := limitInfo.Requests.Last()
+			if mostRecent.Created.Before(oldestTime) {
+				service.ClientRequests.Delete(userID)
+			}
+		})
+	})
+}
+
 func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID common.UserID) {
 	counts := service.ClientRequests.Get(userID)
 	for checkInterval, limit := range service.limits {
@@ -133,6 +155,7 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 		if numReq > limit && !counts.Reported[checkInterval] {
 			newReport := NewAlarmReport(
 				guard.RequestInfo{
+					Created:     time.Now().In(aticker.location),
 					Service:     service.Service,
 					NumRequests: numReq,
 					UserID:      userID,
@@ -193,37 +216,6 @@ func (aticker *AlarmTicker) loadAllowList() {
 		Msg("Reloaded user allow lists for all services.")
 }
 
-func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
-	// find longest check interval:
-	var maxInterval common.CheckInterval
-	for chint := range service.limits {
-		if chint > maxInterval {
-			maxInterval = chint
-		}
-	}
-	oldestDate := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
-	var oldNumReq, newNumReq int
-	service.ClientRequests.ForEach(func(k common.UserID, data *userLimitInfo) {
-		oldNumReq += len(data.Requests)
-		keep := make([]reqCounterItem, 0, 1000)
-		for _, req := range data.Requests {
-			if req.Created.After(oldestDate) {
-				keep = append(keep, req)
-			}
-		}
-		data.Requests = keep
-		newNumReq += len(keep)
-	})
-	cleanupSummary := "Data size unchanged"
-	if newNumReq < oldNumReq {
-		cleanupSummary = fmt.Sprintf("Reduced number of records from %d to %d", oldNumReq, newNumReq)
-	}
-	log.Info().
-		Int("numOldRec", oldNumReq).
-		Int("numNewRec", newNumReq).
-		Msgf("Performed old requests cleanup. %s", cleanupSummary)
-}
-
 func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guard.RequestInfo) bool {
 	alist := aticker.allowListUsers.Get(reqInfo.Service)
 	return collections.SliceContains(alist, reqInfo.UserID) || !reqInfo.UserID.IsValid()
@@ -264,17 +256,16 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 					entry.ClientRequests.Set(
 						reqInfo.UserID,
 						&userLimitInfo{
-							Requests: make([]reqCounterItem, 0, 1000),
+							Requests: collections.NewCircularList[reqCounterItem](maxNumWatchedUserPrevReqs),
 							Reported: make(map[common.CheckInterval]bool),
 						},
 					)
 				}
-				entry.ClientRequests.Get(reqInfo.UserID).Requests = append(
-					entry.ClientRequests.Get(reqInfo.UserID).Requests,
-					reqCounterItem{
-						Created: time.Now().In(aticker.location),
-					},
-				)
+				entry.ClientRequests.
+					Get(reqInfo.UserID).
+					Requests.
+					Append(reqCounterItem{Created: reqInfo.Created})
+
 			}
 			go func(item guard.RequestInfo) {
 				aticker.checkServiceUsage(
@@ -282,9 +273,9 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 					item.UserID,
 				)
 			}(reqInfo)
-			// from time to time, remove older records
+			// from time to time, remove users with no recent activity
 			if rand.Float64() < aticker.clients.Get(reqInfo.Service).Conf.RecCounterCleanupProbability {
-				go aticker.clearOldRecords(aticker.clients.Get(reqInfo.Service))
+				go aticker.removeUsersWithNoRecentActivity()
 			}
 		}
 	}

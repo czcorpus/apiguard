@@ -14,18 +14,19 @@ import (
 )
 
 type userLimitInfo struct {
-	Requests []reqCounterItem
+	Requests *collections.CircularList[reqCounterItem]
 	Reported map[common.CheckInterval]bool
 }
 
 func (ulm *userLimitInfo) NumReqSince(interval time.Duration, loc *time.Location) int {
 	limit := time.Now().In(loc).Add(-interval)
 	var ans int
-	for _, v := range ulm.Requests {
-		if v.Created.After(limit) {
+	ulm.Requests.ForEach(func(i int, item reqCounterItem) bool {
+		if item.Created.After(limit) {
 			ans++
 		}
-	}
+		return true
+	})
 	return ans
 }
 
@@ -47,7 +48,7 @@ func NewClientRequestsFrom(data map[common.UserID]*userLimitInfo) *ClientRequest
 
 func (cr *ClientRequests) CountRequests() (ans int) {
 	cr.ForEach(func(k common.UserID, v *userLimitInfo) {
-		ans += len(v.Requests)
+		ans += v.Requests.Len()
 	})
 	return
 }

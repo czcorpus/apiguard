@@ -59,6 +59,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		if tp.reqCounter != nil {
 			tp.reqCounter <- guard.RequestInfo{
+				Created:     created,
 				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      *currUserID,

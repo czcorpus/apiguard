@@ -87,7 +87,7 @@ func (se *serviceEntry) GobDecode(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 
-	cr := make(map[common.UserID]*userLimitInfo)
+	cr := make(map[common.UserID]*UserLimitInfo)
 	err := dec.Decode(&cr)
 	if err != nil {
 		return err

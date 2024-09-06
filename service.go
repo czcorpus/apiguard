@@ -402,7 +402,8 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 		)
 		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
-			treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
+			treqReqCounter = alarm.Register(
+				treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
 		}
 		treqActions, err := treq.NewTreqProxy(
 			globalCtx,
@@ -449,6 +450,7 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 			log.Fatal().Err(err).Msg("failed to initialize proxy")
 			return
 		}
+
 		kwordsActions := proxy.NewPublicAPIProxy(
 			coreProxy,
 			client,
@@ -489,8 +491,10 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	telemetryActions := tstorage.NewActions(delayStats)
 	engine.POST("/telemetry", telemetryActions.Store)
 
-	requestsActions := requests.NewActions(delayStats)
+	requestsActions := requests.NewActions(globalCtx, delayStats, alarm)
 	engine.GET("/requests", requestsActions.List)
+
+	engine.GET("/activity/:serviceID", requestsActions.Activity)
 
 	engine.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
 		binWidth, otherLimit := 0.1, 5.0

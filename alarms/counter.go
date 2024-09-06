@@ -13,12 +13,12 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 )
 
-type userLimitInfo struct {
-	Requests *collections.CircularList[reqCounterItem]
-	Reported map[common.CheckInterval]bool
+type UserLimitInfo struct {
+	Requests    *collections.CircularList[reqCounterItem]
+	NumViolated map[common.CheckInterval]int
 }
 
-func (ulm *userLimitInfo) NumReqSince(interval time.Duration, loc *time.Location) int {
+func (ulm *UserLimitInfo) NumReqSince(interval time.Duration, loc *time.Location) int {
 	limit := time.Now().In(loc).Add(-interval)
 	var ans int
 	ulm.Requests.ForEach(func(i int, item reqCounterItem) bool {
@@ -31,23 +31,23 @@ func (ulm *userLimitInfo) NumReqSince(interval time.Duration, loc *time.Location
 }
 
 type ClientRequests struct {
-	collections.ConcurrentMap[common.UserID, *userLimitInfo]
+	collections.ConcurrentMap[common.UserID, *UserLimitInfo]
 }
 
 func NewClientRequests() *ClientRequests {
 	return &ClientRequests{
-		*collections.NewConcurrentMap[common.UserID, *userLimitInfo](),
+		*collections.NewConcurrentMap[common.UserID, *UserLimitInfo](),
 	}
 }
 
-func NewClientRequestsFrom(data map[common.UserID]*userLimitInfo) *ClientRequests {
+func NewClientRequestsFrom(data map[common.UserID]*UserLimitInfo) *ClientRequests {
 	return &ClientRequests{
-		*collections.NewConcurrentMapFrom[common.UserID, *userLimitInfo](data),
+		*collections.NewConcurrentMapFrom(data),
 	}
 }
 
 func (cr *ClientRequests) CountRequests() (ans int) {
-	cr.ForEach(func(k common.UserID, v *userLimitInfo) {
+	cr.ForEach(func(k common.UserID, v *UserLimitInfo) {
 		ans += v.Requests.Len()
 	})
 	return

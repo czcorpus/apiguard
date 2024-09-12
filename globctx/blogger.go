@@ -8,14 +8,14 @@ package globctx
 
 import (
 	"apiguard/common"
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"apiguard/services/logging"
 	"net/http"
 	"time"
 )
 
 type BackendLogger struct {
-	tDBWriter *monitoring.TimescaleDBWriter
+	tDBWriter *reporting.TimescaleDBWriter
 }
 
 // Log logs a service backend (e.g. KonText, Treq, some UJC server) access
@@ -28,9 +28,9 @@ func (b *BackendLogger) Log(
 	cached bool,
 	userID common.UserID,
 	indirectCall bool,
-	actionType monitoring.BackendActionType,
+	actionType reporting.BackendActionType,
 ) {
-	bReq := &monitoring.BackendRequest{
+	bReq := &reporting.BackendRequest{
 		Created:      time.Now(),
 		Service:      service,
 		ProcTime:     procTime.Seconds(),
@@ -44,7 +44,7 @@ func (b *BackendLogger) Log(
 }
 
 // NewBackendLogger creates a new backend access logging service
-func NewBackendLogger(tDBWriter *monitoring.TimescaleDBWriter) *BackendLogger {
+func NewBackendLogger(tDBWriter *reporting.TimescaleDBWriter) *BackendLogger {
 	return &BackendLogger{
 		tDBWriter: tDBWriter,
 	}

@@ -11,8 +11,8 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend"
 	"apiguard/services/defaults"
@@ -49,7 +49,7 @@ type CoreProxy struct {
 	rConf     *EnvironConf
 	guard     *sessionmap.Guard
 	apiProxy  *proxy.APIProxy
-	tDBWriter *monitoring.TimescaleDBWriter
+	tDBWriter *reporting.TimescaleDBWriter
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -74,7 +74,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 			false,
 			*currUserID,
 			true,
-			monitoring.BackendActionTypePreflight,
+			reporting.BackendActionTypePreflight,
 		)
 	}(&userId)
 
@@ -209,7 +209,7 @@ func (kp *CoreProxy) Login(ctx *gin.Context) {
 			false,
 			*currUserID,
 			true,
-			monitoring.BackendActionTypeLogin,
+			reporting.BackendActionTypeLogin,
 		)
 	}(&userId)
 
@@ -237,9 +237,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
-	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool) {
+	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- guard.RequestInfo{
+				Created:     created,
 				Service:     kp.rConf.ServiceName,
 				NumRequests: 1,
 				UserID:      *currUserID,
@@ -256,9 +257,9 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 			cached,
 			*loggedUserID,
 			*indirect,
-			monitoring.BackendActionTypeQuery,
+			reporting.BackendActionTypeQuery,
 		)
-	}(&userID, &humanID, &indirectAPICall)
+	}(&userID, &humanID, &indirectAPICall, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, kp.rConf.ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")
@@ -345,7 +346,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.makeRequest(ctx.Request, reqProps)
-	kp.tDBWriter.Write(&monitoring.ProxyProcReport{
+	kp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),

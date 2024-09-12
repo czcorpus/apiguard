@@ -7,18 +7,19 @@
 package main
 
 import (
-	"apiguard/config"
 	"apiguard/guard"
+	"apiguard/monitoring"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
 
-func runCleanup(db *sql.DB, conf *config.Configuration) {
+func runCleanup(db *sql.DB, loc *time.Location, conf *monitoring.LimitingConf) {
 	log.Info().Msg("running cleanup procedure")
-	delayLog := guard.NewDelayStats(db, conf.TimezoneLocation())
-	ans := delayLog.CleanOldData(conf.CleanupMaxAgeDays)
+	delayLog := guard.NewDelayStats(db, loc)
+	ans := delayLog.CleanOldData(conf.DelayLogCleanupMaxAgeDays)
 	if ans.Error != nil {
 		log.Fatal().Err(ans.Error).Msg("failed to cleanup old records")
 	}

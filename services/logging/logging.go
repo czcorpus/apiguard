@@ -7,7 +7,7 @@
 package logging
 
 import (
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"net/http"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -16,7 +16,7 @@ import (
 
 func LogServiceRequest(
 	req *http.Request,
-	bReq *monitoring.BackendRequest,
+	bReq *reporting.BackendRequest,
 ) {
 	event := log.Info().
 		Bool("accessLog", true).

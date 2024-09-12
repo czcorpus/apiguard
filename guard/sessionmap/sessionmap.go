@@ -44,24 +44,34 @@ type Guard struct {
 	// internalSessionCookie is a cookie used between APIGuard and API (e.g. KonText-API)
 	// Please note that CNC central authentication cookie is typically the same
 	// as internalSessionCookie in which sense the term "internal" may sound weird.
+	// The reason is that APIGuard creates additional layer between user and CNC auth mechanism
+	// in which case the former "external" becomes "internal" from APIGuard point of view.
+	//
 	// It typically looks like this:
-	// [CNC user] ---- cookie1 ---> [CNC website (e.g. KonText, Treq)]
-	// [CNC user] ---- cookie2 --> [WaG] --- cookie2 ---> [APIGuard] --> cookie(2->1) --> [KonText API]
+	//   a) For direct user-service communication we have:
+	//      [CNC user] ---- cookie1 ---> [CNC website (e.g. KonText, Treq)]
+	//   b) For indirect user-API communication handled by APIGuard we have:
+	//      [CNC user] ---- cookie2 --> [WaG] --- cookie2 ---> [APIGuard] --> cookie(2->1) --> [KonText API]
 	// where cookie1 is internal, cookie2 is external, cookie(2->1) is cookie2 renamed to cookie1
 	// But the user may also have both cookies:
 	// [CNC user] ---- c1, c2 --> [WaG] --- c1, c2 ---> [APIGuard] --> cookie(2->1) --> [KonText API]
 	// Here by default, APIGuard will ignore c1 (it again used c2 and renames it to c1 for KonText API)
 	//
-	// We also use the fact that the both cookies are the same and in case we need
+	// We also use the fact that in terms of value, both cookies are the same and in case we need
 	// to check whether an external authentication (user logged via CNC login page)
 	// provides valid user, we refer to this internalSessionCookie - so don't be confused
 	// by this.
 	internalSessionCookie string
 
 	// externalSessionCookie is a cookie used between APIGuard client (e.g. WaG) and
-	// APIGuard
+	// APIGuard. This allows access for both authenticated CNC users (in which case
+	// their credentials will be passed to a target API), and for public users in which
+	// case APIGuard will use its capabilities (e.g. a configured fallback user account
+	// created not for a human user but rather for an application) to authenticate
+	// (possibly with some lowered permissions) such user to otherwise non-public CNC APIs.
 	externalSessionCookie string
-	AnonymousUserID       common.UserID
+
+	AnonymousUserID common.UserID
 }
 
 // CalcDelay calculates a delay user deserves.
@@ -94,18 +104,22 @@ func (kua *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.Cli
 	return err
 }
 
-func (kua *Guard) getSessionValue(req *http.Request) string {
-	cookieValue := proxy.GetCookieValue(req, kua.externalSessionCookie)
+// getSession returns a user session value value along with the information
+// whether the session was obtained via external cookie (see configuration
+// for explanation).
+func (kua *Guard) getSession(req *http.Request) (cookieValue string, isExternal bool) {
+	cookieValue = proxy.GetCookieValue(req, kua.externalSessionCookie)
 	if cookieValue != "" {
-		return cookieValue
+		isExternal = true
+		return
 	}
 	cookieValue = proxy.GetCookieValue(req, kua.internalSessionCookie)
-	return cookieValue
+	return
 }
 
 // GetSessionID extracts relevant user session ID from the provided Request.
 func (kua *Guard) GetSessionID(req *http.Request) string {
-	v := kua.getSessionValue(req)
+	v, _ := kua.getSession(req)
 	if v != "" {
 		return strings.SplitN(v, "-", 2)[0]
 	}
@@ -166,7 +180,7 @@ func (analyzer *Guard) ClientInducedRespStatus(
 			Error:          nil,
 		}
 	}
-	cookieValue := analyzer.getSessionValue(req)
+	cookieValue, _ := analyzer.getSession(req)
 	if cookieValue == "" {
 		proxy.LogCookies(req, log.Debug()).
 			Str("internalCookie", analyzer.internalSessionCookie).

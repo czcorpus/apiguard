@@ -1,12 +1,10 @@
 module apiguard
 
-go 1.21.5
-
-toolchain go1.23.0
+go 1.23.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
-	github.com/czcorpus/cnc-gokit v0.7.0
+	github.com/czcorpus/cnc-gokit v0.9.7
 	github.com/czcorpus/hltscl v0.0.6
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-redis/redis/v8 v8.11.5
@@ -52,7 +50,6 @@ require (
 	github.com/ugorji/go/codec v1.2.11 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/crypto v0.17.0 // indirect
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect

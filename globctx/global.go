@@ -7,8 +7,8 @@
 package globctx
 
 import (
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/users"
 	"context"
 	"database/sql"
@@ -24,7 +24,7 @@ type Context struct {
 	TimezoneLocation  *time.Location
 	BackendLogger     *BackendLogger
 	CNCDB             *sql.DB
-	TimescaleDBWriter *monitoring.TimescaleDBWriter
+	TimescaleDBWriter *reporting.TimescaleDBWriter
 	Cache             proxy.Cache
 	UserTableProps    users.UserTableProps
 	wCtx              context.Context

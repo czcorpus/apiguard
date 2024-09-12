@@ -7,10 +7,10 @@
 package config
 
 import (
-	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cnc"
 	"apiguard/monitoring"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -26,11 +26,9 @@ import (
 	"apiguard/services/telemetry"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
-	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
 
@@ -39,7 +37,6 @@ const (
 	DfltServerWriteTimeoutSecs = 30
 	DftlServerPort             = 8080
 	DfltServerHost             = "localhost"
-	DfltCleanupMaxAgeDays      = 7
 	DfltBanSecs                = 3600
 	DfltTimeZone               = "Europe/Prague"
 	DfltProxyReqTimeoutSecs    = 60
@@ -109,25 +106,25 @@ func (services *servicesSection) validate() error {
 }
 
 type Configuration struct {
-	ServerHost             string          `json:"serverHost"`
-	ServerPort             int             `json:"serverPort"`
-	ServerReadTimeoutSecs  int             `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int             `json:"serverWriteTimeoutSecs"`
-	TimeZone               string          `json:"timeZone"`
-	Botwatch               botwatch.Conf   `json:"botwatch"`
-	Telemetry              telemetry.Conf  `json:"telemetry"`
-	Services               servicesSection `json:"services"`
-	Cache                  reqcache.Conf   `json:"cache"`
-	Monitoring             monitoring.Conf `json:"monitoring"`
-	LogPath                string          `json:"logPath"`
-	LogLevel               string          `json:"logLevel"`
-	CleanupMaxAgeDays      int             `json:"cleanupMaxAgeDays"`
-	IPBanTTLSecs           int             `json:"IpBanTtlSecs"`
-	CNCDB                  cnc.Conf        `json:"cncDb"`
-	Mail                   alarms.MailConf `json:"mail"`
-	CNCAuth                CNCAuthConf     `json:"cncAuth"`
-	StatusDataDir          string          `json:"statusDataDir"`
-	IgnoreStoredState      bool            `json:"-"`
+	ServerHost             string                   `json:"serverHost"`
+	ServerPort             int                      `json:"serverPort"`
+	ServerReadTimeoutSecs  int                      `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                      `json:"serverWriteTimeoutSecs"`
+	TimeZone               string                   `json:"timeZone"`
+	PublicRoutesURL        string                   `json:"publicRoutesUrl"`
+	Botwatch               botwatch.Conf            `json:"botwatch"`
+	Telemetry              telemetry.Conf           `json:"telemetry"`
+	Services               servicesSection          `json:"services"`
+	Cache                  reqcache.Conf            `json:"cache"`
+	Reporting              *reporting.Conf          `json:"reporting"`
+	LogPath                string                   `json:"logPath"`
+	LogLevel               string                   `json:"logLevel"`
+	Monitoring             *monitoring.LimitingConf `json:"monitoring"`
+	IPBanTTLSecs           int                      `json:"IpBanTtlSecs"`
+	CNCDB                  cnc.Conf                 `json:"cncDb"`
+	Mail                   *monitoring.MailConf     `json:"mail"`
+	CNCAuth                CNCAuthConf              `json:"cncAuth"`
+	IgnoreStoredState      bool                     `json:"-"`
 }
 
 func (c *Configuration) Validate() error {
@@ -147,15 +144,11 @@ func (c *Configuration) Validate() error {
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {
 		return err
 	}
-	if c.StatusDataDir == "" {
-		return fmt.Errorf("statusDataDir not configured")
+	if err := c.Monitoring.ValidateAndDefaults(); err != nil {
+		return err
 	}
-	isDir, err := fs.IsDir(c.StatusDataDir)
-	if err != nil {
-		return fmt.Errorf("failed to test statusDataDir: %w", err)
-	}
-	if !isDir {
-		return fmt.Errorf("invalid statusDataDir: %s", c.StatusDataDir)
+	if err := c.Reporting.ValidateAndDefaults(); err != nil {
+		return err
 	}
 	return nil
 }

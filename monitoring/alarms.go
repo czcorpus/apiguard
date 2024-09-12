@@ -4,19 +4,20 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package alarms
+package monitoring
 
 import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"apiguard/users"
 	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -58,29 +59,45 @@ type handleReviewResponse struct {
 // It also listens for os signals and in case of exit it
 // serializes runtime values (e.g. the current counts).
 type AlarmTicker struct {
-	ctx            *globctx.Context
-	alarmConf      MailConf
-	clients        *collections.ConcurrentMap[string, *serviceEntry] //save
-	counter        chan guard.RequestInfo
-	reports        []*AlarmReport //save
-	location       *time.Location
-	statusDataDir  string
-	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
-	tDBWriter      *monitoring.TimescaleDBWriter
+	ctx             *globctx.Context
+	publicRoutesURL string
+	mailConf        *MailConf
+	limitingConf    *LimitingConf
+	clients         *collections.ConcurrentMap[string, *serviceEntry] //save
+	counter         chan guard.RequestInfo
+	reports         []*AlarmReport //save
+	location        *time.Location
+	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
+	tDBWriter       *reporting.TimescaleDBWriter
+}
+
+func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
+	return aticker.clients.Get(servName)
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
-	return fmt.Sprintf(
-		"%s/alarm/%s/confirmation?reviewer=%s",
-		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
-	)
+	publicUrl, err := url.Parse(aticker.publicRoutesURL)
+	if err != nil {
+		panic("invalid publicRoutesURL") // this should not happen and conf should validate this first
+	}
+	publicUrl = publicUrl.JoinPath(fmt.Sprintf("/alarm/%s/confirmation", report.ReviewCode))
+	args := make(url.Values)
+	args.Add("reviewer", reviewer)
+	publicUrl.RawQuery = args.Encode()
+	return publicUrl.String()
 }
 
 func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, reviewer string) string {
-	return fmt.Sprintf(
-		"%s/alarm-confirmation?id=%s&reviewer=%s",
-		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
-	)
+	publicUrl, err := url.Parse(aticker.publicRoutesURL)
+	if err != nil {
+		panic("invalid publicRoutesURL") // this should not happen and conf should validate this first
+	}
+	publicUrl = publicUrl.JoinPath("/alarm-confirmation")
+	args := make(url.Values)
+	args.Add("id", report.ReviewCode)
+	args.Add("reviewer", reviewer)
+	publicUrl.RawQuery = args.Encode()
+	return publicUrl.String()
 }
 
 func (aticker *AlarmTicker) sendReport(
@@ -111,7 +128,7 @@ func (aticker *AlarmTicker) sendReport(
 				),
 			},
 		}
-		msgCnf := aticker.alarmConf.WithRecipients(recipient)
+		msgCnf := aticker.mailConf.WithRecipients(recipient)
 		err := mail.SendNotification(
 			&msgCnf,
 			aticker.location,
@@ -125,14 +142,47 @@ func (aticker *AlarmTicker) sendReport(
 	}
 }
 
+func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
+	aticker.clients.ForEach(func(k string, service *serviceEntry) {
+
+		// find longest check interval:
+		var maxInterval common.CheckInterval
+		for chint := range service.limits {
+			if chint > maxInterval {
+				maxInterval = chint
+			}
+		}
+		oldestTime := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
+
+		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *UserActivity) {
+			mostRecent := limitInfo.Requests.Last()
+			if mostRecent.Created.Before(oldestTime) {
+				service.ClientRequests.Delete(userID)
+			}
+		})
+	})
+}
+
 func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID common.UserID) {
 	counts := service.ClientRequests.Get(userID)
 	for checkInterval, limit := range service.limits {
+		t0 := time.Now().In(aticker.location)
 		numReq := counts.NumReqSince(time.Duration(checkInterval), aticker.location)
-		log.Debug().Msgf("num requests since %s: %d", time.Duration(time.Duration(checkInterval)), numReq)
-		if numReq > limit && !counts.Reported[checkInterval] {
+		counts.NumReqAboveLimit.registerMeasurement(t0, checkInterval, numReq, limit)
+		movAvg := counts.NumReqAboveLimit.relativeExceeding(t0, checkInterval, limit)
+		log.Debug().
+			Str("service", service.Service).
+			Int("userId", int(userID)).
+			Float64("overflowMovAvg", movAvg).
+			Int("currOverflow", max(0, numReq-limit)).
+			Int("currNumReq", numReq).
+			Float64("movAvgThreshold", aticker.limitingConf.ExceedingThreshold).
+			Time("since", t0.Add(-time.Duration(checkInterval))).
+			Msgf("service usage update")
+		if movAvg >= aticker.limitingConf.ExceedingThreshold {
 			newReport := NewAlarmReport(
 				guard.RequestInfo{
+					Created:     t0,
 					Service:     service.Service,
 					NumRequests: numReq,
 					UserID:      userID,
@@ -164,11 +214,16 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 					Msg("failed to attach user info to a report")
 			}
 			aticker.reports = append(aticker.reports, newReport)
-			counts.Reported[checkInterval] = true
-
 			go aticker.sendReport(service, newReport, userID, numReq)
-
-			log.Warn().Msgf("detected high activity for service %s and user %d", service.Service, userID)
+			log.Warn().
+				Str("service", service.Service).
+				Int("userId", int(userID)).
+				Float64("overflowMovAvg", movAvg).
+				Int("currOverflow", max(0, numReq-limit)).
+				Int("currNumReq", numReq).
+				Float64("movAvgThreshold", aticker.limitingConf.ExceedingThreshold).
+				Time("since", t0.Add(-time.Duration(checkInterval))).
+				Msgf("detected high user activity")
 		}
 	}
 }
@@ -191,37 +246,6 @@ func (aticker *AlarmTicker) loadAllowList() {
 	log.Info().
 		Int("itemsLoaded", total).
 		Msg("Reloaded user allow lists for all services.")
-}
-
-func (aticker *AlarmTicker) clearOldRecords(service *serviceEntry) {
-	// find longest check interval:
-	var maxInterval common.CheckInterval
-	for chint := range service.limits {
-		if chint > maxInterval {
-			maxInterval = chint
-		}
-	}
-	oldestDate := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
-	var oldNumReq, newNumReq int
-	service.ClientRequests.ForEach(func(k common.UserID, data *userLimitInfo) {
-		oldNumReq += len(data.Requests)
-		keep := make([]reqCounterItem, 0, 1000)
-		for _, req := range data.Requests {
-			if req.Created.After(oldestDate) {
-				keep = append(keep, req)
-			}
-		}
-		data.Requests = keep
-		newNumReq += len(keep)
-	})
-	cleanupSummary := "Data size unchanged"
-	if newNumReq < oldNumReq {
-		cleanupSummary = fmt.Sprintf("Reduced number of records from %d to %d", oldNumReq, newNumReq)
-	}
-	log.Info().
-		Int("numOldRec", oldNumReq).
-		Int("numNewRec", newNumReq).
-		Msgf("Performed old requests cleanup. %s", cleanupSummary)
 }
 
 func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guard.RequestInfo) bool {
@@ -263,18 +287,17 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 				if !entry.ClientRequests.HasKey(reqInfo.UserID) {
 					entry.ClientRequests.Set(
 						reqInfo.UserID,
-						&userLimitInfo{
-							Requests: make([]reqCounterItem, 0, 1000),
-							Reported: make(map[common.CheckInterval]bool),
+						&UserActivity{
+							Requests: collections.NewCircularList[reqCounterItem](
+								aticker.limitingConf.UserReqCounterBufferSize),
+							NumReqAboveLimit: NewLimitExceedings(aticker.limitingConf),
 						},
 					)
 				}
-				entry.ClientRequests.Get(reqInfo.UserID).Requests = append(
-					entry.ClientRequests.Get(reqInfo.UserID).Requests,
-					reqCounterItem{
-						Created: time.Now().In(aticker.location),
-					},
-				)
+				entry.ClientRequests.
+					Get(reqInfo.UserID).
+					Requests.
+					Append(reqCounterItem{Created: reqInfo.Created})
 			}
 			go func(item guard.RequestInfo) {
 				aticker.checkServiceUsage(
@@ -282,14 +305,17 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 					item.UserID,
 				)
 			}(reqInfo)
-			// from time to time, remove older records
+			// from time to time, remove users with no recent activity
 			if rand.Float64() < aticker.clients.Get(reqInfo.Service).Conf.RecCounterCleanupProbability {
-				go aticker.clearOldRecords(aticker.clients.Get(reqInfo.Service))
+				go aticker.removeUsersWithNoRecentActivity()
 			}
 		}
 	}
 }
 
+// Register initializes the AlarmTicker instance to watch for number and ratio
+// of incoming requests for a specific service. It returns a channel which is
+// expected to be used by a correspoding service proxy to log incoming requests.
 func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- guard.RequestInfo {
 	if conf.RecCounterCleanupProbability == 0 {
 		log.Warn().Msgf(
@@ -396,17 +422,19 @@ func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
 func NewAlarmTicker(
 	ctx *globctx.Context,
 	loc *time.Location,
-	alarmConf MailConf,
-	statusDataDir string,
+	mailConf *MailConf,
+	publicRoutesURL string,
+	limitingConf *LimitingConf,
 ) *AlarmTicker {
 	return &AlarmTicker{
-		ctx:            ctx,
-		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
-		counter:        make(chan guard.RequestInfo, 1000),
-		location:       loc,
-		alarmConf:      alarmConf,
-		statusDataDir:  statusDataDir,
-		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
-		tDBWriter:      ctx.TimescaleDBWriter,
+		ctx:             ctx,
+		clients:         collections.NewConcurrentMap[string, *serviceEntry](),
+		counter:         make(chan guard.RequestInfo, 1000),
+		location:        loc,
+		publicRoutesURL: publicRoutesURL,
+		mailConf:        mailConf,
+		limitingConf:    limitingConf,
+		allowListUsers:  collections.NewConcurrentMap[string, []common.UserID](),
+		tDBWriter:       ctx.TimescaleDBWriter,
 	}
 }

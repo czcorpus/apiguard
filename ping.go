@@ -6,7 +6,7 @@
 package main
 
 import (
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"time"
 
 	"github.com/czcorpus/hltscl"
@@ -30,5 +30,5 @@ func (report *PingReport) GetTime() time.Time {
 }
 
 func (report *PingReport) GetTableName() string {
-	return monitoring.ProxyMonitoringTable
+	return reporting.ProxyMonitoringTable
 }

@@ -7,15 +7,40 @@
 package requests
 
 import (
+	"apiguard/common"
+	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/monitoring"
+	"fmt"
+	"net/http"
+	"slices"
 	"strconv"
+	"time"
 
+	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	topNumActiveClients = 20
+)
+
+type userTotal struct {
+	UserID    common.UserID `json:"userId"`
+	NumReq    int           `json:"numReq"`
+	Exceeding any           `json:"exceeding"`
+}
+
+type activityResponse struct {
+	MostActiveUsers   []userTotal `json:"mostActiveUsers"`
+	TotalWatchedUsers int         `json:"totalWatchedUsers"`
+}
+
 type Actions struct {
-	db *guard.DelayStats
+	gctx  *globctx.Context
+	db    *guard.DelayStats
+	alarm *monitoring.AlarmTicker
 }
 
 func (a *Actions) List(ctx *gin.Context) {
@@ -48,6 +73,71 @@ func (a *Actions) List(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, items)
 }
 
-func NewActions(db *guard.DelayStats) *Actions {
-	return &Actions{db: db}
+func (a *Actions) Activity(ctx *gin.Context) {
+	serviceID := ctx.Param("serviceID")
+	since, err := datetime.ParseDuration(ctx.Query("ago"))
+	if since == 0 {
+		newUrl := *ctx.Request.URL
+		nuQuery := newUrl.Query()
+		nuQuery.Set("ago", "1h")
+		newUrl.RawQuery = nuQuery.Encode()
+		ctx.Redirect(http.StatusSeeOther, newUrl.String())
+		return
+	}
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
+		return
+	}
+
+	servProps := a.alarm.ServiceProps(serviceID)
+	if servProps == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("service %s not registered in AlarmTicker", serviceID),
+			http.StatusNotFound,
+		)
+		return
+	}
+	t0 := time.Now().In(a.gctx.TimezoneLocation)
+	reqCounts := make([]userTotal, 0, 100)
+	servProps.ClientRequests.ForEach(func(k common.UserID, v *monitoring.UserActivity) {
+		v.NumReqAboveLimit.Touch(t0)
+		reqCounts = append(
+			reqCounts,
+			userTotal{
+				UserID:    k,
+				NumReq:    v.NumReqSince(since, a.gctx.TimezoneLocation),
+				Exceeding: v.NumReqAboveLimit,
+			},
+		)
+	})
+	slices.SortStableFunc(reqCounts, func(a, b userTotal) int {
+		if a.NumReq < b.NumReq {
+			return -1
+
+		} else if a.NumReq > b.NumReq {
+			return 1
+		}
+		return 0
+	})
+	if len(reqCounts) > topNumActiveClients {
+		reqCounts = reqCounts[:topNumActiveClients]
+	}
+	ans := activityResponse{
+		MostActiveUsers:   reqCounts,
+		TotalWatchedUsers: servProps.ClientRequests.Len(),
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
+}
+
+func NewActions(
+	gctx *globctx.Context,
+	db *guard.DelayStats,
+	alarm *monitoring.AlarmTicker,
+) *Actions {
+	return &Actions{
+		gctx:  gctx,
+		db:    db,
+		alarm: alarm,
+	}
 }

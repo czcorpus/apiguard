@@ -27,6 +27,7 @@ type DelayInfo struct {
 }
 
 type RequestInfo struct {
+	Created     time.Time     `json:"created"`
 	Service     string        `json:"service"`
 	NumRequests int           `json:"numRequests"`
 	UserID      common.UserID `json:"userId"`

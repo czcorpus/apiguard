@@ -7,7 +7,7 @@
 package cnc
 
 import (
-	"apiguard/alarms"
+	"apiguard/monitoring"
 	"apiguard/proxy"
 	"fmt"
 )
@@ -60,9 +60,9 @@ type ProxyConf struct {
 	// service. If empty then no user ID info will be passed.
 	UserIDPassHeader string `json:"userIdPassHeader"`
 
-	Limits []alarms.Limit `json:"limits"`
+	Limits []monitoring.Limit `json:"limits"`
 
-	Alarm alarms.AlarmConf `json:"alarm"`
+	Alarm monitoring.AlarmConf `json:"alarm"`
 
 	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
 

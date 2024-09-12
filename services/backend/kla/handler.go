@@ -11,8 +11,8 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/telemetry"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"fmt"
 	"net/http"
@@ -51,7 +51,7 @@ func (aa *KLAActions) Query(ctx *gin.Context) {
 			cached,
 			common.InvalidUserID,
 			false,
-			monitoring.BackendActionTypeQuery,
+			reporting.BackendActionTypeQuery,
 		)
 	}()
 

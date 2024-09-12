@@ -7,7 +7,6 @@
 package main
 
 import (
-	"apiguard/alarms"
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/guard"
@@ -16,6 +15,7 @@ import (
 	"apiguard/guard/telemetry"
 	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
@@ -83,17 +83,18 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	engine.NoRoute(uniresp.NotFoundHandler)
 
 	// alarm
-	alarm := alarms.NewAlarmTicker(
+	alarm := monitoring.NewAlarmTicker(
 		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
-		conf.StatusDataDir,
+		conf.PublicRoutesURL,
+		conf.Monitoring,
 	)
 	go alarm.Run(reloadChan)
 	alarm.GoStartMonitoring()
 
 	if !conf.IgnoreStoredState {
-		err := alarms.LoadState(alarm)
+		err := monitoring.LoadState(alarm)
 		if err != nil {
 			log.Fatal().
 				Err(err).
@@ -123,6 +124,28 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 
 	// ----------------------
 
+	var pingReqCounter chan<- guard.RequestInfo
+
+	if len(conf.Services.Kontext.Limits) > 0 {
+		pingReqCounter = alarm.Register(
+			"ping",
+			monitoring.AlarmConf{
+				Recipients:                   []string{},
+				RecCounterCleanupProbability: 0.5,
+			},
+			[]monitoring.Limit{
+				{
+					ReqPerTimeThreshold:     10,
+					ReqCheckingIntervalSecs: 10,
+				},
+				{
+					ReqPerTimeThreshold:     20,
+					ReqCheckingIntervalSecs: 60,
+				},
+			},
+		)
+	}
+
 	engine.GET("/service/ping", func(ctx *gin.Context) {
 		t0 := time.Now()
 		defer func() {
@@ -133,13 +156,19 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 				false,
 				common.InvalidUserID,
 				false,
-				monitoring.BackendActionTypeQuery,
+				reporting.BackendActionTypeQuery,
 			)
 		}()
 		globalCtx.TimescaleDBWriter.Write(&PingReport{
 			DateTime: time.Now(),
 			Status:   200,
 		})
+		pingReqCounter <- guard.RequestInfo{
+			Created:     time.Now().In(conf.TimezoneLocation()),
+			Service:     "ping",
+			NumRequests: 1,
+			UserID:      1,
+		}
 		uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"ok": true})
 	})
 
@@ -402,7 +431,8 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 		)
 		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
-			treqReqCounter = alarm.Register(treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
+			treqReqCounter = alarm.Register(
+				treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
 		}
 		treqActions, err := treq.NewTreqProxy(
 			globalCtx,
@@ -449,6 +479,7 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 			log.Fatal().Err(err).Msg("failed to initialize proxy")
 			return
 		}
+
 		kwordsActions := proxy.NewPublicAPIProxy(
 			coreProxy,
 			client,
@@ -489,8 +520,10 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	telemetryActions := tstorage.NewActions(delayStats)
 	engine.POST("/telemetry", telemetryActions.Store)
 
-	requestsActions := requests.NewActions(delayStats)
+	requestsActions := requests.NewActions(globalCtx, delayStats, alarm)
 	engine.GET("/requests", requestsActions.List)
+
+	engine.GET("/activity/:serviceID", requestsActions.Activity)
 
 	engine.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
 		binWidth, otherLimit := 0.1, 5.0

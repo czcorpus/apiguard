@@ -87,7 +87,8 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
-		conf.Limiting,
+		conf.PublicRoutesURL,
+		conf.Monitoring,
 	)
 	go alarm.Run(reloadChan)
 	alarm.GoStartMonitoring()

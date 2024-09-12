@@ -19,8 +19,25 @@
 
 package reporting
 
-import "github.com/czcorpus/hltscl"
+import (
+	"fmt"
+
+	"github.com/czcorpus/hltscl"
+)
 
 type Conf struct {
 	DB hltscl.PgConf `json:"db"`
+}
+
+func (conf *Conf) ValidateAndDefaults() error {
+	if conf == nil {
+		return fmt.Errorf("reporting to TimescaleDB not configured")
+	}
+	if conf.DB.Host == "" {
+		return fmt.Errorf("reporting set but the `host` is missing")
+	}
+	if conf.DB.Passwd == "" {
+		return fmt.Errorf("reporting set but the `password` is missing")
+	}
+	return nil
 }

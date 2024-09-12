@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -58,15 +59,16 @@ type handleReviewResponse struct {
 // It also listens for os signals and in case of exit it
 // serializes runtime values (e.g. the current counts).
 type AlarmTicker struct {
-	ctx            *globctx.Context
-	alarmConf      *MailConf
-	limitingConf   *LimitingConf
-	clients        *collections.ConcurrentMap[string, *serviceEntry] //save
-	counter        chan guard.RequestInfo
-	reports        []*AlarmReport //save
-	location       *time.Location
-	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
-	tDBWriter      *reporting.TimescaleDBWriter
+	ctx             *globctx.Context
+	publicRoutesURL string
+	mailConf        *MailConf
+	limitingConf    *LimitingConf
+	clients         *collections.ConcurrentMap[string, *serviceEntry] //save
+	counter         chan guard.RequestInfo
+	reports         []*AlarmReport //save
+	location        *time.Location
+	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
+	tDBWriter       *reporting.TimescaleDBWriter
 }
 
 func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
@@ -74,17 +76,28 @@ func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
 }
 
 func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
-	return fmt.Sprintf(
-		"%s/alarm/%s/confirmation?reviewer=%s",
-		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
-	)
+	publicUrl, err := url.Parse(aticker.publicRoutesURL)
+	if err != nil {
+		panic("invalid publicRoutesURL") // this should not happen and conf should validate this first
+	}
+	publicUrl = publicUrl.JoinPath(fmt.Sprintf("/alarm/%s/confirmation", report.ReviewCode))
+	args := make(url.Values)
+	args.Add("reviewer", reviewer)
+	publicUrl.RawQuery = args.Encode()
+	return publicUrl.String()
 }
 
 func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, reviewer string) string {
-	return fmt.Sprintf(
-		"%s/alarm-confirmation?id=%s&reviewer=%s",
-		aticker.alarmConf.ConfirmationBaseURL, report.ReviewCode, reviewer,
-	)
+	publicUrl, err := url.Parse(aticker.publicRoutesURL)
+	if err != nil {
+		panic("invalid publicRoutesURL") // this should not happen and conf should validate this first
+	}
+	publicUrl = publicUrl.JoinPath("/alarm-confirmation")
+	args := make(url.Values)
+	args.Add("id", report.ReviewCode)
+	args.Add("reviewer", reviewer)
+	publicUrl.RawQuery = args.Encode()
+	return publicUrl.String()
 }
 
 func (aticker *AlarmTicker) sendReport(
@@ -115,7 +128,7 @@ func (aticker *AlarmTicker) sendReport(
 				),
 			},
 		}
-		msgCnf := aticker.alarmConf.WithRecipients(recipient)
+		msgCnf := aticker.mailConf.WithRecipients(recipient)
 		err := mail.SendNotification(
 			&msgCnf,
 			aticker.location,
@@ -410,16 +423,18 @@ func NewAlarmTicker(
 	ctx *globctx.Context,
 	loc *time.Location,
 	mailConf *MailConf,
+	publicRoutesURL string,
 	limitingConf *LimitingConf,
 ) *AlarmTicker {
 	return &AlarmTicker{
-		ctx:            ctx,
-		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
-		counter:        make(chan guard.RequestInfo, 1000),
-		location:       loc,
-		alarmConf:      mailConf,
-		limitingConf:   limitingConf,
-		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
-		tDBWriter:      ctx.TimescaleDBWriter,
+		ctx:             ctx,
+		clients:         collections.NewConcurrentMap[string, *serviceEntry](),
+		counter:         make(chan guard.RequestInfo, 1000),
+		location:        loc,
+		publicRoutesURL: publicRoutesURL,
+		mailConf:        mailConf,
+		limitingConf:    limitingConf,
+		allowListUsers:  collections.NewConcurrentMap[string, []common.UserID](),
+		tDBWriter:       ctx.TimescaleDBWriter,
 	}
 }

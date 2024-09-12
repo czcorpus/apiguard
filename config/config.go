@@ -111,14 +111,15 @@ type Configuration struct {
 	ServerReadTimeoutSecs  int                      `json:"serverReadTimeoutSecs"`
 	ServerWriteTimeoutSecs int                      `json:"serverWriteTimeoutSecs"`
 	TimeZone               string                   `json:"timeZone"`
+	PublicRoutesURL        string                   `json:"publicRoutesUrl"`
 	Botwatch               botwatch.Conf            `json:"botwatch"`
 	Telemetry              telemetry.Conf           `json:"telemetry"`
 	Services               servicesSection          `json:"services"`
 	Cache                  reqcache.Conf            `json:"cache"`
-	Reporting              reporting.Conf           `json:"reporting"`
+	Reporting              *reporting.Conf          `json:"reporting"`
 	LogPath                string                   `json:"logPath"`
 	LogLevel               string                   `json:"logLevel"`
-	Limiting               *monitoring.LimitingConf `json:"limiting"`
+	Monitoring             *monitoring.LimitingConf `json:"monitoring"`
 	IPBanTTLSecs           int                      `json:"IpBanTtlSecs"`
 	CNCDB                  cnc.Conf                 `json:"cncDb"`
 	Mail                   *monitoring.MailConf     `json:"mail"`
@@ -143,7 +144,10 @@ func (c *Configuration) Validate() error {
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {
 		return err
 	}
-	if err := c.Limiting.ValidateAndDefaults(); err != nil {
+	if err := c.Monitoring.ValidateAndDefaults(); err != nil {
+		return err
+	}
+	if err := c.Reporting.ValidateAndDefaults(); err != nil {
 		return err
 	}
 	return nil

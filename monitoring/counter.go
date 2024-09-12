@@ -136,8 +136,12 @@ func (lime *limitExceedings) absoluteExceeding(
 		return
 	}
 	list.ForEach(func(i int, item exceeding) bool {
-		timeDiff := at.Sub(item.MeasureTime).Seconds()
-		ans += float64(item.Value) * 1.0 / (1 + timeDiff/2)
+		timeDiff := at.Sub(item.MeasureTime)
+		if timeDiff > time.Duration(interval) {
+			return true
+		}
+		decrRatio := 9 * min(1, float64(timeDiff.Seconds())/float64(interval.ToSeconds()))
+		ans += float64(item.Value) / (1 + timeDiff.Seconds()*decrRatio)
 		return true
 	})
 	ans = ans / float64(list.Len())

@@ -39,7 +39,6 @@ type AlarmConf struct {
 
 type MailConf struct {
 	mail.NotificationConf
-	ConfirmationBaseURL string `json:"confirmationBaseURL"`
 }
 
 type LimitingConf struct {
@@ -100,7 +99,7 @@ func (lconf *LimitingConf) ValidateAndDefaults() error {
 	}
 	if !isDir {
 		return fmt.Errorf(
-			"invalid limiting.statusDataDir -not a dir: %s", lconf.StatusDataDir)
+			"invalid limiting.statusDataDir - not a directory: %s", lconf.StatusDataDir)
 	}
 	return nil
 }

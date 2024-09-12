@@ -7,9 +7,9 @@
 package config
 
 import (
-	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cnc"
+	"apiguard/monitoring"
 	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
@@ -106,24 +106,24 @@ func (services *servicesSection) validate() error {
 }
 
 type Configuration struct {
-	ServerHost             string               `json:"serverHost"`
-	ServerPort             int                  `json:"serverPort"`
-	ServerReadTimeoutSecs  int                  `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                  `json:"serverWriteTimeoutSecs"`
-	TimeZone               string               `json:"timeZone"`
-	Botwatch               botwatch.Conf        `json:"botwatch"`
-	Telemetry              telemetry.Conf       `json:"telemetry"`
-	Services               servicesSection      `json:"services"`
-	Cache                  reqcache.Conf        `json:"cache"`
-	Reporting              reporting.Conf       `json:"reporting"`
-	LogPath                string               `json:"logPath"`
-	LogLevel               string               `json:"logLevel"`
-	Limiting               *alarms.LimitingConf `json:"limiting"`
-	IPBanTTLSecs           int                  `json:"IpBanTtlSecs"`
-	CNCDB                  cnc.Conf             `json:"cncDb"`
-	Mail                   *alarms.MailConf     `json:"mail"`
-	CNCAuth                CNCAuthConf          `json:"cncAuth"`
-	IgnoreStoredState      bool                 `json:"-"`
+	ServerHost             string                   `json:"serverHost"`
+	ServerPort             int                      `json:"serverPort"`
+	ServerReadTimeoutSecs  int                      `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                      `json:"serverWriteTimeoutSecs"`
+	TimeZone               string                   `json:"timeZone"`
+	Botwatch               botwatch.Conf            `json:"botwatch"`
+	Telemetry              telemetry.Conf           `json:"telemetry"`
+	Services               servicesSection          `json:"services"`
+	Cache                  reqcache.Conf            `json:"cache"`
+	Reporting              reporting.Conf           `json:"reporting"`
+	LogPath                string                   `json:"logPath"`
+	LogLevel               string                   `json:"logLevel"`
+	Limiting               *monitoring.LimitingConf `json:"limiting"`
+	IPBanTTLSecs           int                      `json:"IpBanTtlSecs"`
+	CNCDB                  cnc.Conf                 `json:"cncDb"`
+	Mail                   *monitoring.MailConf     `json:"mail"`
+	CNCAuth                CNCAuthConf              `json:"cncAuth"`
+	IgnoreStoredState      bool                     `json:"-"`
 }
 
 func (c *Configuration) Validate() error {

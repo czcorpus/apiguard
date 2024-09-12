@@ -7,7 +7,7 @@
 package treq
 
 import (
-	"apiguard/alarms"
+	"apiguard/monitoring"
 	"apiguard/proxy"
 	"fmt"
 )
@@ -30,9 +30,9 @@ type Conf struct {
 	// in the CNCAuth section where a central auth cookie is defined.
 	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
-	Limits []alarms.Limit `json:"limits"`
+	Limits []monitoring.Limit `json:"limits"`
 
-	Alarm alarms.AlarmConf `json:"alarm"`
+	Alarm monitoring.AlarmConf `json:"alarm"`
 
 	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
 

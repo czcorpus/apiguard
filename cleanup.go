@@ -7,8 +7,8 @@
 package main
 
 import (
-	"apiguard/alarms"
 	"apiguard/guard"
+	"apiguard/monitoring"
 	"database/sql"
 	"encoding/json"
 	"time"
@@ -16,7 +16,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func runCleanup(db *sql.DB, loc *time.Location, conf *alarms.LimitingConf) {
+func runCleanup(db *sql.DB, loc *time.Location, conf *monitoring.LimitingConf) {
 	log.Info().Msg("running cleanup procedure")
 	delayLog := guard.NewDelayStats(db, loc)
 	ans := delayLog.CleanOldData(conf.DelayLogCleanupMaxAgeDays)

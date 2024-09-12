@@ -7,13 +7,13 @@
 package main
 
 import (
-	"apiguard/alarms"
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
 	"apiguard/guard/telemetry"
+	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/services/backend/assc"
@@ -83,7 +83,7 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	engine.NoRoute(uniresp.NotFoundHandler)
 
 	// alarm
-	alarm := alarms.NewAlarmTicker(
+	alarm := monitoring.NewAlarmTicker(
 		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
@@ -93,7 +93,7 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	alarm.GoStartMonitoring()
 
 	if !conf.IgnoreStoredState {
-		err := alarms.LoadState(alarm)
+		err := monitoring.LoadState(alarm)
 		if err != nil {
 			log.Fatal().
 				Err(err).
@@ -128,11 +128,11 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 	if len(conf.Services.Kontext.Limits) > 0 {
 		pingReqCounter = alarm.Register(
 			"ping",
-			alarms.AlarmConf{
+			monitoring.AlarmConf{
 				Recipients:                   []string{},
 				RecCounterCleanupProbability: 0.5,
 			},
-			[]alarms.Limit{
+			[]monitoring.Limit{
 				{
 					ReqPerTimeThreshold:     10,
 					ReqCheckingIntervalSecs: 10,

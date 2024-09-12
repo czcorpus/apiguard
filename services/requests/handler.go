@@ -7,10 +7,10 @@
 package requests
 
 import (
-	"apiguard/alarms"
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/monitoring"
 	"fmt"
 	"net/http"
 	"slices"
@@ -40,7 +40,7 @@ type activityResponse struct {
 type Actions struct {
 	gctx  *globctx.Context
 	db    *guard.DelayStats
-	alarm *alarms.AlarmTicker
+	alarm *monitoring.AlarmTicker
 }
 
 func (a *Actions) List(ctx *gin.Context) {
@@ -100,7 +100,7 @@ func (a *Actions) Activity(ctx *gin.Context) {
 	}
 	t0 := time.Now().In(a.gctx.TimezoneLocation)
 	reqCounts := make([]userTotal, 0, 100)
-	servProps.ClientRequests.ForEach(func(k common.UserID, v *alarms.UserActivity) {
+	servProps.ClientRequests.ForEach(func(k common.UserID, v *monitoring.UserActivity) {
 		v.NumReqAboveLimit.Touch(t0)
 		reqCounts = append(
 			reqCounts,
@@ -133,7 +133,7 @@ func (a *Actions) Activity(ctx *gin.Context) {
 func NewActions(
 	gctx *globctx.Context,
 	db *guard.DelayStats,
-	alarm *alarms.AlarmTicker,
+	alarm *monitoring.AlarmTicker,
 ) *Actions {
 	return &Actions{
 		gctx:  gctx,

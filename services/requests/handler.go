@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -26,8 +27,14 @@ const (
 )
 
 type userTotal struct {
-	UserID common.UserID
-	NumReq int
+	UserID    common.UserID `json:"userId"`
+	NumReq    int           `json:"numReq"`
+	Exceeding any           `json:"exceeding"`
+}
+
+type activityResponse struct {
+	MostActiveUsers   []userTotal `json:"mostActiveUsers"`
+	TotalWatchedUsers int         `json:"totalWatchedUsers"`
 }
 
 type Actions struct {
@@ -91,13 +98,16 @@ func (a *Actions) Activity(ctx *gin.Context) {
 		)
 		return
 	}
+	t0 := time.Now().In(a.gctx.TimezoneLocation)
 	reqCounts := make([]userTotal, 0, 100)
-	servProps.ClientRequests.ForEach(func(k common.UserID, v *alarms.UserLimitInfo) {
+	servProps.ClientRequests.ForEach(func(k common.UserID, v *alarms.UserActivity) {
+		v.NumReqAboveLimit.Touch(t0)
 		reqCounts = append(
 			reqCounts,
 			userTotal{
-				UserID: k,
-				NumReq: v.NumReqSince(since, a.gctx.TimezoneLocation),
+				UserID:    k,
+				NumReq:    v.NumReqSince(since, a.gctx.TimezoneLocation),
+				Exceeding: v.NumReqAboveLimit,
 			},
 		)
 	})
@@ -113,7 +123,11 @@ func (a *Actions) Activity(ctx *gin.Context) {
 	if len(reqCounts) > topNumActiveClients {
 		reqCounts = reqCounts[:topNumActiveClients]
 	}
-	uniresp.WriteJSONResponse(ctx.Writer, reqCounts)
+	ans := activityResponse{
+		MostActiveUsers:   reqCounts,
+		TotalWatchedUsers: servProps.ClientRequests.Len(),
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
 func NewActions(

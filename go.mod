@@ -1,8 +1,6 @@
 module apiguard
 
-go 1.21.5
-
-toolchain go1.23.0
+go 1.23.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0

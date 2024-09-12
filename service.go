@@ -87,7 +87,7 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
-		conf.StatusDataDir,
+		conf.Limiting,
 	)
 	go alarm.Run(reloadChan)
 	alarm.GoStartMonitoring()
@@ -123,6 +123,28 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 
 	// ----------------------
 
+	var pingReqCounter chan<- guard.RequestInfo
+
+	if len(conf.Services.Kontext.Limits) > 0 {
+		pingReqCounter = alarm.Register(
+			"ping",
+			alarms.AlarmConf{
+				Recipients:                   []string{},
+				RecCounterCleanupProbability: 0.5,
+			},
+			[]alarms.Limit{
+				{
+					ReqPerTimeThreshold:     10,
+					ReqCheckingIntervalSecs: 10,
+				},
+				{
+					ReqPerTimeThreshold:     20,
+					ReqCheckingIntervalSecs: 60,
+				},
+			},
+		)
+	}
+
 	engine.GET("/service/ping", func(ctx *gin.Context) {
 		t0 := time.Now()
 		defer func() {
@@ -140,6 +162,12 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 			DateTime: time.Now(),
 			Status:   200,
 		})
+		pingReqCounter <- guard.RequestInfo{
+			Created:     time.Now().In(conf.TimezoneLocation()),
+			Service:     "ping",
+			NumRequests: 1,
+			UserID:      1,
+		}
 		uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"ok": true})
 	})
 

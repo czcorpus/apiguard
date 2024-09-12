@@ -228,7 +228,7 @@ func main() {
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
-		runCleanup(db, conf)
+		runCleanup(db, conf.TimezoneLocation(), conf.Limiting)
 	case "ipban":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)

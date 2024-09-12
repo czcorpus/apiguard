@@ -31,8 +31,6 @@ const (
 	alarmStatusFile                = "alarm-status.gob"
 	dfltRecCountCleanupProbability = 0.5
 	monitoringSendInterval         = time.Duration(30) * time.Second
-	maxNumWatchedUserPrevReqs      = 5000
-	numViolatedToReport            = 3
 )
 
 type reqCounterItem struct {
@@ -61,12 +59,12 @@ type handleReviewResponse struct {
 // serializes runtime values (e.g. the current counts).
 type AlarmTicker struct {
 	ctx            *globctx.Context
-	alarmConf      MailConf
+	alarmConf      *MailConf
+	limitingConf   *LimitingConf
 	clients        *collections.ConcurrentMap[string, *serviceEntry] //save
 	counter        chan guard.RequestInfo
 	reports        []*AlarmReport //save
 	location       *time.Location
-	statusDataDir  string
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
 	tDBWriter      *monitoring.TimescaleDBWriter
 }
@@ -143,7 +141,7 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 		}
 		oldestTime := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
 
-		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *UserLimitInfo) {
+		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *UserActivity) {
 			mostRecent := limitInfo.Requests.Last()
 			if mostRecent.Created.Before(oldestTime) {
 				service.ClientRequests.Delete(userID)
@@ -155,55 +153,64 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID common.UserID) {
 	counts := service.ClientRequests.Get(userID)
 	for checkInterval, limit := range service.limits {
+		t0 := time.Now().In(aticker.location)
 		numReq := counts.NumReqSince(time.Duration(checkInterval), aticker.location)
-		log.Debug().Msgf("num requests since %s: %d", time.Duration(time.Duration(checkInterval)), numReq)
-		if numReq > limit {
-			counts.NumViolated[checkInterval]++
-			log.Warn().
-				Int("numViolated", counts.NumViolated[checkInterval]).
-				Int("threshold", numViolatedToReport).
-				Int("userId", int(userID)).
-				Str("service", service.Service).
-				Msgf("detected high activity [yet unreported]")
-			if counts.NumViolated[checkInterval] >= numViolatedToReport {
-				newReport := NewAlarmReport(
-					guard.RequestInfo{
-						Created:     time.Now().In(aticker.location),
-						Service:     service.Service,
-						NumRequests: numReq,
-						UserID:      userID,
-					},
-					service.Conf,
-					Limit{
-						ReqCheckingIntervalSecs: checkInterval.ToSeconds(),
-						ReqPerTimeThreshold:     service.limits[checkInterval],
-					},
-					aticker.location,
-				)
-				if !newReport.IsSignificantlyExceeding() {
-					continue
-				}
-
-				err := newReport.AttachUserInfo(users.NewUsersTable(
-					aticker.ctx.CNCDB, aticker.ctx.UserTableProps))
-				if err != nil {
-					newReport.UserInfo = &users.User{
-						ID:          common.InvalidUserID,
-						Username:    "invalid",
-						FirstName:   "-",
-						LastName:    "-",
-						Affiliation: "-",
-					}
-					log.Error().
-						Err(err).
-						Str("reportId", newReport.ReviewCode).
-						Msg("failed to attach user info to a report")
-				}
-				aticker.reports = append(aticker.reports, newReport)
-				go aticker.sendReport(service, newReport, userID, numReq)
-				log.Warn().Msgf("detected high activity for service %s and user %d", service.Service, userID)
-				counts.NumViolated[checkInterval] = 0
+		counts.NumReqAboveLimit.registerMeasurement(t0, checkInterval, numReq, limit)
+		movAvg := counts.NumReqAboveLimit.relativeExceeding(t0, checkInterval, limit)
+		log.Debug().
+			Str("service", service.Service).
+			Int("userId", int(userID)).
+			Float64("overflowMovAvg", movAvg).
+			Int("currOverflow", max(0, numReq-limit)).
+			Int("currNumReq", numReq).
+			Float64("movAvgThreshold", aticker.limitingConf.ExceedingThreshold).
+			Time("since", t0.Add(-time.Duration(checkInterval))).
+			Msgf("service usage update")
+		if movAvg >= aticker.limitingConf.ExceedingThreshold {
+			newReport := NewAlarmReport(
+				guard.RequestInfo{
+					Created:     t0,
+					Service:     service.Service,
+					NumRequests: numReq,
+					UserID:      userID,
+				},
+				service.Conf,
+				Limit{
+					ReqCheckingIntervalSecs: checkInterval.ToSeconds(),
+					ReqPerTimeThreshold:     service.limits[checkInterval],
+				},
+				aticker.location,
+			)
+			if !newReport.IsSignificantlyExceeding() {
+				continue
 			}
+
+			err := newReport.AttachUserInfo(users.NewUsersTable(
+				aticker.ctx.CNCDB, aticker.ctx.UserTableProps))
+			if err != nil {
+				newReport.UserInfo = &users.User{
+					ID:          common.InvalidUserID,
+					Username:    "invalid",
+					FirstName:   "-",
+					LastName:    "-",
+					Affiliation: "-",
+				}
+				log.Error().
+					Err(err).
+					Str("reportId", newReport.ReviewCode).
+					Msg("failed to attach user info to a report")
+			}
+			aticker.reports = append(aticker.reports, newReport)
+			go aticker.sendReport(service, newReport, userID, numReq)
+			log.Warn().
+				Str("service", service.Service).
+				Int("userId", int(userID)).
+				Float64("overflowMovAvg", movAvg).
+				Int("currOverflow", max(0, numReq-limit)).
+				Int("currNumReq", numReq).
+				Float64("movAvgThreshold", aticker.limitingConf.ExceedingThreshold).
+				Time("since", t0.Add(-time.Duration(checkInterval))).
+				Msgf("detected high user activity")
 		}
 	}
 }
@@ -267,9 +274,10 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 				if !entry.ClientRequests.HasKey(reqInfo.UserID) {
 					entry.ClientRequests.Set(
 						reqInfo.UserID,
-						&UserLimitInfo{
-							Requests:    collections.NewCircularList[reqCounterItem](maxNumWatchedUserPrevReqs),
-							NumViolated: make(map[common.CheckInterval]int),
+						&UserActivity{
+							Requests: collections.NewCircularList[reqCounterItem](
+								aticker.limitingConf.UserReqCounterBufferSize),
+							NumReqAboveLimit: NewLimitExceedings(aticker.limitingConf),
 						},
 					)
 				}
@@ -401,16 +409,16 @@ func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
 func NewAlarmTicker(
 	ctx *globctx.Context,
 	loc *time.Location,
-	alarmConf MailConf,
-	statusDataDir string,
+	mailConf *MailConf,
+	limitingConf *LimitingConf,
 ) *AlarmTicker {
 	return &AlarmTicker{
 		ctx:            ctx,
 		clients:        collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:        make(chan guard.RequestInfo, 1000),
 		location:       loc,
-		alarmConf:      alarmConf,
-		statusDataDir:  statusDataDir,
+		alarmConf:      mailConf,
+		limitingConf:   limitingConf,
 		allowListUsers: collections.NewConcurrentMap[string, []common.UserID](),
 		tDBWriter:      ctx.TimescaleDBWriter,
 	}

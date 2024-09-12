@@ -81,5 +81,11 @@
     "cncAuth": {
         "sessionCookieName": "cnc_toolbar_sid"
     },
-    "statusDataDir": "/var/opt/apiguard/status"
+    "limiting": {
+        "delayLogCleanupMaxAgeDays": 100,
+        "statusDataDir": "/var/opt/apiguard/status",
+        "userReqCounterBufferSize": 1000,
+        "exceedingsBufferSize": 10,
+        "exceedingThreshold": 0.06
+    }
 }

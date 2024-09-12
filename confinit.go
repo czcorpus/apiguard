@@ -125,16 +125,6 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) er
 	} else if origConf.LogPath == "" {
 		log.Warn().Msg("logPath not specified, using stderr")
 	}
-	if cmdConf.MaxAgeDays > 0 {
-		origConf.CleanupMaxAgeDays = cmdConf.MaxAgeDays
-
-	} else if origConf.CleanupMaxAgeDays == 0 {
-		log.Warn().Msgf(
-			"cleanupMaxAgeDays not specified, using default value %d",
-			config.DfltCleanupMaxAgeDays,
-		)
-		origConf.CleanupMaxAgeDays = config.DfltCleanupMaxAgeDays
-	}
 	banDuration, err := cmdConf.BanDuration()
 	if err != nil {
 		return err
@@ -149,6 +139,7 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) er
 		)
 		origConf.IPBanTTLSecs = config.DfltBanSecs
 	}
+
 	if cmdConf.IgnoreStoredState {
 		log.Warn().Msg("Based on a request, stored alarm/counter state will not be loaded")
 		origConf.IgnoreStoredState = cmdConf.IgnoreStoredState

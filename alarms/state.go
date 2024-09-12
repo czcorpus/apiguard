@@ -7,7 +7,6 @@
 package alarms
 
 import (
-	"apiguard/common"
 	"bytes"
 	"encoding/gob"
 	"fmt"
@@ -69,35 +68,8 @@ func (aticker *AlarmTicker) GobDecode(data []byte) error {
 	return err
 }
 
-// serviceEntry:
-
-func (se *serviceEntry) GobEncode() ([]byte, error) {
-	var buf bytes.Buffer
-	enc := gob.NewEncoder(&buf)
-
-	cr := se.ClientRequests.AsMap()
-	err := enc.Encode(&cr)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-func (se *serviceEntry) GobDecode(data []byte) error {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-
-	cr := make(map[common.UserID]*UserLimitInfo)
-	err := dec.Decode(&cr)
-	if err != nil {
-		return err
-	}
-	se.ClientRequests = NewClientRequestsFrom(cr)
-	return nil
-}
-
 func SaveState(aticker *AlarmTicker) error {
-	file, err := os.Create(path.Join(aticker.statusDataDir, alarmStatusFile))
+	file, err := os.Create(path.Join(aticker.limitingConf.StatusDataDir, alarmStatusFile))
 	if err != nil {
 		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
 	}
@@ -116,7 +88,7 @@ func SaveState(aticker *AlarmTicker) error {
 }
 
 func LoadState(aticker *AlarmTicker) error {
-	file_path := path.Join(aticker.statusDataDir, alarmStatusFile)
+	file_path := path.Join(aticker.limitingConf.StatusDataDir, alarmStatusFile)
 	is_file, err := fs.IsFile(file_path)
 	if err != nil {
 		return fmt.Errorf("failed to load state from file %s: %w", file_path, err)

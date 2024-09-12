@@ -12,8 +12,8 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard"
 	tlmGuard "apiguard/guard/telemetry"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -123,7 +123,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 			cached,
 			common.InvalidUserID,
 			false,
-			monitoring.BackendActionTypeQuery,
+			reporting.BackendActionTypeQuery,
 		)
 	}()
 

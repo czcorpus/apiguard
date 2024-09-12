@@ -10,7 +10,7 @@ import (
 	"apiguard/alarms"
 	"apiguard/botwatch"
 	"apiguard/cnc"
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
@@ -115,7 +115,7 @@ type Configuration struct {
 	Telemetry              telemetry.Conf       `json:"telemetry"`
 	Services               servicesSection      `json:"services"`
 	Cache                  reqcache.Conf        `json:"cache"`
-	Monitoring             monitoring.Conf      `json:"monitoring"`
+	Reporting              reporting.Conf       `json:"reporting"`
 	LogPath                string               `json:"logPath"`
 	LogLevel               string               `json:"logLevel"`
 	Limiting               *alarms.LimitingConf `json:"limiting"`

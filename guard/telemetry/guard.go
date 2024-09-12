@@ -10,7 +10,7 @@ import (
 	"apiguard/botwatch"
 	"apiguard/common"
 	"apiguard/guard"
-	"apiguard/monitoring"
+	"apiguard/reporting"
 
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
@@ -159,7 +159,7 @@ func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.Clien
 func New(
 	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
-	tDBWriter *monitoring.TimescaleDBWriter,
+	tDBWriter *reporting.TimescaleDBWriter,
 	db backend.TelemetryStorage,
 	statsStorage StatsStorage,
 ) (*Guard, error) {

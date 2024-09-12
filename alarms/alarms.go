@@ -10,7 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"apiguard/users"
 	"context"
 	"encoding/json"
@@ -66,7 +66,7 @@ type AlarmTicker struct {
 	reports        []*AlarmReport //save
 	location       *time.Location
 	allowListUsers *collections.ConcurrentMap[string, []common.UserID]
-	tDBWriter      *monitoring.TimescaleDBWriter
+	tDBWriter      *reporting.TimescaleDBWriter
 }
 
 func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {

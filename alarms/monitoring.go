@@ -7,7 +7,7 @@
 package alarms
 
 import (
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"time"
 )
 
@@ -16,7 +16,7 @@ func (aticker *AlarmTicker) GoStartMonitoring() {
 	go func() {
 		for range ticker.C {
 			aticker.clients.ForEach(func(k string, service *serviceEntry) {
-				report := &monitoring.AlarmStatus{
+				report := &reporting.AlarmStatus{
 					Created:     time.Now(),
 					Service:     service.Service,
 					NumUsers:    service.ClientRequests.Len(),

@@ -11,8 +11,8 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend"
 	"fmt"
@@ -36,7 +36,7 @@ type TreqProxy struct {
 	readTimeoutSecs int
 	guard           *sessionmap.Guard
 	apiProxy        *proxy.APIProxy
-	tDBWriter       *monitoring.TimescaleDBWriter
+	tDBWriter       *reporting.TimescaleDBWriter
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -76,7 +76,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			cached,
 			*loggedUserID,
 			*indirect,
-			monitoring.BackendActionTypeQuery,
+			reporting.BackendActionTypeQuery,
 		)
 	}(&userID, &humanID, &indirectAPICall, t0)
 	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {
@@ -146,7 +146,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
-	tp.tDBWriter.Write(&monitoring.ProxyProcReport{
+	tp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(tp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),

@@ -24,8 +24,8 @@ import (
 	"apiguard/config"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services"
 
@@ -129,11 +129,11 @@ func createPGPool(conf hltscl.PgConf) *pgxpool.Pool {
 func createGlobalCtx(ctx context.Context, conf *config.Configuration, pgPool *pgxpool.Pool) *globctx.Context {
 	ans := globctx.NewGlobalContext(ctx)
 
-	tDBWriter := monitoring.NewTimescaleDBWriter(pgPool, conf.TimezoneLocation(), ctx)
-	tDBWriter.AddTableWriter(monitoring.AlarmMonitoringTable)
-	tDBWriter.AddTableWriter(monitoring.BackendMonitoringTable)
-	tDBWriter.AddTableWriter(monitoring.ProxyMonitoringTable)
-	tDBWriter.AddTableWriter(monitoring.TelemetryMonitoringTable)
+	tDBWriter := reporting.NewTimescaleDBWriter(pgPool, conf.TimezoneLocation(), ctx)
+	tDBWriter.AddTableWriter(reporting.AlarmMonitoringTable)
+	tDBWriter.AddTableWriter(reporting.BackendMonitoringTable)
+	tDBWriter.AddTableWriter(reporting.ProxyMonitoringTable)
+	tDBWriter.AddTableWriter(reporting.TelemetryMonitoringTable)
 
 	var cache proxy.Cache
 	if conf.Cache.FileRootPath != "" {
@@ -223,7 +223,7 @@ func main() {
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
 
-		pgPool := createPGPool(conf.Monitoring.DB)
+		pgPool := createPGPool(conf.Reporting.DB)
 		runService(conf, pgPool)
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
@@ -277,13 +277,13 @@ func main() {
 	case "status":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		ctx := context.TODO()
-		pgPool := createPGPool(conf.Monitoring.DB)
+		pgPool := createPGPool(conf.Reporting.DB)
 		globalCtx := createGlobalCtx(ctx, conf, pgPool)
 		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		ctx := context.TODO()
-		pgPool := createPGPool(conf.Monitoring.DB)
+		pgPool := createPGPool(conf.Reporting.DB)
 		globalCtx := createGlobalCtx(ctx, conf, pgPool)
 		runLearn(globalCtx, conf)
 	default:

@@ -14,8 +14,8 @@ import (
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
 	"apiguard/guard/telemetry"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/kla"
@@ -155,7 +155,7 @@ func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
 				false,
 				common.InvalidUserID,
 				false,
-				monitoring.BackendActionTypeQuery,
+				reporting.BackendActionTypeQuery,
 			)
 		}()
 		globalCtx.TimescaleDBWriter.Write(&PingReport{

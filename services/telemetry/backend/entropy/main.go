@@ -7,7 +7,7 @@
 package entropy
 
 import (
-	"apiguard/monitoring"
+	"apiguard/reporting"
 	"apiguard/services/logging"
 	"apiguard/services/telemetry"
 	"apiguard/services/telemetry/backend"
@@ -43,7 +43,7 @@ type Analyzer struct {
 	db         backend.TelemetryStorage
 	conf       *telemetry.Conf
 	customConf *conf
-	tDBWriter  *monitoring.TimescaleDBWriter
+	tDBWriter  *reporting.TimescaleDBWriter
 }
 
 func (a *Analyzer) Learn() error {
@@ -75,7 +75,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	totalScore := math.Abs(2*1/(1+math.Exp((score1+score2+score3)/3)) - 1)
 	log.Debug().Msgf("TOTAL SCORE: %01.4f avg entropy diff: %01.4f", totalScore, (score1+score2+score3)/3)
 	log.Debug().Msgf("{\"MAIN_TILE_DATA_LOADED\": %01.4f, \"MAIN_TILE_PARTIAL_DATA_LOADED\": %01.4f, \"MAIN_SET_TILE_RENDER_SIZE\": %01.4f}", ent1, ent2, ent3)
-	a.tDBWriter.Write(&monitoring.TelemetryEntropy{
+	a.tDBWriter.Write(&reporting.TelemetryEntropy{
 		Created:                       time.Now(),
 		ClientIP:                      ip,
 		SessionID:                     sessionID,
@@ -89,7 +89,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 
 func NewAnalyzer(
 	db backend.TelemetryStorage,
-	tDBWriter *monitoring.TimescaleDBWriter,
+	tDBWriter *reporting.TimescaleDBWriter,
 	telemetryConf *telemetry.Conf,
 ) (*Analyzer, error) {
 	if telemetryConf.CustomConfPath == "" {

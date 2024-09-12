@@ -10,8 +10,8 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"fmt"
 	"net/http"
@@ -49,7 +49,7 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 			cached,
 			common.InvalidUserID,
 			false,
-			monitoring.BackendActionTypeQuery,
+			reporting.BackendActionTypeQuery,
 		)
 	}()
 

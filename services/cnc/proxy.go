@@ -11,8 +11,8 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/guard/sessionmap"
-	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend"
 	"apiguard/services/defaults"
@@ -49,7 +49,7 @@ type CoreProxy struct {
 	rConf     *EnvironConf
 	guard     *sessionmap.Guard
 	apiProxy  *proxy.APIProxy
-	tDBWriter *monitoring.TimescaleDBWriter
+	tDBWriter *reporting.TimescaleDBWriter
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -74,7 +74,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 			false,
 			*currUserID,
 			true,
-			monitoring.BackendActionTypePreflight,
+			reporting.BackendActionTypePreflight,
 		)
 	}(&userId)
 
@@ -209,7 +209,7 @@ func (kp *CoreProxy) Login(ctx *gin.Context) {
 			false,
 			*currUserID,
 			true,
-			monitoring.BackendActionTypeLogin,
+			reporting.BackendActionTypeLogin,
 		)
 	}(&userId)
 
@@ -257,7 +257,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 			cached,
 			*loggedUserID,
 			*indirect,
-			monitoring.BackendActionTypeQuery,
+			reporting.BackendActionTypeQuery,
 		)
 	}(&userID, &humanID, &indirectAPICall, t0)
 
@@ -346,7 +346,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.makeRequest(ctx.Request, reqProps)
-	kp.tDBWriter.Write(&monitoring.ProxyProcReport{
+	kp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),

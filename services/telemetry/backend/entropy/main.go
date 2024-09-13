@@ -43,7 +43,7 @@ type Analyzer struct {
 	db         backend.TelemetryStorage
 	conf       *telemetry.Conf
 	customConf *conf
-	tDBWriter  *reporting.TimescaleDBWriter
+	tDBWriter  reporting.ReportingWriter
 }
 
 func (a *Analyzer) Learn() error {
@@ -89,7 +89,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 
 func NewAnalyzer(
 	db backend.TelemetryStorage,
-	tDBWriter *reporting.TimescaleDBWriter,
+	tDBWriter reporting.ReportingWriter,
 	telemetryConf *telemetry.Conf,
 ) (*Analyzer, error) {
 	if telemetryConf.CustomConfPath == "" {

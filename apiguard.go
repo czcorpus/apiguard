@@ -126,10 +126,22 @@ func createPGPool(conf hltscl.PgConf) *pgxpool.Pool {
 	return conn
 }
 
-func createGlobalCtx(ctx context.Context, conf *config.Configuration, pgPool *pgxpool.Pool) *globctx.Context {
+func createTDBWriter(
+	ctx context.Context, conf *reporting.Conf, loc *time.Location) (ans reporting.ReportingWriter) {
+	if conf != nil {
+		pgPool := createPGPool(conf.DB)
+		ans = reporting.NewTimescaleDBWriter(pgPool, loc, ctx)
+
+	} else {
+		ans = &reporting.NullWriter{}
+	}
+	return
+}
+
+func createGlobalCtx(
+	ctx context.Context, conf *config.Configuration, tDBWriter reporting.ReportingWriter) *globctx.Context {
 	ans := globctx.NewGlobalContext(ctx)
 
-	tDBWriter := reporting.NewTimescaleDBWriter(pgPool, conf.TimezoneLocation(), ctx)
 	tDBWriter.AddTableWriter(reporting.AlarmMonitoringTable)
 	tDBWriter.AddTableWriter(reporting.BackendMonitoringTable)
 	tDBWriter.AddTableWriter(reporting.ProxyMonitoringTable)
@@ -223,8 +235,7 @@ func main() {
 			Str("last commit", versionInfo.GitCommit).
 			Msg("Starting CNC APIGuard")
 
-		pgPool := createPGPool(conf.Reporting.DB)
-		runService(conf, pgPool)
+		runService(conf)
 	case "cleanup":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		db := openCNCDatabase(&conf.CNCDB)
@@ -277,14 +288,14 @@ func main() {
 	case "status":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		ctx := context.TODO()
-		pgPool := createPGPool(conf.Reporting.DB)
-		globalCtx := createGlobalCtx(ctx, conf, pgPool)
+		tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
+		globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
 		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		ctx := context.TODO()
-		pgPool := createPGPool(conf.Reporting.DB)
-		globalCtx := createGlobalCtx(ctx, conf, pgPool)
+		tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
+		globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
 		runLearn(globalCtx, conf)
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))

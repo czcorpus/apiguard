@@ -24,7 +24,7 @@ type Context struct {
 	TimezoneLocation  *time.Location
 	BackendLogger     *BackendLogger
 	CNCDB             *sql.DB
-	TimescaleDBWriter *reporting.TimescaleDBWriter
+	TimescaleDBWriter reporting.ReportingWriter
 	Cache             proxy.Cache
 	UserTableProps    users.UserTableProps
 	wCtx              context.Context

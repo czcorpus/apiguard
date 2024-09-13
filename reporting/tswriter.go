@@ -1,20 +1,8 @@
 // Copyright 2024 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2024 Institute of the Czech National Corpus,
-//                Faculty of Arts, Charles University
-//   This file is part of MQUERY.
-//
-//  MQUERY is free software: you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License as published by
-//  the Free Software Foundation, either version 3 of the License, or
-//  (at your option) any later version.
-//
-//  MQUERY is distributed in the hope that it will be useful,
-//  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//  GNU General Public License for more details.
-//
-//  You should have received a copy of the GNU General Public License
-//  along with MQUERY.  If not, see <https://www.gnu.org/licenses/>.
+// Copyright 2024 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2024 Charles University - Faculty of Arts,
+//                Institute of the Czech National Corpus
+// All rights reserved.
 
 package reporting
 
@@ -27,23 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
-
-// Timescalable represents any type which is able
-// to export its data in a format required by TimescaleDB writer.
-type Timescalable interface {
-
-	// ToTimescaleDB defines a method providing data
-	// to be written to a database. The first returned
-	// value is for tags, the second one for fields.
-	ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl.Entry
-
-	// GetTime provides a date and time when the record
-	// was created.
-	GetTime() time.Time
-
-	// GetTableName provides a destination table name
-	GetTableName() string
-}
 
 type Table struct {
 	writer    *hltscl.TableWriter

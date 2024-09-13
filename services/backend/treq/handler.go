@@ -57,17 +57,17 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	var userID, humanID common.UserID
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
+		loggedUserID := currUserID
+		if currHumanID.IsValid() && *currHumanID != tp.guard.AnonymousUserID {
+			loggedUserID = currHumanID
+		}
 		if tp.reqCounter != nil {
 			tp.reqCounter <- guard.RequestInfo{
 				Created:     created,
 				Service:     ServiceName,
 				NumRequests: 1,
-				UserID:      *currUserID,
+				UserID:      *loggedUserID,
 			}
-		}
-		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != tp.guard.AnonymousUserID {
-			loggedUserID = currHumanID
 		}
 		tp.globalCtx.BackendLogger.Log(
 			ctx.Request,

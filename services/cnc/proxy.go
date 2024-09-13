@@ -238,17 +238,17 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
 	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
+		loggedUserID := currUserID
+		if currHumanID.IsValid() && *currHumanID != kp.guard.AnonymousUserID {
+			loggedUserID = currHumanID
+		}
 		if kp.reqCounter != nil {
 			kp.reqCounter <- guard.RequestInfo{
 				Created:     created,
 				Service:     kp.rConf.ServiceName,
 				NumRequests: 1,
-				UserID:      *currUserID,
+				UserID:      *loggedUserID,
 			}
-		}
-		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != kp.guard.AnonymousUserID {
-			loggedUserID = currHumanID
 		}
 		kp.globalCtx.BackendLogger.Log(
 			ctx.Request,

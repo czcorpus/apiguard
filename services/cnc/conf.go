@@ -10,6 +10,8 @@ import (
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"fmt"
+
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -55,10 +57,14 @@ type ProxyConf struct {
 
 	UseHeaderXApiKey bool `json:"useHeaderXApiKey"`
 
-	// UserIDPassHeader specifies a header name APIGuard will
+	//
+	// Deprecated: The value has been replaced by TrueUserIDHeader
+	UserIDPassHeader string `json:"userIdPassHeader"`
+
+	// TrueUserIDHeader specifies a header name APIGuard will
 	// use to pass detected user ID to a configured guarded
 	// service. If empty then no user ID info will be passed.
-	UserIDPassHeader string `json:"userIdPassHeader"`
+	TrueUserIDHeader string `json:"trueUserIdHeader"`
 
 	Limits []monitoring.Limit `json:"limits"`
 
@@ -72,6 +78,10 @@ type ProxyConf struct {
 func (c *ProxyConf) Validate(context string) error {
 	if c.InternalURL == "" {
 		return fmt.Errorf("%s.internalURL is missing/empty", context)
+	}
+	if c.TrueUserIDHeader == "" && c.UserIDPassHeader != "" {
+		log.Warn().Msg("found deprecated `userIdPassHeader`, please replace by `trueUserIdHeader`")
+		c.TrueUserIDHeader = c.UserIDPassHeader
 	}
 	return nil
 }

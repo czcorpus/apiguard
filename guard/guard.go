@@ -50,6 +50,10 @@ func (ipc RequestIPCount) Inc() RequestIPCount {
 }
 
 type ReqProperties struct {
+	// UserID is a user ID used to access the API
+	// In general it can be true user ID or some replacement
+	// for a specific application (e.g. WaG as a whole uses a single
+	// ID)
 	UserID         common.UserID
 	SessionID      string
 	ProposedStatus int

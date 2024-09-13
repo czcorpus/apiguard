@@ -283,9 +283,15 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 
+	humanID, err := kp.guard.UserInternalCookieStatus(ctx.Request, kp.rConf.ServiceName)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to extract human user ID information")
+		http.Error(ctx.Writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
 	clientID := common.ClientID{
 		IP:     ctx.RemoteIP(),
-		UserID: userID,
+		UserID: humanID,
 	}
 	if err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.guard, clientID); err != nil {
 		return
@@ -294,12 +300,6 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	passedHeaders := ctx.Request.Header
 
 	if kp.rConf.CNCAuthCookie != kp.conf.ExternalSessionCookieName {
-		var err error
-		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = kp.guard.UserInternalCookieStatus(ctx.Request, kp.rConf.ServiceName)
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
-		}
 		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
 
 	} else {
@@ -310,8 +310,8 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		indirectAPICall = true
 	}
 
-	if kp.conf.UserIDPassHeader != "" {
-		passedHeaders[kp.conf.UserIDPassHeader] = []string{userID.String()}
+	if kp.conf.TrueUserIDHeader != "" {
+		passedHeaders[kp.conf.TrueUserIDHeader] = []string{userID.String()}
 	}
 
 	if kp.conf.UseHeaderXApiKey {

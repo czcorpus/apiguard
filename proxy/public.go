@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	DfltServiceName      = "public_proxy_service"
-	DfltAuthCookieName   = "cnc_toolbar_sid"
-	DfltUserIDHeaderName = "X-Api-User"
-	DfltReadTimeoutSecs  = 30
+	DfltServiceName        = "public_proxy_service"
+	DfltAuthCookieName     = "cnc_toolbar_sid"
+	DfltUserIDHeaderName   = "X-Api-User"
+	DfltTrueUserHeaderName = "X-True-User"
+	DfltReadTimeoutSecs    = 30
 )
 
 var (

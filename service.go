@@ -491,7 +491,7 @@ func runService(conf *config.Configuration) {
 				InternalURL:      internalURL,
 				ExternalURL:      externalURL,
 				AuthCookieName:   conf.CNCAuth.SessionCookieName,
-				UserIDHeaderName: conf.Services.KWords.UserIDPassHeader,
+				UserIDHeaderName: conf.Services.KWords.TrueUserIDHeader,
 				ReadTimeoutSecs:  conf.ServerReadTimeoutSecs,
 			},
 		)

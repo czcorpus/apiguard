@@ -4,7 +4,7 @@ go 1.23.0
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
-	github.com/czcorpus/cnc-gokit v0.9.7
+	github.com/czcorpus/cnc-gokit v0.10.0
 	github.com/czcorpus/hltscl v0.0.6
 	github.com/gin-gonic/gin v1.9.1
 	github.com/go-redis/redis/v8 v8.11.5

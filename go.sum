@@ -12,8 +12,8 @@ github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 h1:qSGYFH7+jGhD
 github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311/go.mod h1:b583jCggY9gE99b6G5LEC39OIiVsWj+R97kbl5odCEk=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
-github.com/czcorpus/cnc-gokit v0.9.7 h1:4DxnQr0/GSeIRoX11xvAMPzfKHE+gFctcVrUra70teM=
-github.com/czcorpus/cnc-gokit v0.9.7/go.mod h1:G5c/e7/HsRWdawTRsgpS3nm5LhNO/MvLUqOJTxAuO5k=
+github.com/czcorpus/cnc-gokit v0.10.0 h1:fm6Tw02ydmr+ZmR9ep7HCdogOQUXNbZAcxirhTXGJU8=
+github.com/czcorpus/cnc-gokit v0.10.0/go.mod h1:G5c/e7/HsRWdawTRsgpS3nm5LhNO/MvLUqOJTxAuO5k=
 github.com/czcorpus/hltscl v0.0.6 h1:v51pKbWdoKzrattrNHtdC3VH94M1SEgFvGCJB3bwqJ8=
 github.com/czcorpus/hltscl v0.0.6/go.mod h1:o4u0BSOu4LgYSuBErIMDvWAzrzkUYMYOViNGhV6AluM=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

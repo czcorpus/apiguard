@@ -15,7 +15,10 @@ func (aticker *AlarmTicker) GoStartMonitoring() {
 	ticker := time.NewTicker(monitoringSendInterval)
 	go func() {
 		for range ticker.C {
-			aticker.clients.ForEach(func(k string, service *serviceEntry) {
+			aticker.clients.ForEach(func(k string, service *serviceEntry, ok bool) {
+				if !ok {
+					return
+				}
 				report := &reporting.AlarmStatus{
 					Created:     time.Now(),
 					Service:     service.Service,

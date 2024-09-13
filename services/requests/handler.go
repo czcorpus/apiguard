@@ -100,7 +100,10 @@ func (a *Actions) Activity(ctx *gin.Context) {
 	}
 	t0 := time.Now().In(a.gctx.TimezoneLocation)
 	reqCounts := make([]userTotal, 0, 100)
-	servProps.ClientRequests.ForEach(func(k common.UserID, v *monitoring.UserActivity) {
+	servProps.ClientRequests.ForEach(func(k common.UserID, v *monitoring.UserActivity, ok bool) {
+		if !ok {
+			return
+		}
 		v.NumReqAboveLimit.Touch(t0)
 		reqCounts = append(
 			reqCounts,

@@ -143,8 +143,10 @@ func (aticker *AlarmTicker) sendReport(
 }
 
 func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
-	aticker.clients.ForEach(func(k string, service *serviceEntry) {
-
+	aticker.clients.ForEach(func(k string, service *serviceEntry, ok bool) {
+		if !ok {
+			return
+		}
 		// find longest check interval:
 		var maxInterval common.CheckInterval
 		for chint := range service.limits {
@@ -154,7 +156,10 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 		}
 		oldestTime := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
 
-		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *UserActivity) {
+		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *UserActivity, ok bool) {
+			if !ok {
+				return
+			}
 			mostRecent := limitInfo.Requests.Last()
 			if mostRecent.Created.Before(oldestTime) {
 				service.ClientRequests.Delete(userID)
@@ -231,7 +236,10 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 func (aticker *AlarmTicker) loadAllowList() {
 	aticker.allowListUsers = collections.NewConcurrentMap[string, []common.UserID]()
 	var total int
-	aticker.clients.ForEach(func(serviceID string, se *serviceEntry) {
+	aticker.clients.ForEach(func(serviceID string, se *serviceEntry, ok bool) {
+		if !ok {
+			return
+		}
 		v, err := guard.GetAllowlistUsers(aticker.ctx.CNCDB, serviceID)
 		if err != nil {
 			log.Error().

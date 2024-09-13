@@ -39,7 +39,10 @@ type Watchdog[T logging.AnyRequestRecord] struct {
 
 func (wd *Watchdog[T]) PrintStatistics() string {
 	buff := strings.Builder{}
-	wd.statistics.ForEach(func(ip string, stats *guard.IPProcData) {
+	wd.statistics.ForEach(func(ip string, stats *guard.IPProcData, ok bool) {
+		if !ok {
+			return
+		}
 		buff.WriteString(fmt.Sprintf("%v:\n", ip))
 		buff.WriteString(fmt.Sprintf("\tcount: %d\n", stats.Count))
 		buff.WriteString(fmt.Sprintf("\tmean: %01.2f\n", stats.Mean))
@@ -129,7 +132,10 @@ func (wd *Watchdog[T]) analyze(rec T) error {
 
 func (wd *Watchdog[T]) GetSuspiciousRecords() []guard.IPStats {
 	ans := make([]guard.IPStats, 0, wd.suspicions.Len())
-	wd.suspicions.ForEach(func(ip string, rec guard.IPProcData) {
+	wd.suspicions.ForEach(func(ip string, rec guard.IPProcData, ok bool) {
+		if !ok {
+			return
+		}
 		ans = append(ans, rec.ToIPStats(ip))
 	})
 	return ans

@@ -51,7 +51,10 @@ func (aticker *AlarmTicker) GobDecode(data []byte) error {
 		return err
 	}
 	aticker.clients = collections.NewConcurrentMapFrom(clients)
-	aticker.clients.ForEach(func(service string, data *serviceEntry) {
+	aticker.clients.ForEach(func(service string, data *serviceEntry, ok bool) {
+		if !ok {
+			return
+		}
 		log.Info().
 			Str("service", service).
 			Int("numItems", data.ClientRequests.Len()).

@@ -197,7 +197,10 @@ func NewClientRequestsFrom(data map[common.UserID]*UserActivity) *ClientRequests
 }
 
 func (cr *ClientRequests) CountRequests() (ans int) {
-	cr.ForEach(func(k common.UserID, v *UserActivity) {
+	cr.ForEach(func(k common.UserID, v *UserActivity, ok bool) {
+		if !ok {
+			return
+		}
 		ans += v.Requests.Len()
 	})
 	return

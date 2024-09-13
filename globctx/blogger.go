@@ -15,7 +15,7 @@ import (
 )
 
 type BackendLogger struct {
-	tDBWriter *reporting.TimescaleDBWriter
+	tDBWriter reporting.ReportingWriter
 }
 
 // Log logs a service backend (e.g. KonText, Treq, some UJC server) access
@@ -44,7 +44,7 @@ func (b *BackendLogger) Log(
 }
 
 // NewBackendLogger creates a new backend access logging service
-func NewBackendLogger(tDBWriter *reporting.TimescaleDBWriter) *BackendLogger {
+func NewBackendLogger(tDBWriter reporting.ReportingWriter) *BackendLogger {
 	return &BackendLogger{
 		tDBWriter: tDBWriter,
 	}

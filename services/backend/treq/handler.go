@@ -36,7 +36,7 @@ type TreqProxy struct {
 	readTimeoutSecs int
 	guard           *sessionmap.Guard
 	apiProxy        *proxy.APIProxy
-	tDBWriter       *reporting.TimescaleDBWriter
+	tDBWriter       reporting.ReportingWriter
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil

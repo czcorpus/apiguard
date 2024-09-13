@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	"github.com/czcorpus/hltscl"
+	"github.com/rs/zerolog/log"
 )
 
 type Conf struct {
@@ -31,7 +32,8 @@ type Conf struct {
 
 func (conf *Conf) ValidateAndDefaults() error {
 	if conf == nil {
-		return fmt.Errorf("reporting to TimescaleDB not configured")
+		log.Warn().Msg("reporting not configured, APIGuard will be writing reporting records to log")
+		return nil
 	}
 	if conf.DB.Host == "" {
 		return fmt.Errorf("reporting set but the `host` is missing")

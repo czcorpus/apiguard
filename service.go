@@ -47,7 +47,6 @@ import (
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 )
 
@@ -56,13 +55,14 @@ const (
 	authTokenEntry    = "personal_access_token"
 )
 
-func runService(conf *config.Configuration, pgPool *pgxpool.Pool) {
+func runService(conf *config.Configuration) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, syscall.SIGHUP)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	globalCtx := createGlobalCtx(ctx, conf, pgPool)
+	tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
+	globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
 
 	reloadChan := make(chan bool)
 	go func() {

@@ -159,7 +159,7 @@ func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.Clien
 func New(
 	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
-	tDBWriter *reporting.TimescaleDBWriter,
+	tDBWriter reporting.ReportingWriter,
 	db backend.TelemetryStorage,
 	statsStorage StatsStorage,
 ) (*Guard, error) {

@@ -68,7 +68,7 @@ type AlarmTicker struct {
 	reports         []*AlarmReport //save
 	location        *time.Location
 	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
-	tDBWriter       *reporting.TimescaleDBWriter
+	tDBWriter       reporting.ReportingWriter
 }
 
 func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {

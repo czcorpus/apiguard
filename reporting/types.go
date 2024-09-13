@@ -8,6 +8,7 @@ package reporting
 
 import (
 	"apiguard/common"
+	"encoding/json"
 	"time"
 
 	"github.com/czcorpus/hltscl"
@@ -55,6 +56,20 @@ func (report *ProxyProcReport) GetTableName() string {
 	return ProxyMonitoringTable
 }
 
+func (report *ProxyProcReport) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		DateTime time.Time `json:"dateTime"`
+		ProcTime float64   `json:"procTime"`
+		Status   int       `json:"status"`
+		Service  string    `json:"service"`
+	}{
+		DateTime: report.DateTime,
+		ProcTime: report.ProcTime,
+		Status:   report.Status,
+		Service:  report.Service,
+	})
+}
+
 // -----
 
 type TelemetryEntropy struct {
@@ -83,6 +98,26 @@ func (te *TelemetryEntropy) GetTime() time.Time {
 
 func (te *TelemetryEntropy) GetTableName() string {
 	return TelemetryMonitoringTable
+}
+
+func (report *TelemetryEntropy) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Created                       time.Time `json:"created"`
+		SessionID                     string    `json:"sessionId"`
+		ClientIP                      string    `json:"clientIp"`
+		MAIN_TILE_DATA_LOADED         float64   `json:"MAIN_TILE_DATA_LOADED"`
+		MAIN_TILE_PARTIAL_DATA_LOADED float64   `json:"MAIN_TILE_PARTIAL_DATA_LOADED"`
+		MAIN_SET_TILE_RENDER_SIZE     float64   `json:"MAIN_SET_TILE_RENDER_SIZE"`
+		Score                         float64   `json:"Score"`
+	}{
+		Created:                       report.Created,
+		SessionID:                     report.SessionID,
+		ClientIP:                      report.ClientIP,
+		MAIN_TILE_DATA_LOADED:         report.MAIN_TILE_DATA_LOADED,
+		MAIN_TILE_PARTIAL_DATA_LOADED: report.MAIN_TILE_PARTIAL_DATA_LOADED,
+		MAIN_SET_TILE_RENDER_SIZE:     report.MAIN_SET_TILE_RENDER_SIZE,
+		Score:                         report.Score,
+	})
 }
 
 // ----
@@ -114,6 +149,26 @@ func (br *BackendRequest) GetTableName() string {
 	return BackendMonitoringTable
 }
 
+func (report *BackendRequest) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Created      time.Time         `json:"created"`
+		Service      string            `json:"service"`
+		ProcTime     float64           `json:"procTime"`
+		IsCached     bool              `json:"isCached"`
+		UserID       common.UserID     `json:"userId"`
+		IndirectCall bool              `json:"indirectCall"`
+		ActionType   BackendActionType `json:"actionType"`
+	}{
+		Created:      report.Created,
+		Service:      report.Service,
+		ProcTime:     report.ProcTime,
+		IsCached:     report.IsCached,
+		UserID:       report.UserID,
+		IndirectCall: report.IndirectCall,
+		ActionType:   report.ActionType,
+	})
+}
+
 // ----
 
 type AlarmStatus struct {
@@ -136,4 +191,18 @@ func (status *AlarmStatus) GetTime() time.Time {
 
 func (status *AlarmStatus) GetTableName() string {
 	return AlarmMonitoringTable
+}
+
+func (report *AlarmStatus) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Created     time.Time `json:"created"`
+		Service     string    `json:"service"`
+		NumUsers    int       `json:"numUsers"`
+		NumRequests int       `json:"numRequests"`
+	}{
+		Created:     report.Created,
+		Service:     report.Service,
+		NumUsers:    report.NumUsers,
+		NumRequests: report.NumRequests,
+	})
 }

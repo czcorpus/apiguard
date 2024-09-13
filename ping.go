@@ -7,6 +7,7 @@ package main
 
 import (
 	"apiguard/reporting"
+	"encoding/json"
 	"time"
 
 	"github.com/czcorpus/hltscl"
@@ -31,4 +32,15 @@ func (report *PingReport) GetTime() time.Time {
 
 func (report *PingReport) GetTableName() string {
 	return reporting.ProxyMonitoringTable
+}
+
+func (report *PingReport) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		DateTime time.Time `json:"dateTime"`
+		ProcTime float64   `json:"procTime"`
+		Status   int       `json:"status"`
+	}{
+		DateTime: report.DateTime,
+		ProcTime: report.ProcTime,
+	})
 }

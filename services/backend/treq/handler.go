@@ -67,6 +67,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 				Service:     ServiceName,
 				NumRequests: 1,
 				UserID:      *loggedUserID,
+				IP:          ctx.ClientIP(),
 			}
 		}
 		tp.globalCtx.BackendLogger.Log(

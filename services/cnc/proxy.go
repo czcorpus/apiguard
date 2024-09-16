@@ -248,6 +248,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 				Service:     kp.rConf.ServiceName,
 				NumRequests: 1,
 				UserID:      *loggedUserID,
+				IP:          ctx.ClientIP(),
 			}
 		}
 		kp.globalCtx.BackendLogger.Log(

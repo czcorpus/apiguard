@@ -8,7 +8,9 @@ package monitoring
 
 import (
 	"apiguard/common"
+	"apiguard/guard"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -181,23 +183,39 @@ func (ulm *UserActivity) NumReqSince(interval time.Duration, loc *time.Location)
 // ClientRequests collects information about recent clients
 // and their activity.
 type ClientRequests struct {
-	collections.ConcurrentMap[common.UserID, *UserActivity]
+	collections.ConcurrentMap[string, *UserActivity]
+}
+
+func (cr *ClientRequests) mkKey(props guard.RequestInfo) string {
+	return fmt.Sprintf("%d@%s", props.UserID, props.IP)
+}
+
+func (cr *ClientRequests) GetByProps(props guard.RequestInfo) *UserActivity {
+	return cr.Get(cr.mkKey(props))
+}
+
+func (cr *ClientRequests) HasByProps(props guard.RequestInfo) bool {
+	return cr.HasKey(cr.mkKey(props))
+}
+
+func (cr *ClientRequests) SetByProps(props guard.RequestInfo, v *UserActivity) {
+	cr.Set(cr.mkKey(props), v)
 }
 
 func NewClientRequests() *ClientRequests {
 	return &ClientRequests{
-		*collections.NewConcurrentMap[common.UserID, *UserActivity](),
+		*collections.NewConcurrentMap[string, *UserActivity](),
 	}
 }
 
-func NewClientRequestsFrom(data map[common.UserID]*UserActivity) *ClientRequests {
+func NewClientRequestsFrom(data map[string]*UserActivity) *ClientRequests {
 	return &ClientRequests{
 		*collections.NewConcurrentMapFrom(data),
 	}
 }
 
 func (cr *ClientRequests) CountRequests() (ans int) {
-	cr.ForEach(func(k common.UserID, v *UserActivity, ok bool) {
+	cr.ForEach(func(k string, v *UserActivity, ok bool) {
 		if !ok {
 			return
 		}

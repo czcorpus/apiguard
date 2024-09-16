@@ -7,7 +7,6 @@
 package requests
 
 import (
-	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
@@ -27,9 +26,9 @@ const (
 )
 
 type userTotal struct {
-	UserID    common.UserID `json:"userId"`
-	NumReq    int           `json:"numReq"`
-	Exceeding any           `json:"exceeding"`
+	UserIdent string `json:"userIdent"`
+	NumReq    int    `json:"numReq"`
+	Exceeding any    `json:"exceeding"`
 }
 
 type activityResponse struct {
@@ -100,7 +99,7 @@ func (a *Actions) Activity(ctx *gin.Context) {
 	}
 	t0 := time.Now().In(a.gctx.TimezoneLocation)
 	reqCounts := make([]userTotal, 0, 100)
-	servProps.ClientRequests.ForEach(func(k common.UserID, v *monitoring.UserActivity, ok bool) {
+	servProps.ClientRequests.ForEach(func(k string, v *monitoring.UserActivity, ok bool) {
 		if !ok {
 			return
 		}
@@ -108,7 +107,7 @@ func (a *Actions) Activity(ctx *gin.Context) {
 		reqCounts = append(
 			reqCounts,
 			userTotal{
-				UserID:    k,
+				UserIdent: k,
 				NumReq:    v.NumReqSince(since, a.gctx.TimezoneLocation),
 				Exceeding: v.NumReqAboveLimit,
 			},

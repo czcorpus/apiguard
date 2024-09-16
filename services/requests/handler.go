@@ -26,9 +26,10 @@ const (
 )
 
 type userTotal struct {
-	UserIdent string `json:"userIdent"`
-	NumReq    int    `json:"numReq"`
-	Exceeding any    `json:"exceeding"`
+	UserIdent  string    `json:"userIdent"`
+	NumReq     int       `json:"numReq"`
+	Exceeding  any       `json:"exceeding"`
+	LastReport time.Time `json:"lastReport"`
 }
 
 type activityResponse struct {
@@ -107,9 +108,10 @@ func (a *Actions) Activity(ctx *gin.Context) {
 		reqCounts = append(
 			reqCounts,
 			userTotal{
-				UserIdent: k,
-				NumReq:    v.NumReqSince(since, a.gctx.TimezoneLocation),
-				Exceeding: v.NumReqAboveLimit,
+				UserIdent:  k,
+				NumReq:     v.NumReqSince(since, a.gctx.TimezoneLocation),
+				Exceeding:  v.NumReqAboveLimit,
+				LastReport: v.LastReportAt,
 			},
 		)
 	})

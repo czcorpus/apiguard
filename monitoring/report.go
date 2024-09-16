@@ -136,10 +136,6 @@ func (report *AlarmReport) ExceedPercent() reportFloat {
 	return (reportFloat(report.RequestInfo.NumRequests)/reportFloat(report.Rules.ReqPerTimeThreshold) - 1) * 100
 }
 
-func (report *AlarmReport) IsSignificantlyExceeding() bool {
-	return report.ExceedPercent().String() != reportFloat(0).String()
-}
-
 func generateReviewCode() string {
 	id := uuid.New()
 	sum := sha1.Sum([]byte(id.String()))

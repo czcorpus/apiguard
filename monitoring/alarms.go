@@ -31,7 +31,8 @@ import (
 const (
 	alarmStatusFile                = "alarm-status.gob"
 	dfltRecCountCleanupProbability = 0.5
-	monitoringSendInterval         = time.Duration(30) * time.Second
+	monitoringSendInterval         = 30 * time.Second
+	minReportsInterval             = 2 * time.Minute
 )
 
 type reqCounterItem struct {
@@ -108,12 +109,12 @@ func (aticker *AlarmTicker) sendReport(
 	for _, recipient := range service.Conf.Recipients {
 		log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
 		page := aticker.createConfirmationPageURL(report, recipient)
-		msg := mail.Notification{
+		msg := mail.FormattedNotification{
 			Subject: fmt.Sprintf(
 				"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
 				report.ExceedPercent(), service.Service,
 			),
-			Paragraphs: []string{
+			Divs: []string{
 				fmt.Sprintf(
 					"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d (IP %s): %d za posledních %d sekund.<br /> "+
 						"Limit, který byl překročen, je: %d dotazů za %s.",
@@ -168,12 +169,12 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 }
 
 func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, req guard.RequestInfo) {
-	counts := service.ClientRequests.GetByProps(req)
+	userActivity := service.ClientRequests.GetByProps(req)
 	for checkInterval, limit := range service.limits {
 		t0 := time.Now().In(aticker.location)
-		numReq := counts.NumReqSince(time.Duration(checkInterval), aticker.location)
-		counts.NumReqAboveLimit.registerMeasurement(t0, checkInterval, numReq, limit)
-		movAvg := counts.NumReqAboveLimit.relativeExceeding(t0, checkInterval, limit)
+		numReq := userActivity.NumReqSince(time.Duration(checkInterval), aticker.location)
+		userActivity.NumReqAboveLimit.registerMeasurement(t0, checkInterval, numReq, limit)
+		movAvg := userActivity.NumReqAboveLimit.relativeExceeding(t0, checkInterval, limit)
 		log.Debug().
 			Str("service", service.Service).
 			Int("userId", int(req.UserID)).
@@ -185,42 +186,6 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, req guard.R
 			Time("since", t0.Add(-time.Duration(checkInterval))).
 			Msgf("service usage update")
 		if movAvg >= aticker.limitingConf.ExceedingThreshold {
-			newReport := NewAlarmReport(
-				guard.RequestInfo{
-					Created:     t0,
-					Service:     service.Service,
-					NumRequests: numReq,
-					UserID:      req.UserID,
-					IP:          req.IP,
-				},
-				service.Conf,
-				Limit{
-					ReqCheckingIntervalSecs: checkInterval.ToSeconds(),
-					ReqPerTimeThreshold:     service.limits[checkInterval],
-				},
-				aticker.location,
-			)
-			if !newReport.IsSignificantlyExceeding() {
-				continue
-			}
-
-			err := newReport.AttachUserInfo(users.NewUsersTable(
-				aticker.ctx.CNCDB, aticker.ctx.UserTableProps))
-			if err != nil {
-				newReport.UserInfo = &users.User{
-					ID:          common.InvalidUserID,
-					Username:    "invalid",
-					FirstName:   "-",
-					LastName:    "-",
-					Affiliation: "-",
-				}
-				log.Error().
-					Err(err).
-					Str("reportId", newReport.ReviewCode).
-					Msg("failed to attach user info to a report")
-			}
-			aticker.reports = append(aticker.reports, newReport)
-			go aticker.sendReport(service, newReport, numReq)
 			log.Warn().
 				Str("service", service.Service).
 				Int("userId", int(req.UserID)).
@@ -231,6 +196,43 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, req guard.R
 				Float64("movAvgThreshold", aticker.limitingConf.ExceedingThreshold).
 				Time("since", t0.Add(-time.Duration(checkInterval))).
 				Msgf("detected high user activity")
+
+			if userActivity.LastReportAt.Before(t0.Add(-minReportsInterval)) {
+				newReport := NewAlarmReport(
+					guard.RequestInfo{
+						Created:     t0,
+						Service:     service.Service,
+						NumRequests: numReq,
+						UserID:      req.UserID,
+						IP:          req.IP,
+					},
+					service.Conf,
+					Limit{
+						ReqCheckingIntervalSecs: checkInterval.ToSeconds(),
+						ReqPerTimeThreshold:     service.limits[checkInterval],
+					},
+					aticker.location,
+				)
+
+				err := newReport.AttachUserInfo(users.NewUsersTable(
+					aticker.ctx.CNCDB, aticker.ctx.UserTableProps))
+				if err != nil {
+					newReport.UserInfo = &users.User{
+						ID:          common.InvalidUserID,
+						Username:    "invalid",
+						FirstName:   "-",
+						LastName:    "-",
+						Affiliation: "-",
+					}
+					log.Error().
+						Err(err).
+						Str("reportId", newReport.ReviewCode).
+						Msg("failed to attach user info to a report")
+				}
+				aticker.reports = append(aticker.reports, newReport)
+				userActivity.LastReportAt = t0
+				go aticker.sendReport(service, newReport, numReq)
+			}
 		}
 	}
 }

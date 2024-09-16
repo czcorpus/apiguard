@@ -168,6 +168,7 @@ func runService(conf *config.Configuration) {
 			Service:     "ping",
 			NumRequests: 1,
 			UserID:      1,
+			IP:          ctx.ClientIP(),
 		}
 		uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"ok": true})
 	})

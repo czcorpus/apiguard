@@ -30,6 +30,7 @@ type RequestInfo struct {
 	Created     time.Time     `json:"created"`
 	Service     string        `json:"service"`
 	NumRequests int           `json:"numRequests"`
+	IP          string        `json:"ip"`
 	UserID      common.UserID `json:"userId"`
 }
 

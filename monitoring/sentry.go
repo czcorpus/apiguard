@@ -39,7 +39,7 @@ func (se *serviceEntry) GobDecode(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	dec := gob.NewDecoder(buf)
 
-	cr := make(map[common.UserID]*UserActivity)
+	cr := make(map[string]*UserActivity)
 	err := dec.Decode(&cr)
 	if err != nil {
 		return err

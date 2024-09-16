@@ -103,7 +103,6 @@ func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, revie
 func (aticker *AlarmTicker) sendReport(
 	service *serviceEntry,
 	report *AlarmReport,
-	userID common.UserID,
 	numReq int,
 ) {
 	for _, recipient := range service.Conf.Recipients {
@@ -116,10 +115,10 @@ func (aticker *AlarmTicker) sendReport(
 			),
 			Paragraphs: []string{
 				fmt.Sprintf(
-					"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d: %d za posledních %d sekund.<br /> "+
+					"Byl detekován velký počet API dotazů na službu '%s' od uživatele ID %d (IP %s): %d za posledních %d sekund.<br /> "+
 						"Limit, který byl překročen, je: %d dotazů za %s.",
-					service.Service, userID, numReq, report.Rules.ReqCheckingIntervalSecs,
-					report.Rules.ReqPerTimeThreshold,
+					service.Service, report.RequestInfo.UserID, report.RequestInfo.IP, numReq,
+					report.Rules.ReqCheckingIntervalSecs, report.Rules.ReqPerTimeThreshold,
 					datetime.DurationToHMS(report.Rules.ReqCheckingInterval()),
 				),
 				fmt.Sprintf(
@@ -156,7 +155,7 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 		}
 		oldestTime := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
 
-		service.ClientRequests.ForEach(func(userID common.UserID, limitInfo *UserActivity, ok bool) {
+		service.ClientRequests.ForEach(func(userID string, limitInfo *UserActivity, ok bool) {
 			if !ok {
 				return
 			}
@@ -168,8 +167,8 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 	})
 }
 
-func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID common.UserID) {
-	counts := service.ClientRequests.Get(userID)
+func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, req guard.RequestInfo) {
+	counts := service.ClientRequests.GetByProps(req)
 	for checkInterval, limit := range service.limits {
 		t0 := time.Now().In(aticker.location)
 		numReq := counts.NumReqSince(time.Duration(checkInterval), aticker.location)
@@ -177,7 +176,8 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 		movAvg := counts.NumReqAboveLimit.relativeExceeding(t0, checkInterval, limit)
 		log.Debug().
 			Str("service", service.Service).
-			Int("userId", int(userID)).
+			Int("userId", int(req.UserID)).
+			Str("ip", req.IP).
 			Float64("overflowMovAvg", movAvg).
 			Int("currOverflow", max(0, numReq-limit)).
 			Int("currNumReq", numReq).
@@ -190,7 +190,8 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 					Created:     t0,
 					Service:     service.Service,
 					NumRequests: numReq,
-					UserID:      userID,
+					UserID:      req.UserID,
+					IP:          req.IP,
 				},
 				service.Conf,
 				Limit{
@@ -219,10 +220,11 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, userID comm
 					Msg("failed to attach user info to a report")
 			}
 			aticker.reports = append(aticker.reports, newReport)
-			go aticker.sendReport(service, newReport, userID, numReq)
+			go aticker.sendReport(service, newReport, numReq)
 			log.Warn().
 				Str("service", service.Service).
-				Int("userId", int(userID)).
+				Int("userId", int(req.UserID)).
+				Str("ip", req.IP).
 				Float64("overflowMovAvg", movAvg).
 				Int("currOverflow", max(0, numReq-limit)).
 				Int("currNumReq", numReq).
@@ -292,9 +294,9 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 				break
 			}
 			if entry, ok := aticker.clients.GetWithTest(reqInfo.Service); ok {
-				if !entry.ClientRequests.HasKey(reqInfo.UserID) {
-					entry.ClientRequests.Set(
-						reqInfo.UserID,
+				if !entry.ClientRequests.HasByProps(reqInfo) {
+					entry.ClientRequests.SetByProps(
+						reqInfo,
 						&UserActivity{
 							Requests: collections.NewCircularList[reqCounterItem](
 								aticker.limitingConf.UserReqCounterBufferSize),
@@ -303,14 +305,14 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 					)
 				}
 				entry.ClientRequests.
-					Get(reqInfo.UserID).
+					GetByProps(reqInfo).
 					Requests.
 					Append(reqCounterItem{Created: reqInfo.Created})
 			}
 			go func(item guard.RequestInfo) {
 				aticker.checkServiceUsage(
 					aticker.clients.Get(item.Service),
-					item.UserID,
+					item,
 				)
 			}(reqInfo)
 			// from time to time, remove users with no recent activity

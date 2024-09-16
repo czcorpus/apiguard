@@ -164,6 +164,8 @@ type UserActivity struct {
 	// when considering specified check interval during a checking
 	// period. This determines possible response delay or ban.
 	NumReqAboveLimit *limitExceedings
+
+	LastReportAt time.Time
 }
 
 // NumReqSince counts requests with time after a specified interval

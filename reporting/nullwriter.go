@@ -20,7 +20,9 @@ func (sw *NullWriter) LogErrors() {
 func (sw *NullWriter) Write(item Timescalable) {
 	log.Info().
 		Bool("fallbackReporting", true).
-		Any("record", item)
+		Any("record", item).
+		Msg("NullWriter.Write()")
+
 }
 
 func (sw *NullWriter) AddTableWriter(tableName string) {

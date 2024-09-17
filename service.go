@@ -110,7 +110,6 @@ func runService(conf *config.Configuration) {
 		conf.Monitoring,
 	)
 	go alarm.Run(reloadChan)
-	alarm.GoStartMonitoring()
 
 	if !conf.IgnoreStoredState {
 		err := monitoring.LoadState(alarm)

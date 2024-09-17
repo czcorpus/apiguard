@@ -101,7 +101,7 @@
         </div>
         <div class="ban">
             {{ if .Error }}
-            Nepodařilo se načíst data: <strong>{{ .Error }}</strong>
+            <p>Chyba: <strong>{{ .Error }}</strong></p>
             {{ else if .Ban }}
             <p>Uživateli byl již uložen ban od {{ .Ban.StartDT }} do {{ .Ban.EndDT }}</p>
             {{ else }}

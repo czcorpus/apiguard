@@ -29,7 +29,7 @@ type userTotal struct {
 	UserIdent  string    `json:"userIdent"`
 	NumReq     int       `json:"numReq"`
 	Exceeding  any       `json:"exceeding"`
-	LastReport time.Time `json:"lastReport"`
+	LastReport time.Time `json:"lastReport,omitempty"`
 }
 
 type activityResponse struct {

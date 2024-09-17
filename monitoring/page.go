@@ -20,11 +20,6 @@ import (
 func loadTemplateFile(relativePath string) (*template.Template, error) {
 	_, filepath, _, _ := runtime.Caller(0)
 	srcPath := path.Join(filepath, "..", "..", "assets", relativePath)
-	/*
-		content, err := os.ReadFile(srcPath)
-		if err != nil {
-			return "", err
-		}*/
 	return template.New(relativePath).ParseFiles(srcPath)
 }
 
@@ -37,7 +32,6 @@ type reportPageData struct {
 }
 
 func (aticker *AlarmTicker) HandleConfirmationPage(ctx *gin.Context) {
-	ctx.Writer.Header().Add("Content-Type", "text/html")
 	tpl, err := loadTemplateFile("report.html")
 	if err != nil {
 		log.Error().Err(err).Send() // TODO

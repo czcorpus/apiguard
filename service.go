@@ -33,6 +33,7 @@ import (
 	userHandlers "apiguard/users/handlers"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -78,9 +79,27 @@ func runService(conf *config.Configuration) {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
-	engine.Use(uniresp.AlwaysJSONContentType())
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
+
+	apiRoutes := engine.Group("/")
+	apiRoutes.Use(uniresp.AlwaysJSONContentType())
+	apiRoutes.Use(func(ctx *gin.Context) {
+		if !conf.IPAllowedForAPI(net.ParseIP(ctx.ClientIP())) {
+			ctx.AbortWithStatusJSON(
+				http.StatusUnauthorized,
+				map[string]string{"status": http.StatusText(http.StatusUnauthorized)},
+			)
+			return
+		}
+		ctx.Next()
+	})
+
+	publicRoutes := engine.Group("/")
+	publicRoutes.Use(func(c *gin.Context) {
+		c.Writer.Header().Set("Content-Type", "text/html")
+		c.Next()
+	})
 
 	// alarm
 	alarm := monitoring.NewAlarmTicker(
@@ -103,11 +122,12 @@ func runService(conf *config.Configuration) {
 		}
 	}
 
-	engine.POST("/alarm/:alarmID/confirmation", alarm.HandleReviewAction)
-	engine.GET("/alarm-confirmation", alarm.HandleConfirmationPage)
-	engine.GET("/alarm", alarm.HandleReportListAction)
-	engine.GET("/alarms/list", alarm.HandleListAction)
-	engine.POST("/alarms/clean", alarm.HandleCleanAction)
+	publicRoutes.GET("/alarm-confirmation", alarm.HandleConfirmationPage)
+
+	apiRoutes.POST("/alarm/:alarmID/confirmation", alarm.HandleReviewAction)
+	apiRoutes.GET("/alarm", alarm.HandleReportListAction)
+	apiRoutes.GET("/alarms/list", alarm.HandleListAction)
+	apiRoutes.POST("/alarms/clean", alarm.HandleCleanAction)
 
 	// delay stats writer and telemetry analyzer
 	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
@@ -146,7 +166,7 @@ func runService(conf *config.Configuration) {
 		)
 	}
 
-	engine.GET("/service/ping", func(ctx *gin.Context) {
+	apiRoutes.GET("/service/ping", func(ctx *gin.Context) {
 		t0 := time.Now()
 		defer func() {
 			globalCtx.BackendLogger.Log(
@@ -187,7 +207,7 @@ func runService(conf *config.Configuration) {
 			delayStats,
 			telemetryAnalyzer,
 		)
-		engine.GET("/service/language-guide", langGuideActions.Query)
+		apiRoutes.GET("/service/language-guide", langGuideActions.Query)
 	}
 
 	// "Akademický slovník současné češtiny"
@@ -199,7 +219,7 @@ func runService(conf *config.Configuration) {
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		engine.GET("/service/assc", asscActions.Query)
+		apiRoutes.GET("/service/assc", asscActions.Query)
 		log.Info().Msg("Service ASSC enabled")
 	}
 
@@ -212,7 +232,7 @@ func runService(conf *config.Configuration) {
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		engine.GET("/service/ssjc", ssjcActions.Query)
+		apiRoutes.GET("/service/ssjc", ssjcActions.Query)
 		log.Info().Msg("Service SSJC enabled")
 	}
 
@@ -225,7 +245,7 @@ func runService(conf *config.Configuration) {
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		engine.GET("/service/psjc", psjcActions.Query)
+		apiRoutes.GET("/service/psjc", psjcActions.Query)
 		log.Info().Msg("Service PSJC enabled")
 	}
 
@@ -238,7 +258,7 @@ func runService(conf *config.Configuration) {
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		engine.GET("/service/kla", klaActions.Query)
+		apiRoutes.GET("/service/kla", klaActions.Query)
 		log.Info().Msg("Service KLA enabled")
 	}
 
@@ -251,7 +271,7 @@ func runService(conf *config.Configuration) {
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		engine.GET("/service/neomat", neomatActions.Query)
+		apiRoutes.GET("/service/neomat", neomatActions.Query)
 		log.Info().Msg("Service Neomat enabled")
 	}
 
@@ -264,7 +284,7 @@ func runService(conf *config.Configuration) {
 			telemetryAnalyzer,
 			conf.ServerReadTimeoutSecs,
 		)
-		engine.GET("/service/cja", cjaActions.Query)
+		apiRoutes.GET("/service/cja", cjaActions.Query)
 		log.Info().Msg("Service CJA enabled")
 	}
 
@@ -307,7 +327,7 @@ func runService(conf *config.Configuration) {
 			log.Fatal().Err(err).Msg("Failed to start services")
 		}
 
-		engine.Any("/service/kontext/*path", func(ctx *gin.Context) {
+		apiRoutes.Any("/service/kontext/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
 				kontextActions.Login(ctx)
 
@@ -357,7 +377,7 @@ func runService(conf *config.Configuration) {
 			return
 		}
 
-		engine.Any("/service/mquery/*path", func(ctx *gin.Context) {
+		apiRoutes.Any("/service/mquery/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
 				mqueryActions.Login(ctx)
 
@@ -406,7 +426,7 @@ func runService(conf *config.Configuration) {
 			return
 		}
 
-		engine.Any("/service/mquery-gpt/*path", func(ctx *gin.Context) {
+		apiRoutes.Any("/service/mquery-gpt/*path", func(ctx *gin.Context) {
 			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
 				mqueryActions.Login(ctx)
 
@@ -447,7 +467,7 @@ func runService(conf *config.Configuration) {
 			log.Fatal().Err(err).Msg("failed to initialize Treq proxy")
 			return
 		}
-		engine.Any("/service/treq/*path", treqActions.AnyPath)
+		apiRoutes.Any("/service/treq/*path", treqActions.AnyPath)
 		log.Info().Msg("Service Treq enabled")
 	}
 
@@ -496,7 +516,7 @@ func runService(conf *config.Configuration) {
 				ReadTimeoutSecs:  conf.ServerReadTimeoutSecs,
 			},
 		)
-		engine.Any("/service/kwords/*path", kwordsActions.AnyPath)
+		apiRoutes.Any("/service/kwords/*path", kwordsActions.AnyPath)
 		log.Info().Msg("Service KWords enabled")
 	}
 
@@ -504,29 +524,29 @@ func runService(conf *config.Configuration) {
 
 	usersActions := userHandlers.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
 
-	engine.GET("/user/:userID/ban", usersActions.BanInfo)
+	apiRoutes.GET("/user/:userID/ban", usersActions.BanInfo)
 
-	engine.PUT("/user/:userID/ban", usersActions.SetBan)
+	apiRoutes.PUT("/user/:userID/ban", usersActions.SetBan)
 
-	engine.DELETE("/user/:userID/ban", usersActions.DisableBan)
+	apiRoutes.DELETE("/user/:userID/ban", usersActions.DisableBan)
 
 	// session tools
 
-	engine.GET("/defaults/:serviceID/:key", sessActions.Get)
+	apiRoutes.GET("/defaults/:serviceID/:key", sessActions.Get)
 
-	engine.POST("/defaults/:serviceID/:key", sessActions.Set)
+	apiRoutes.POST("/defaults/:serviceID/:key", sessActions.Set)
 
 	// administration/monitoring actions
 
 	telemetryActions := tstorage.NewActions(delayStats)
-	engine.POST("/telemetry", telemetryActions.Store)
+	apiRoutes.POST("/telemetry", telemetryActions.Store)
 
 	requestsActions := requests.NewActions(globalCtx, delayStats, alarm)
-	engine.GET("/requests", requestsActions.List)
+	apiRoutes.GET("/requests", requestsActions.List)
 
-	engine.GET("/activity/:serviceID", requestsActions.Activity)
+	apiRoutes.GET("/activity/:serviceID", requestsActions.Activity)
 
-	engine.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
+	apiRoutes.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
 		binWidth, otherLimit := 0.1, 5.0
 		var err error
 
@@ -557,7 +577,7 @@ func runService(conf *config.Configuration) {
 		}
 	})
 
-	engine.GET("/bans", func(ctx *gin.Context) {
+	apiRoutes.GET("/bans", func(ctx *gin.Context) {
 		duration := time.Duration(24 * time.Hour)
 		var err error
 

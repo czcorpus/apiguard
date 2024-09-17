@@ -26,6 +26,8 @@ import (
 	"apiguard/services/telemetry"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"net"
 	"os"
 	"time"
 
@@ -106,39 +108,78 @@ func (services *servicesSection) validate() error {
 }
 
 type Configuration struct {
-	ServerHost             string                   `json:"serverHost"`
-	ServerPort             int                      `json:"serverPort"`
-	ServerReadTimeoutSecs  int                      `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int                      `json:"serverWriteTimeoutSecs"`
-	TimeZone               string                   `json:"timeZone"`
-	PublicRoutesURL        string                   `json:"publicRoutesUrl"`
-	Botwatch               botwatch.Conf            `json:"botwatch"`
-	Telemetry              telemetry.Conf           `json:"telemetry"`
-	Services               servicesSection          `json:"services"`
-	Cache                  reqcache.Conf            `json:"cache"`
-	Reporting              *reporting.Conf          `json:"reporting"`
-	LogPath                string                   `json:"logPath"`
-	LogLevel               string                   `json:"logLevel"`
-	Monitoring             *monitoring.LimitingConf `json:"monitoring"`
-	IPBanTTLSecs           int                      `json:"IpBanTtlSecs"`
-	CNCDB                  cnc.Conf                 `json:"cncDb"`
-	Mail                   *monitoring.MailConf     `json:"mail"`
-	CNCAuth                CNCAuthConf              `json:"cncAuth"`
-	IgnoreStoredState      bool                     `json:"-"`
+	apiAllowedClientsCache []net.IPNet
+	ServerHost             string `json:"serverHost"`
+	ServerPort             int    `json:"serverPort"`
+	ServerReadTimeoutSecs  int    `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int    `json:"serverWriteTimeoutSecs"`
+	TimeZone               string `json:"timeZone"`
+	PublicRoutesURL        string `json:"publicRoutesUrl"`
+
+	// APIAllowedClients is a list of IP/CIDR addresses allowed to access the API.
+	// Mostly, we should stick here with our internal network.
+	APIAllowedClients []string                 `json:"apiAllowedClients"`
+	Botwatch          botwatch.Conf            `json:"botwatch"`
+	Telemetry         telemetry.Conf           `json:"telemetry"`
+	Services          servicesSection          `json:"services"`
+	Cache             reqcache.Conf            `json:"cache"`
+	Reporting         *reporting.Conf          `json:"reporting"`
+	LogPath           string                   `json:"logPath"`
+	LogLevel          string                   `json:"logLevel"`
+	Monitoring        *monitoring.LimitingConf `json:"monitoring"`
+	IPBanTTLSecs      int                      `json:"IpBanTtlSecs"`
+	CNCDB             cnc.Conf                 `json:"cncDb"`
+	Mail              *monitoring.MailConf     `json:"mail"`
+	CNCAuth           CNCAuthConf              `json:"cncAuth"`
+	IgnoreStoredState bool                     `json:"-"`
+}
+
+func (c *Configuration) loadAPIAllowlist() error {
+	c.apiAllowedClientsCache = make([]net.IPNet, 0, len(c.APIAllowedClients))
+	for _, a := range c.APIAllowedClients {
+		_, net, err := net.ParseCIDR(a)
+		if err != nil {
+			return fmt.Errorf("failed to parse allowlist element %s: %w", a, err)
+		}
+		c.apiAllowedClientsCache = append(c.apiAllowedClientsCache, *net)
+	}
+	return nil
+}
+
+func (c *Configuration) IPAllowedForAPI(ip net.IP) bool {
+	if c.apiAllowedClientsCache == nil {
+		if err := c.loadAPIAllowlist(); err != nil {
+			panic(err)
+		}
+	}
+	if ip == nil {
+		return false
+	}
+	if len(c.apiAllowedClientsCache) == 0 {
+		return true
+	}
+	for _, netw := range c.apiAllowedClientsCache {
+		if netw.Contains(ip) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *Configuration) Validate() error {
-	var err error
-	if err = c.Botwatch.Validate("botwatch"); err != nil {
+	if err := c.loadAPIAllowlist(); err != nil {
 		return err
 	}
-	if err = c.Telemetry.Validate("telemetry"); err != nil {
+	if err := c.Botwatch.Validate("botwatch"); err != nil {
 		return err
 	}
-	if err = c.CNCDB.Validate("cncDb"); err != nil {
+	if err := c.Telemetry.Validate("telemetry"); err != nil {
 		return err
 	}
-	if err = c.Services.validate(); err != nil {
+	if err := c.CNCDB.Validate("cncDb"); err != nil {
+		return err
+	}
+	if err := c.Services.validate(); err != nil {
 		return err
 	}
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {

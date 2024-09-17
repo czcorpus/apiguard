@@ -70,6 +70,7 @@ type AlarmTicker struct {
 	location        *time.Location
 	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
 	tDBWriter       reporting.ReportingWriter
+	reportTicker    time.Ticker
 }
 
 func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
@@ -280,6 +281,21 @@ func (aticker *AlarmTicker) Shutdown(ctx context.Context) error {
 	}
 }
 
+func (aticker *AlarmTicker) reportSummary() {
+	aticker.clients.ForEach(func(k string, service *serviceEntry, ok bool) {
+		if !ok {
+			return
+		}
+		report := &reporting.AlarmStatus{
+			Created:     time.Now(),
+			Service:     service.Service,
+			NumUsers:    service.ClientRequests.Len(),
+			NumRequests: service.ClientRequests.CountRequests(),
+		}
+		aticker.tDBWriter.Write(report)
+	})
+}
+
 func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 	aticker.loadAllowList()
 	for {
@@ -287,6 +303,10 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 		case <-aticker.ctx.Done():
 			log.Debug().Msg("AlarmTicker got shutdown signal")
 			return
+		case <-aticker.reportTicker.C:
+			go func() {
+				aticker.reportSummary()
+			}()
 		case reload := <-reloadChan:
 			if reload {
 				aticker.loadAllowList()
@@ -311,12 +331,10 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 					Requests.
 					Append(reqCounterItem{Created: reqInfo.Created})
 			}
-			go func(item guard.RequestInfo) {
-				aticker.checkServiceUsage(
-					aticker.clients.Get(item.Service),
-					item,
-				)
-			}(reqInfo)
+			aticker.checkServiceUsage(
+				aticker.clients.Get(reqInfo.Service),
+				reqInfo,
+			)
 			// from time to time, remove users with no recent activity
 			if rand.Float64() < aticker.clients.Get(reqInfo.Service).Conf.RecCounterCleanupProbability {
 				go aticker.removeUsersWithNoRecentActivity()
@@ -448,5 +466,6 @@ func NewAlarmTicker(
 		limitingConf:    limitingConf,
 		allowListUsers:  collections.NewConcurrentMap[string, []common.UserID](),
 		tDBWriter:       ctx.TimescaleDBWriter,
+		reportTicker:    *time.NewTicker(monitoringSendInterval),
 	}
 }

@@ -11,11 +11,21 @@ import (
 	"time"
 )
 
+type Limit struct {
+	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
+	ReqCheckingIntervalSecs int `json:"reqCheckingIntervalSecs"`
+}
+
+func (m Limit) ReqCheckingInterval() time.Duration {
+	return time.Duration(m.ReqCheckingIntervalSecs) * time.Second
+}
+
 type GeneralProxyConf struct {
 	InternalURL         string
 	ExternalURL         string
 	ReqTimeoutSecs      int
 	IdleConnTimeoutSecs int
+	Limits              []Limit
 }
 
 type BackendResponse interface {

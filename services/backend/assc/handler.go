@@ -10,7 +10,6 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/guard/telemetry"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/reqcache"
@@ -40,7 +39,7 @@ type ASSCActions struct {
 	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        *telemetry.Guard
+	guard           guard.ServiceGuard
 }
 
 func (aa *ASSCActions) Query(ctx *gin.Context) {
@@ -72,7 +71,8 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 		IP:     ctx.RemoteIP(),
 		UserID: common.InvalidUserID,
 	}
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer, clientID)
+	err := guard.RestrictResponseTime(
+		ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard, clientID)
 	if err != nil {
 		return
 	}
@@ -120,13 +120,13 @@ func (aa *ASSCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewASSCActions(
 	globalCtx *globctx.Context,
 	conf *Conf,
-	analyzer *telemetry.Guard,
+	guard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *ASSCActions {
 	return &ASSCActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		analyzer:        analyzer,
+		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

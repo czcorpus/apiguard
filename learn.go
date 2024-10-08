@@ -9,20 +9,16 @@ package main
 import (
 	"apiguard/config"
 	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/guard/telemetry"
+	"apiguard/guard/tlmtr"
 
 	"github.com/rs/zerolog/log"
 )
 
 func runLearn(globalCtx *globctx.Context, conf *config.Configuration) {
-	delayLog := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
-	telemetryAnalyzer, err := telemetry.New(
+	telemetryAnalyzer, err := tlmtr.New(
+		globalCtx,
 		&conf.Botwatch,
 		&conf.Telemetry,
-		globalCtx.TimescaleDBWriter,
-		delayLog,
-		delayLog,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")

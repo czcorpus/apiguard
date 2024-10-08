@@ -10,7 +10,6 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/guard/sessionmap"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/reqcache"
@@ -47,7 +46,7 @@ type CoreProxy struct {
 	globalCtx *globctx.Context
 	conf      *ProxyConf
 	rConf     *EnvironConf
-	guard     *sessionmap.Guard
+	guard     guard.ServiceGuard
 	apiProxy  *proxy.APIProxy
 	tDBWriter reporting.ReportingWriter
 
@@ -239,7 +238,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != kp.guard.AnonymousUserID {
+		if currHumanID.IsValid() && kp.guard.AnonymousUserIDs.IsAnonymous(*currHumanID) {
 			loggedUserID = currHumanID
 		}
 		if kp.reqCounter != nil {
@@ -434,7 +433,7 @@ func NewCoreProxy(
 	globalCtx *globctx.Context,
 	conf *ProxyConf,
 	gConf *EnvironConf,
-	guard *sessionmap.Guard,
+	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*CoreProxy, error) {
 	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
@@ -448,6 +447,6 @@ func NewCoreProxy(
 		guard:      guard,
 		apiProxy:   proxy,
 		reqCounter: reqCounter,
-		tDBWriter:  globalCtx.TimescaleDBWriter,
+		tDBWriter:  globalCtx.ReportingWriter,
 	}, nil
 }

@@ -11,17 +11,17 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	tlmGuard "apiguard/guard/telemetry"
+	"apiguard/guard/tlmtr"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/logging"
-	"apiguard/services/telemetry"
+	"apiguard/telemetry"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"math"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"time"
@@ -43,7 +43,7 @@ type LanguageGuideActions struct {
 	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *Watchdog[*logging.LGRequestRecord]
-	analyzer        *tlmGuard.Guard
+	guard           guard.ServiceGuard
 }
 
 func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
@@ -139,7 +139,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		IP:     ctx.RemoteIP(),
 		UserID: common.InvalidUserID,
 	}
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.analyzer, clientID)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.guard, clientID)
 	if err != nil {
 		return
 	}
@@ -194,15 +194,14 @@ func NewLanguageGuideActions(
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 	readTimeoutSecs int,
-	db *guard.DelayStats,
-	analyzer *tlmGuard.Guard,
+	guard *tlmtr.Guard,
 ) *LanguageGuideActions {
-	wdog := NewLGWatchdog(botwatchConf, telemetryConf, db)
+	wdog := NewLGWatchdog(botwatchConf, telemetryConf, globalCtx.TelemetryDB)
 	return &LanguageGuideActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
 		readTimeoutSecs: readTimeoutSecs,
 		watchdog:        wdog,
-		analyzer:        analyzer,
+		guard:           guard,
 	}
 }

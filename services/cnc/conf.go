@@ -66,7 +66,7 @@ type ProxyConf struct {
 	// service. If empty then no user ID info will be passed.
 	TrueUserIDHeader string `json:"trueUserIdHeader"`
 
-	Limits []monitoring.Limit `json:"limits"`
+	Limits []proxy.Limit `json:"limits"`
 
 	Alarm monitoring.AlarmConf `json:"alarm"`
 
@@ -92,6 +92,7 @@ func (c *ProxyConf) GetCoreConf() proxy.GeneralProxyConf {
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
+		Limits:              c.Limits,
 	}
 }
 

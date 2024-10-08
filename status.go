@@ -10,9 +10,8 @@ import (
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/guard/telemetry"
 	"apiguard/services/logging"
+	"apiguard/telemetry"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,7 +21,7 @@ import (
 )
 
 func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident string) {
-	delayLog := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
+	delayLog := telemetry.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {
@@ -41,16 +40,16 @@ func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident str
 	telemetryAnalyzer, err := telemetry.New(
 		&conf.Botwatch,
 		&conf.Telemetry,
-		globalCtx.TimescaleDBWriter,
+		globalCtx.ReportingWriter,
 		delayLog,
 		delayLog,
 	)
 	if err != nil {
-		log.Fatal().Err(err).Msg("")
+		log.Fatal().Err(err).Send()
 	}
 	fakeReq, err := http.NewRequest("POST", "", nil)
 	if err != nil {
-		log.Fatal().Err(err).Msg("")
+		log.Fatal().Err(err).Send()
 	}
 	if sessionID != "" {
 		fakeReq.AddCookie(&http.Cookie{
@@ -67,11 +66,11 @@ func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident str
 		}
 		delay, err := telemetryAnalyzer.CalcDelay(fakeReq, clientID)
 		if err != nil {
-			log.Fatal().Err(err).Msg("")
+			log.Fatal().Err(err).Send()
 		}
 		botScore, err := telemetryAnalyzer.BotScore(fakeReq)
 		if err != nil {
-			log.Fatal().Err(err).Msg("")
+			log.Fatal().Err(err).Send()
 		}
 		fmt.Printf(
 			"\nSession: %s"+

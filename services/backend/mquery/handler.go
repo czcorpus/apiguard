@@ -9,7 +9,6 @@ package mquery
 import (
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/guard/sessionmap"
 	"apiguard/services/cnc"
 	"fmt"
 )
@@ -22,7 +21,7 @@ func NewMQueryProxy(
 	globalCtx *globctx.Context,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	guard *sessionmap.Guard,
+	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*MQueryProxy, error) {
 	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)

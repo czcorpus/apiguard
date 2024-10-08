@@ -30,7 +30,7 @@ type SSJCActions struct {
 	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
-	analyzer        guard.ServiceGuard
+	guard           guard.ServiceGuard
 }
 
 type Entry struct {
@@ -72,7 +72,7 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 		IP:     ctx.RemoteIP(),
 		UserID: common.InvalidUserID,
 	}
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.analyzer, clientID)
+	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard, clientID)
 	if err != nil {
 		return
 	}
@@ -159,13 +159,13 @@ func (aa *SSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 func NewSSJCActions(
 	globalCtx *globctx.Context,
 	conf *Conf,
-	analyzer guard.ServiceGuard,
+	guard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *SSJCActions {
 	return &SSJCActions{
 		globalCtx:       globalCtx,
 		conf:            conf,
-		analyzer:        analyzer,
+		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,
 	}
 }

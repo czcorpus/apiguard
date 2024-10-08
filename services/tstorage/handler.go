@@ -7,11 +7,10 @@
 package tstorage
 
 import (
-	"apiguard/guard"
 	"apiguard/services/logging"
-	"apiguard/services/telemetry"
+	"apiguard/telemetry"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -33,11 +32,11 @@ type payload struct {
 }
 
 type Actions struct {
-	db *guard.DelayStats
+	db *telemetry.DelayStats
 }
 
 func (a *Actions) Store(ctx *gin.Context) {
-	rawPayload, err := ioutil.ReadAll(ctx.Request.Body)
+	rawPayload, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
@@ -86,6 +85,6 @@ func (a *Actions) Store(ctx *gin.Context) {
 
 }
 
-func NewActions(db *guard.DelayStats) *Actions {
+func NewActions(db *telemetry.DelayStats) *Actions {
 	return &Actions{db: db}
 }

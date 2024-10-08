@@ -10,13 +10,11 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/users"
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
-	"net/http"
 	"net/url"
 	"time"
 
@@ -208,28 +206,13 @@ func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, req guard.R
 						IP:          req.IP,
 					},
 					service.Conf,
-					Limit{
+					proxy.Limit{
 						ReqCheckingIntervalSecs: checkInterval.ToSeconds(),
 						ReqPerTimeThreshold:     service.limits[checkInterval],
 					},
 					aticker.location,
 				)
-
-				err := newReport.AttachUserInfo(users.NewUsersTable(
-					aticker.ctx.CNCDB, aticker.ctx.UserTableProps))
-				if err != nil {
-					newReport.UserInfo = &users.User{
-						ID:          common.InvalidUserID,
-						Username:    "invalid",
-						FirstName:   "-",
-						LastName:    "-",
-						Affiliation: "-",
-					}
-					log.Error().
-						Err(err).
-						Str("reportId", newReport.ReviewCode).
-						Msg("failed to attach user info to a report")
-				}
+				// TODO !!!! attach flag "user is anonymous"
 				aticker.reports = append(aticker.reports, newReport)
 				userActivity.LastReportAt = t0
 				go aticker.sendReport(service, newReport, numReq)
@@ -346,7 +329,11 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 // Register initializes the AlarmTicker instance to watch for number and ratio
 // of incoming requests for a specific service. It returns a channel which is
 // expected to be used by a correspoding service proxy to log incoming requests.
-func (aticker *AlarmTicker) Register(service string, conf AlarmConf, limits []Limit) chan<- guard.RequestInfo {
+func (aticker *AlarmTicker) Register(
+	service string,
+	conf AlarmConf,
+	limits []proxy.Limit,
+) chan<- guard.RequestInfo {
 	if conf.RecCounterCleanupProbability == 0 {
 		log.Warn().Msgf(
 			"Service's recCounterCleanupProbability not set. Using default %0.2f",
@@ -374,81 +361,6 @@ func (aticker *AlarmTicker) HandleReportListAction(ctx *gin.Context) {
 
 }
 
-func (aticker *AlarmTicker) HandleReviewAction(ctx *gin.Context) {
-	alarmID := ctx.Param("alarmId")
-
-	var qry handleReviewPayload
-	err := json.NewDecoder(ctx.Request.Body).Decode(&qry)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
-		return
-	}
-
-	for _, report := range aticker.reports {
-		if report.ReviewCode == alarmID {
-			err := report.ConfirmReviewViaEmail(alarmID, qry.Reviewer)
-			if err == ErrConfirmationKeyNotFound {
-				uniresp.WriteJSONErrorResponse(
-					ctx.Writer,
-					uniresp.NewActionErrorFrom(err),
-					http.StatusNotFound,
-				)
-				return
-			}
-			if err == ErrMissingReviewerIdentification {
-				uniresp.WriteJSONErrorResponse(
-					ctx.Writer,
-					uniresp.NewActionErrorFrom(err),
-					http.StatusBadRequest,
-				)
-				return
-			}
-			if err != nil {
-				uniresp.WriteJSONErrorResponse(
-					ctx.Writer,
-					uniresp.NewActionErrorFrom(err),
-					http.StatusInternalServerError,
-				)
-				return
-			}
-
-			var banID int64
-			if qry.BanHours > 0 {
-				now := time.Now().In(aticker.location)
-				banID, err = guard.BanUser(
-					aticker.ctx.CNCDB,
-					aticker.location,
-					report.RequestInfo.UserID,
-					&alarmID,
-					now,
-					now.Add(time.Duration(qry.BanHours)*time.Hour),
-				)
-				if err != nil {
-					uniresp.WriteJSONErrorResponse(
-						ctx.Writer,
-						uniresp.NewActionErrorFrom(err),
-						http.StatusInternalServerError,
-					)
-					return
-				}
-			}
-			ans := handleReviewResponse{
-				Confirmed: true,
-				Report:    report,
-				BanID:     banID,
-			}
-			uniresp.WriteJSONResponse(ctx.Writer, ans)
-			return
-		}
-	}
-	uniresp.WriteJSONErrorResponse(
-		ctx.Writer,
-		uniresp.NewActionError("confirmation key not found"),
-		http.StatusNotFound,
-	)
-}
-
 func NewAlarmTicker(
 	ctx *globctx.Context,
 	loc *time.Location,
@@ -465,7 +377,7 @@ func NewAlarmTicker(
 		mailConf:        mailConf,
 		limitingConf:    limitingConf,
 		allowListUsers:  collections.NewConcurrentMap[string, []common.UserID](),
-		tDBWriter:       ctx.TimescaleDBWriter,
+		tDBWriter:       ctx.ReportingWriter,
 		reportTicker:    *time.NewTicker(monitoringSendInterval),
 	}
 }

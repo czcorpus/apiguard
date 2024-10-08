@@ -7,8 +7,9 @@
 package monitoring
 
 import (
+	"apiguard/common"
 	"apiguard/guard"
-	"apiguard/users"
+	"apiguard/proxy"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
@@ -37,23 +38,16 @@ type Reviewer struct {
 }
 
 type AlarmReport struct {
-	RequestInfo guard.RequestInfo `json:"requestInfo"`
-	Alarm       AlarmConf         `json:"-"`
-	Rules       Limit             `json:"rules"`
-	Created     time.Time         `json:"created"`
-	Reviewed    time.Time         `json:"reviewed"`
-	ReviewCode  string            `json:"reviewCode"`
-	UserInfo    *users.User       `json:"userInfo"`
-	Reviews     []Reviewer        `json:"reviews"`
-	location    *time.Location
-}
-
-func (report *AlarmReport) AttachUserInfo(table *users.UsersTable) error {
-	userInfo, err := table.UserInfo(report.RequestInfo.UserID)
-	if err == nil && userInfo != nil {
-		report.UserInfo = userInfo
-	}
-	return err
+	RequestInfo     guard.RequestInfo `json:"requestInfo"`
+	Alarm           AlarmConf         `json:"-"`
+	Rules           proxy.Limit       `json:"rules"`
+	Created         time.Time         `json:"created"`
+	Reviewed        time.Time         `json:"reviewed"`
+	ReviewCode      string            `json:"reviewCode"`
+	UserID          common.UserID     `json:"userId"`
+	IsAnonymousUser bool              `json:"isAnonymousUser"`
+	Reviews         []Reviewer        `json:"reviews"`
+	location        *time.Location
 }
 
 func (report *AlarmReport) MarshalJSON() ([]byte, error) {
@@ -68,21 +62,23 @@ func (report *AlarmReport) MarshalJSON() ([]byte, error) {
 	}
 	return json.Marshal(
 		struct {
-			RequestInfo guard.RequestInfo `json:"requestInfo"`
-			Rules       AlarmConf         `json:"rules"`
-			Created     time.Time         `json:"created"`
-			Reviewed    *time.Time        `json:"reviewed"`
-			ReviewCode  string            `json:"reviewCode"`
-			UserInfo    *users.User       `json:"userInfo,omitempty"`
-			Reviewers   []string          `json:"reviewers"`
+			RequestInfo     guard.RequestInfo `json:"requestInfo"`
+			Rules           AlarmConf         `json:"rules"`
+			Created         time.Time         `json:"created"`
+			Reviewed        *time.Time        `json:"reviewed"`
+			ReviewCode      string            `json:"reviewCode"`
+			UserID          common.UserID     `json:"userId"`
+			IsAnonymousUser bool              `json:"isAnonymousUser"`
+			Reviewers       []string          `json:"reviewers"`
 		}{
-			RequestInfo: report.RequestInfo,
-			Rules:       report.Alarm,
-			Created:     report.Created,
-			Reviewed:    reviewed2,
-			ReviewCode:  report.ReviewCode,
-			UserInfo:    report.UserInfo,
-			Reviewers:   reviewers,
+			RequestInfo:     report.RequestInfo,
+			Rules:           report.Alarm,
+			Created:         report.Created,
+			Reviewed:        reviewed2,
+			ReviewCode:      report.ReviewCode,
+			UserID:          report.UserID,
+			IsAnonymousUser: report.IsAnonymousUser,
+			Reviewers:       reviewers,
 		},
 	)
 
@@ -142,7 +138,12 @@ func generateReviewCode() string {
 	return hex.EncodeToString(sum[:])
 }
 
-func NewAlarmReport(reqInfo guard.RequestInfo, alarmConf AlarmConf, rules Limit, loc *time.Location) *AlarmReport {
+func NewAlarmReport(
+	reqInfo guard.RequestInfo,
+	alarmConf AlarmConf,
+	rules proxy.Limit,
+	loc *time.Location,
+) *AlarmReport {
 	return &AlarmReport{
 		Reviews:     make([]Reviewer, 0, 5),
 		Created:     time.Now().In(loc),

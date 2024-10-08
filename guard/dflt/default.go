@@ -8,7 +8,9 @@ package dflt
 
 import (
 	"apiguard/common"
+	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/telemetry"
 	"database/sql"
 	"math"
 	"net/http"
@@ -27,11 +29,12 @@ const (
 // for authenticated users.
 type Guard struct {
 	db                *sql.DB
-	delayStats        *guard.DelayStats
+	storage           telemetry.Storage
 	sessionCookieName string
 	numRequests       *collections.ConcurrentMap[string, guard.RequestIPCount]
 	clientCounter     chan common.ClientID
 	cleanupInterval   time.Duration
+	loc               *time.Location
 }
 
 func (sra *Guard) ExposeAsCounter() chan<- common.ClientID {
@@ -52,6 +55,9 @@ func (sra *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.
 }
 
 func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
+	if err := sra.storage.LogAppliedDelay(respDelay, clientID); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -75,13 +81,16 @@ func (sra *Guard) Run() {
 	}
 }
 
-func New(db *sql.DB, delayStats *guard.DelayStats, sessionCookieName string) *Guard {
+func New(
+	globalCtx *globctx.Context,
+	sessionCookieName string,
+) *Guard {
 	return &Guard{
-		db:                db,
-		delayStats:        delayStats,
+		db:                globalCtx.CNCDB,
 		sessionCookieName: sessionCookieName,
 		numRequests:       collections.NewConcurrentMap[string, guard.RequestIPCount](),
 		clientCounter:     make(chan common.ClientID),
 		cleanupInterval:   dfltCleanupInterval,
+		loc:               globalCtx.TimezoneLocation,
 	}
 }

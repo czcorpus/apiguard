@@ -30,7 +30,7 @@ type Conf struct {
 	// in the CNCAuth section where a central auth cookie is defined.
 	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
-	Limits []monitoring.Limit `json:"limits"`
+	Limits []proxy.Limit `json:"limits"`
 
 	Alarm monitoring.AlarmConf `json:"alarm"`
 
@@ -52,5 +52,6 @@ func (c *Conf) GetCoreConf() proxy.GeneralProxyConf {
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
+		Limits:              c.Limits,
 	}
 }

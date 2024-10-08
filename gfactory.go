@@ -14,22 +14,30 @@ import (
 	"apiguard/guard/null"
 	"apiguard/guard/sessionmap"
 	"apiguard/services/cnc"
+	"time"
 )
 
 func NewGuard(
 	name cnc.GuardType,
-	delayStats *guard.DelayStats,
 	globalCtx *globctx.Context,
 	internalSessCookieName string,
 	externalSessCookieName string,
-	anonymousUserID common.UserID,
+	anonymousUserIDs common.AnonymousUsers,
+	loc *time.Location,
 ) guard.ServiceGuard {
 	switch name {
 	case cnc.GuardTypeDefault:
-		return dflt.New(globalCtx.CNCDB, delayStats, externalSessCookieName)
+		return dflt.New(
+			globalCtx,
+			externalSessCookieName,
+		)
 	case cnc.GuardTypeSessionMap:
 		return sessionmap.New(
-			globalCtx, delayStats, internalSessCookieName, externalSessCookieName, anonymousUserID)
+			globalCtx,
+			internalSessCookieName,
+			externalSessCookieName,
+			anonymousUserIDs,
+		)
 	case cnc.GuardTypeNull:
 		return null.New()
 	}

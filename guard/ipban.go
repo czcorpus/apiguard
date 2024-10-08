@@ -14,38 +14,14 @@ import (
 	"time"
 )
 
-func TestIPBan(db *sql.DB, IP net.IP, loc *time.Location) (bool, error) {
-	now := time.Now()
-	if loc != nil {
-		now = now.In(loc)
-	}
-	qAns := db.QueryRow(
-		"SELECT ? < end_dt FROM api_ip_ban WHERE ip_address = ? AND active = 1",
-		now,
-		IP.String(),
-	)
-	var isBanned bool
-	scanErr := qAns.Scan(&isBanned)
-	if scanErr == sql.ErrNoRows {
-		return false, nil
-
-	} else if scanErr != nil {
-		return false, scanErr
-	}
-	if qAns.Err() != nil {
-		return false, qAns.Err()
-	}
-	return isBanned, nil
-}
-
-func (c *DelayStats) InsertIPBan(IP net.IP, ttl int) error {
-	tx, err := c.conn.Begin()
+func InsertIPBan(db *sql.DB, IP net.IP, ttl int, loc *time.Location) error {
+	tx, err := db.Begin()
 	if err != nil {
 		return err
 	}
 	now := time.Now()
-	if c.location != nil {
-		now = now.In(c.location)
+	if loc != nil {
+		now = now.In(loc)
 	}
 	if ttl > 0 {
 		end_dt := now.Add(time.Duration(ttl) * time.Second)
@@ -65,8 +41,8 @@ func (c *DelayStats) InsertIPBan(IP net.IP, ttl int) error {
 	return err
 }
 
-func (c *DelayStats) RemoveIPBan(IP net.IP) error {
-	tx, err := c.conn.Begin()
+func RemoveIPBan(db *sql.DB, IP net.IP) error {
+	tx, err := db.Begin()
 	if err != nil {
 		tx.Rollback()
 		return err
@@ -89,8 +65,4 @@ func (c *DelayStats) RemoveIPBan(IP net.IP) error {
 	}
 	err = tx.Commit()
 	return err
-}
-
-func (c *DelayStats) TestIPBan(IP net.IP) (bool, error) {
-	return TestIPBan(c.conn, IP, c.location)
 }

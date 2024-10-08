@@ -13,15 +13,17 @@ import (
 	"apiguard/proxy"
 	"apiguard/services/logging"
 	"apiguard/session"
-	"apiguard/users"
+	"apiguard/telemetry"
 	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"golang.org/x/time/rate"
 )
 
 // Guard analyzes user request and based on session,
@@ -36,10 +38,11 @@ import (
 // in communication between APIGuard and protected application server.
 // This is used e.g. with WaG.
 type Guard struct {
-	db             *sql.DB
-	delayStats     *guard.DelayStats
-	location       *time.Location
-	userTableProps users.UserTableProps
+	db *sql.DB
+
+	location *time.Location
+
+	tlmtrStorage telemetry.Storage
 
 	// internalSessionCookie is a cookie used between APIGuard and API (e.g. KonText-API)
 	// Please note that CNC central authentication cookie is typically the same
@@ -71,7 +74,11 @@ type Guard struct {
 	// (possibly with some lowered permissions) such user to otherwise non-public CNC APIs.
 	externalSessionCookie string
 
-	AnonymousUserID common.UserID
+	AnonymousUserIDs common.AnonymousUsers
+
+	rateLimiters map[string]*rate.Limiter
+
+	rateLimitersMu sync.Mutex
 }
 
 // CalcDelay calculates a delay user deserves.
@@ -97,11 +104,7 @@ func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.
 }
 
 func (kua *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
-	err := kua.delayStats.LogAppliedDelay(respDelay, clientID)
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to register delay log")
-	}
-	return err
+	return kua.tlmtrStorage.LogAppliedDelay(respDelay, clientID)
 }
 
 // getSession returns a user session value value along with the information
@@ -172,6 +175,16 @@ func (analyzer *Guard) ClientInducedRespStatus(
 	serviceName string,
 ) guard.ReqProperties {
 
+	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
+	if err != nil {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusUnauthorized,
+			UserID:         common.InvalidUserID,
+			SessionID:      "",
+			Error:          fmt.Errorf("failed to determine user IP: %w", err),
+		}
+	}
+
 	if analyzer.db == nil {
 		return guard.ReqProperties{
 			ProposedStatus: http.StatusOK,
@@ -193,21 +206,15 @@ func (analyzer *Guard) ClientInducedRespStatus(
 			Error:          fmt.Errorf("session cookie not found"),
 		}
 	}
-	sessionID := analyzer.GetSessionID(req)
-	banned, userID, err := guard.FindBanBySession(analyzer.db, analyzer.location, sessionID, serviceName)
-	if err == sql.ErrNoRows || userID == analyzer.AnonymousUserID || !userID.IsValid() {
-		log.Debug().Msgf("session %s not present in database", sessionID)
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusUnauthorized,
-			UserID:         common.InvalidUserID,
-			SessionID:      "",
-			Error:          nil,
-		}
-	}
+
 	status := http.StatusOK
-	if banned {
-		status = http.StatusForbidden
+	analyzer.rateLimitersMu.Lock()
+	defer analyzer.rateLimitersMu.Unlock()
+	limiter, exists := analyzer.rateLimiters[clientIP]
+	if !exists {
+		analyzer.rateLimiters[clientIP] = rate.NewLimiter()
 	}
+
 	return guard.ReqProperties{
 		ProposedStatus: status,
 		UserID:         userID,
@@ -218,19 +225,17 @@ func (analyzer *Guard) ClientInducedRespStatus(
 
 func New(
 	globalCtx *globctx.Context,
-	delayStats *guard.DelayStats,
 	internalSessionCookie string,
 	externalSessionCookie string,
-	anonymousUserID common.UserID,
+	anonymousUserIDs common.AnonymousUsers,
 
 ) *Guard {
 	return &Guard{
 		db:                    globalCtx.CNCDB,
-		delayStats:            delayStats,
 		location:              globalCtx.TimezoneLocation,
-		userTableProps:        globalCtx.UserTableProps,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,
-		AnonymousUserID:       anonymousUserID,
+		AnonymousUserIDs:      anonymousUserIDs,
+		rateLimiters:          make(map[string]*rate.Limiter),
 	}
 }

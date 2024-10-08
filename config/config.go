@@ -23,7 +23,7 @@ import (
 	"apiguard/services/backend/psjc"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
-	"apiguard/services/telemetry"
+	"apiguard/telemetry"
 	"encoding/json"
 	"errors"
 	"fmt"

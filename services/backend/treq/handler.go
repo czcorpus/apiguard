@@ -58,7 +58,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != tp.guard.AnonymousUserID {
+		if currHumanID.IsValid() && tp.guard.AnonymousUserIDs.IsAnonymous(*currHumanID) {
 			loggedUserID = currHumanID
 		}
 		if tp.reqCounter != nil {
@@ -215,6 +215,6 @@ func NewTreqProxy(
 		readTimeoutSecs: readTimeoutSecs,
 		apiProxy:        proxy,
 		reqCounter:      reqCounter,
-		tDBWriter:       globalCtx.TimescaleDBWriter,
+		tDBWriter:       globalCtx.ReportingWriter,
 	}, nil
 }

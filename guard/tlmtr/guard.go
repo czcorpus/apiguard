@@ -4,21 +4,21 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package telemetry
+package tlmtr
 
 import (
 	"apiguard/botwatch"
 	"apiguard/common"
+	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/reporting"
-
 	"apiguard/services/logging"
-	"apiguard/services/telemetry"
-	"apiguard/services/telemetry/backend"
-	"apiguard/services/telemetry/backend/counting"
-	"apiguard/services/telemetry/backend/dumb"
-	"apiguard/services/telemetry/backend/entropy"
-	"apiguard/services/telemetry/backend/neural"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
+	"apiguard/telemetry/backend/counting"
+	"apiguard/telemetry/backend/dumb"
+	"apiguard/telemetry/backend/entropy"
+	"apiguard/telemetry/backend/neural"
+	"database/sql"
 	"fmt"
 	"math"
 	"net"
@@ -39,13 +39,6 @@ type Backend interface {
 	BotScore(req *http.Request) (float64, error)
 }
 
-type StatsStorage interface {
-	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*guard.IPProcData, error)
-	LoadIPStats(clientIP string, maxAgeSecs int) (*guard.IPAggData, error)
-	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.ClientID) error
-}
-
 // penaltyFn1 and penaltyFn2 are functions with intersection in x=50 where penaltyFn2 is
 // more steep.
 func penaltyFn1(x int) int {
@@ -63,9 +56,11 @@ func penaltyFn3(x int) int {
 }
 
 type Guard struct {
+	db      *sql.DB
 	backend Backend
-	storage StatsStorage
+	storage telemetry.Storage
 	conf    *botwatch.Conf
+	loc     *time.Location
 }
 
 func (a *Guard) BotScore(req *http.Request) (float64, error) {
@@ -96,6 +91,10 @@ func (a *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.De
 		return delayInfo, err
 	}
 	if isBanned {
+		log.Debug().
+			Str("guardType", "telemetry").
+			Str("clientId", clientID.GetKey()).
+			Msg("found user ban")
 		delayInfo.Delay = guard.UltraDuration
 		delayInfo.IsBan = true
 		return delayInfo, nil
@@ -157,47 +156,50 @@ func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.Clien
 }
 
 func New(
+	globalCtx *globctx.Context,
 	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
-	tDBWriter reporting.ReportingWriter,
-	db backend.TelemetryStorage,
-	statsStorage StatsStorage,
 ) (*Guard, error) {
 	switch telemetryConf.Analyzer {
 	case "counting":
 		return &Guard{
+			db:      globalCtx.CNCDB,
 			conf:    conf,
-			backend: counting.NewAnalyzer(db),
-			storage: statsStorage,
+			backend: counting.NewAnalyzer(globalCtx.TelemetryDB),
+			loc:     globalCtx.TimezoneLocation,
 		}, nil
 	case "dumb":
 		return &Guard{
+			db:      globalCtx.CNCDB,
 			conf:    conf,
-			backend: dumb.NewAnalyzer(db),
-			storage: statsStorage,
+			backend: dumb.NewAnalyzer(globalCtx.TelemetryDB),
+			loc:     globalCtx.TimezoneLocation,
 		}, nil
 	case "entropy":
-		backend, err := entropy.NewAnalyzer(db, tDBWriter, telemetryConf)
+		backend, err := entropy.NewAnalyzer(
+			globalCtx.TelemetryDB, globalCtx.ReportingWriter, telemetryConf)
 		if err != nil {
 			return nil, err
 		}
 		return &Guard{
+			db:      globalCtx.CNCDB,
 			conf:    conf,
 			backend: backend,
-			storage: statsStorage,
+			loc:     globalCtx.TimezoneLocation,
 		}, nil
 	case "neural":
 		backend, err := neural.NewAnalyzer(
-			db,
+			globalCtx.TelemetryDB,
 			telemetryConf,
 		)
 		if err != nil {
 			return nil, err
 		}
 		return &Guard{
+			db:      globalCtx.CNCDB,
 			conf:    conf,
 			backend: backend,
-			storage: statsStorage,
+			loc:     globalCtx.TimezoneLocation,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown analyzer backend %s", telemetryConf.Analyzer)

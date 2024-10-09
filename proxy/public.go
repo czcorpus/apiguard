@@ -109,9 +109,8 @@ func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID comm
 	return nil
 }
 
-func (prox *PublicAPIProxy) userInternalCookieStatus(
+func (prox *PublicAPIProxy) determineTrueUserID(
 	req *http.Request,
-	serviceName string,
 ) (common.UserID, error) {
 
 	cookie := prox.getUserCNCSessionCookie(req)
@@ -148,7 +147,7 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 
 	var err error
 	if prox.userIDHeaderName != "" {
-		humanID, err = prox.userInternalCookieStatus(ctx.Request, prox.serviceName)
+		humanID, err = prox.determineTrueUserID(ctx.Request)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}

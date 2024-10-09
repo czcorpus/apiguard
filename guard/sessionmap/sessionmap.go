@@ -74,11 +74,17 @@ type Guard struct {
 	// (possibly with some lowered permissions) such user to otherwise non-public CNC APIs.
 	externalSessionCookie string
 
-	AnonymousUserIDs common.AnonymousUsers
+	anonymousUsers common.AnonymousUsers
 
 	rateLimiters map[string]*rate.Limiter
 
+	confLimits []proxy.Limit
+
 	rateLimitersMu sync.Mutex
+}
+
+func (kua *Guard) TestUserIsAnonymous(userID common.UserID) bool {
+	return kua.anonymousUsers.IsAnonymous(userID)
 }
 
 // CalcDelay calculates a delay user deserves.
@@ -91,7 +97,7 @@ func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.
 		Delay: time.Duration(0),
 		IsBan: false,
 	}
-	isBanned, err := guard.TestIPBan(kua.db, net.ParseIP(ip), kua.location)
+	isBanned, err := kua.tlmtrStorage.TestIPBan(net.ParseIP(ip))
 	if err != nil {
 		return delayInfo, err
 	}
@@ -144,13 +150,10 @@ func (kua *Guard) getUserCNCSessionID(req *http.Request) session.CNCSessionValue
 	return ans
 }
 
-// UserInternalCookieStatus tests whether CNC authentication
+// DetermineTrueUserID tests whether CNC authentication
 // cookie (internal cookie in our terms) provides a valid
 // non-anonymous user
-func (kua *Guard) UserInternalCookieStatus(
-	req *http.Request,
-	serviceName string,
-) (common.UserID, error) {
+func (kua *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
 
 	cookie := kua.getUserCNCSessionCookie(req)
 	if kua.db == nil || cookie == nil {
@@ -170,10 +173,7 @@ func (kua *Guard) UserInternalCookieStatus(
 // sends custom auth cookie, then the user identified by that cookie
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
-func (analyzer *Guard) ClientInducedRespStatus(
-	req *http.Request,
-	serviceName string,
-) guard.ReqProperties {
+func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
 
 	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
 	if err != nil {
@@ -194,6 +194,7 @@ func (analyzer *Guard) ClientInducedRespStatus(
 		}
 	}
 	cookieValue, _ := analyzer.getSession(req)
+	userID := common.InvalidUserID
 	if cookieValue == "" {
 		proxy.LogCookies(req, log.Debug()).
 			Str("internalCookie", analyzer.internalSessionCookie).
@@ -202,23 +203,43 @@ func (analyzer *Guard) ClientInducedRespStatus(
 		return guard.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			UserID:         common.InvalidUserID,
-			SessionID:      "",
 			Error:          fmt.Errorf("session cookie not found"),
+		}
+
+	} else {
+		var err error
+		userID, err = analyzer.DetermineTrueUserID(req)
+		if err != nil {
+			return guard.ReqProperties{
+				ProposedStatus: http.StatusInternalServerError,
+				UserID:         common.InvalidUserID,
+				Error:          fmt.Errorf("failed to determine userID: %w", err),
+			}
 		}
 	}
 
-	status := http.StatusOK
 	analyzer.rateLimitersMu.Lock()
 	defer analyzer.rateLimitersMu.Unlock()
 	limiter, exists := analyzer.rateLimiters[clientIP]
 	if !exists {
-		analyzer.rateLimiters[clientIP] = rate.NewLimiter()
+		flimit := analyzer.confLimits[0]
+		analyzer.rateLimiters[clientIP] = rate.NewLimiter(
+			flimit.NormLimitPerSec(),
+			flimit.BurstLimit,
+		)
+	}
+	if !limiter.Allow() {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusTooManyRequests,
+			UserID:         userID,
+			SessionID:      cookieValue,
+		}
 	}
 
 	return guard.ReqProperties{
-		ProposedStatus: status,
+		ProposedStatus: http.StatusOK,
 		UserID:         userID,
-		SessionID:      sessionID,
+		SessionID:      cookieValue,
 		Error:          err,
 	}
 }
@@ -227,7 +248,6 @@ func New(
 	globalCtx *globctx.Context,
 	internalSessionCookie string,
 	externalSessionCookie string,
-	anonymousUserIDs common.AnonymousUsers,
 
 ) *Guard {
 	return &Guard{
@@ -235,7 +255,7 @@ func New(
 		location:              globalCtx.TimezoneLocation,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,
-		AnonymousUserIDs:      anonymousUserIDs,
+		anonymousUsers:        globalCtx.AnonymousUserIDs,
 		rateLimiters:          make(map[string]*rate.Limiter),
 	}
 }

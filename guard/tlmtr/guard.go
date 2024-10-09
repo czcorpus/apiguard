@@ -56,11 +56,20 @@ func penaltyFn3(x int) int {
 }
 
 type Guard struct {
-	db      *sql.DB
-	backend Backend
-	storage telemetry.Storage
-	conf    *botwatch.Conf
-	loc     *time.Location
+	db             *sql.DB
+	backend        Backend
+	storage        telemetry.Storage
+	conf           *botwatch.Conf
+	loc            *time.Location
+	anonymousUsers common.AnonymousUsers
+}
+
+func (a *Guard) TestUserIsAnonymous(userID common.UserID) bool {
+	return a.anonymousUsers.IsAnonymous(userID)
+}
+
+func (a *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
+	return common.InvalidUserID, nil
 }
 
 func (a *Guard) BotScore(req *http.Request) (float64, error) {
@@ -71,7 +80,7 @@ func (a *Guard) Learn() error {
 	return a.backend.Learn()
 }
 
-func (a *Guard) ClientInducedRespStatus(req *http.Request, serviceName string) guard.ReqProperties {
+func (a *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
 	return guard.ReqProperties{
 		UserID:         common.InvalidUserID,
 		SessionID:      "",
@@ -160,20 +169,25 @@ func New(
 	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 ) (*Guard, error) {
+	if telemetryConf == nil {
+		return nil, fmt.Errorf("cannot instantiate telemetry-based guard - missing telemetry configuration")
+	}
 	switch telemetryConf.Analyzer {
 	case "counting":
 		return &Guard{
-			db:      globalCtx.CNCDB,
-			conf:    conf,
-			backend: counting.NewAnalyzer(globalCtx.TelemetryDB),
-			loc:     globalCtx.TimezoneLocation,
+			db:             globalCtx.CNCDB,
+			conf:           conf,
+			backend:        counting.NewAnalyzer(globalCtx.TelemetryDB),
+			loc:            globalCtx.TimezoneLocation,
+			anonymousUsers: globalCtx.AnonymousUserIDs,
 		}, nil
 	case "dumb":
 		return &Guard{
-			db:      globalCtx.CNCDB,
-			conf:    conf,
-			backend: dumb.NewAnalyzer(globalCtx.TelemetryDB),
-			loc:     globalCtx.TimezoneLocation,
+			db:             globalCtx.CNCDB,
+			conf:           conf,
+			backend:        dumb.NewAnalyzer(globalCtx.TelemetryDB),
+			loc:            globalCtx.TimezoneLocation,
+			anonymousUsers: globalCtx.AnonymousUserIDs,
 		}, nil
 	case "entropy":
 		backend, err := entropy.NewAnalyzer(
@@ -182,10 +196,11 @@ func New(
 			return nil, err
 		}
 		return &Guard{
-			db:      globalCtx.CNCDB,
-			conf:    conf,
-			backend: backend,
-			loc:     globalCtx.TimezoneLocation,
+			db:             globalCtx.CNCDB,
+			conf:           conf,
+			backend:        backend,
+			loc:            globalCtx.TimezoneLocation,
+			anonymousUsers: globalCtx.AnonymousUserIDs,
 		}, nil
 	case "neural":
 		backend, err := neural.NewAnalyzer(
@@ -196,10 +211,11 @@ func New(
 			return nil, err
 		}
 		return &Guard{
-			db:      globalCtx.CNCDB,
-			conf:    conf,
-			backend: backend,
-			loc:     globalCtx.TimezoneLocation,
+			db:             globalCtx.CNCDB,
+			conf:           conf,
+			backend:        backend,
+			loc:            globalCtx.TimezoneLocation,
+			anonymousUsers: globalCtx.AnonymousUserIDs,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown analyzer backend %s", telemetryConf.Analyzer)

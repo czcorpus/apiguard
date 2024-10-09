@@ -7,6 +7,7 @@
 package globctx
 
 import (
+	"apiguard/common"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/telemetry"
@@ -28,6 +29,7 @@ type Context struct {
 	ReportingWriter  reporting.ReportingWriter
 	Cache            proxy.Cache
 	wCtx             context.Context
+	AnonymousUserIDs common.AnonymousUsers
 }
 
 func (gc *Context) Deadline() (deadline time.Time, ok bool) {

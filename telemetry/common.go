@@ -8,7 +8,9 @@ package telemetry
 import (
 	"apiguard/common"
 	"apiguard/guard"
+	"database/sql"
 	"net"
+	"time"
 )
 
 type Storage interface {
@@ -23,4 +25,10 @@ type Storage interface {
 	UpdateStats(data *IPProcData) error
 	CalcStatsTelemetryDiscrepancy(clientIP, sessionID string, historySecs int) (int, error)
 	InsertBotLikeTelemetry(clientIP, sessionID string) error
+	InsertTelemetry(transact *sql.Tx, data Payload) error
+	AnalyzeDelayLog(binWidth float64, otherLimit float64) (*delayLogsHistogram, error)
+	AnalyzeBans(timeAgo time.Duration) ([]banRow, error)
+	StartTx() (*sql.Tx, error)
+	RollbackTx(*sql.Tx) error
+	CommitTx(*sql.Tx) error
 }

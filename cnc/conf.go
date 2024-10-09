@@ -81,15 +81,15 @@ const (
 )
 
 type Conf struct {
-	Name                     string          `json:"name"`
-	Host                     string          `json:"host"`
-	User                     string          `json:"user"`
-	Password                 string          `json:"password"`
-	OverrideUserTableName    string          `json:"overrideUserTableName"`
-	OverrideUsernameColName  string          `json:"overrideUsernameColName"`
-	OverrideFirstnameColName string          `json:"overrideFirstnameColName"`
-	OverrideLastnameColName  string          `json:"overrideLastnameColName"`
-	AnonymousUserIDs         []common.UserID `json:"anonymousUserIds"`
+	Name                     string                `json:"name"`
+	Host                     string                `json:"host"`
+	User                     string                `json:"user"`
+	Password                 string                `json:"password"`
+	OverrideUserTableName    string                `json:"overrideUserTableName"`
+	OverrideUsernameColName  string                `json:"overrideUsernameColName"`
+	OverrideFirstnameColName string                `json:"overrideFirstnameColName"`
+	OverrideLastnameColName  string                `json:"overrideLastnameColName"`
+	AnonymousUserIDs         common.AnonymousUsers `json:"anonymousUserIds"`
 }
 
 func (conf *Conf) Validate(context string) error {

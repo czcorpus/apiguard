@@ -120,7 +120,7 @@ type Configuration struct {
 	// Mostly, we should stick here with our internal network.
 	APIAllowedClients []string                 `json:"apiAllowedClients"`
 	Botwatch          botwatch.Conf            `json:"botwatch"`
-	Telemetry         telemetry.Conf           `json:"telemetry"`
+	Telemetry         *telemetry.Conf          `json:"telemetry"`
 	Services          servicesSection          `json:"services"`
 	Cache             reqcache.Conf            `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
@@ -173,8 +173,11 @@ func (c *Configuration) Validate() error {
 	if err := c.Botwatch.Validate("botwatch"); err != nil {
 		return err
 	}
-	if err := c.Telemetry.Validate("telemetry"); err != nil {
-		return err
+	fmt.Println(">>> ", c.Telemetry)
+	if c.Telemetry != nil {
+		if err := c.Telemetry.Validate("telemetry"); err != nil {
+			return err
+		}
 	}
 	if err := c.CNCDB.Validate("cncDb"); err != nil {
 		return err

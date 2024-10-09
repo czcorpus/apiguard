@@ -10,6 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/globctx"
+	"apiguard/guard/tlmtr"
 	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"fmt"
@@ -37,12 +38,10 @@ func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident str
 		}
 	}
 
-	telemetryAnalyzer, err := telemetry.New(
+	telemetryAnalyzer, err := tlmtr.New(
+		globalCtx,
 		&conf.Botwatch,
-		&conf.Telemetry,
-		globalCtx.ReportingWriter,
-		delayLog,
-		delayLog,
+		conf.Telemetry,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Send()

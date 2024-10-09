@@ -36,7 +36,6 @@ func NewGuard(
 			globalCtx,
 			internalSessCookieName,
 			externalSessCookieName,
-			anonymousUserIDs,
 		)
 	case cnc.GuardTypeNull:
 		return null.New()

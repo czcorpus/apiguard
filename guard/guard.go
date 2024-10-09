@@ -80,9 +80,11 @@ type ServiceGuard interface {
 	// delay calculations (for the same client)
 	LogAppliedDelay(respDelay DelayInfo, clientID common.ClientID) error
 
-	ClientInducedRespStatus(req *http.Request, serviceName string) ReqProperties
+	ClientInducedRespStatus(req *http.Request) ReqProperties
 
 	TestUserIsAnonymous(userID common.UserID) bool
+
+	DetermineTrueUserID(req *http.Request) (common.UserID, error)
 }
 
 func RestrictResponseTime(

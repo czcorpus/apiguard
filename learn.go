@@ -18,7 +18,7 @@ func runLearn(globalCtx *globctx.Context, conf *config.Configuration) {
 	telemetryAnalyzer, err := tlmtr.New(
 		globalCtx,
 		&conf.Botwatch,
-		&conf.Telemetry,
+		conf.Telemetry,
 	)
 	if err != nil {
 		log.Fatal().Err(err).Msg("")

@@ -32,7 +32,7 @@ type payload struct {
 }
 
 type Actions struct {
-	db *telemetry.DelayStats
+	db telemetry.Storage
 }
 
 func (a *Actions) Store(ctx *gin.Context) {
@@ -85,6 +85,6 @@ func (a *Actions) Store(ctx *gin.Context) {
 
 }
 
-func NewActions(db *telemetry.DelayStats) *Actions {
+func NewActions(db telemetry.Storage) *Actions {
 	return &Actions{db: db}
 }

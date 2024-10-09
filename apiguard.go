@@ -163,6 +163,7 @@ func createGlobalCtx(
 	ans.BackendLogger = globctx.NewBackendLogger(tDBWriter)
 	ans.CNCDB = openCNCDatabase(&conf.CNCDB)
 	ans.Cache = cache
+	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
 
 	// delay stats writer and telemetry analyzer
 	ans.TelemetryDB = telemetry.NewDelayStats(ans.CNCDB, conf.TimezoneLocation())

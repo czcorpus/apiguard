@@ -77,7 +77,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 		)
 	}(&userId)
 
-	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request, kp.rConf.ServiceName)
+	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request)
 	userId = reqProps.UserID
 	if reqProps.Error != nil {
 		http.Error(
@@ -238,7 +238,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && kp.guard.AnonymousUserIDs.IsAnonymous(*currHumanID) {
+		if currHumanID.IsValid() && kp.guard.TestUserIsAnonymous(*currHumanID) {
 			loggedUserID = currHumanID
 		}
 		if kp.reqCounter != nil {
@@ -266,7 +266,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request, kp.rConf.ServiceName)
+	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
@@ -283,7 +283,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 
-	humanID, err := kp.guard.UserInternalCookieStatus(ctx.Request, kp.rConf.ServiceName)
+	humanID, err := kp.guard.DetermineTrueUserID(ctx.Request)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to extract human user ID information")
 		http.Error(ctx.Writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)

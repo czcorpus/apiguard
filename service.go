@@ -179,7 +179,7 @@ func runService(conf *config.Configuration) {
 	// "Jazyková příručka ÚJČ"
 
 	if conf.Services.LanguageGuide.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for LanguageGuide")
 			return
@@ -188,7 +188,7 @@ func runService(conf *config.Configuration) {
 			globalCtx,
 			&conf.Services.LanguageGuide,
 			&conf.Botwatch,
-			&conf.Telemetry,
+			conf.Telemetry,
 			conf.ServerReadTimeoutSecs,
 			guard,
 		)
@@ -198,7 +198,7 @@ func runService(conf *config.Configuration) {
 	// "Akademický slovník současné češtiny"
 
 	if conf.Services.ASSC.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for ASSC")
 			return
@@ -216,7 +216,7 @@ func runService(conf *config.Configuration) {
 	// "Slovník spisovného jazyka českého"
 
 	if conf.Services.SSJC.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for SSJC")
 			return
@@ -234,7 +234,7 @@ func runService(conf *config.Configuration) {
 	// "Příruční slovník jazyka českého"
 
 	if conf.Services.PSJC.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for PSJC")
 			return
@@ -252,7 +252,7 @@ func runService(conf *config.Configuration) {
 	// "Kartotéka lexikálního archivu"
 
 	if conf.Services.KLA.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for KLA")
 			return
@@ -270,7 +270,7 @@ func runService(conf *config.Configuration) {
 	// "Neomat"
 
 	if conf.Services.Neomat.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for Neomat")
 			return
@@ -288,7 +288,7 @@ func runService(conf *config.Configuration) {
 	// "Český jazykový atlas"
 
 	if conf.Services.CJA.BaseURL != "" {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, &conf.Telemetry)
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for CJA")
 			return
@@ -315,7 +315,6 @@ func runService(conf *config.Configuration) {
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Kontext.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserIDs,
 		)
 
 		var kontextReqCounter chan<- guard.RequestInfo
@@ -375,7 +374,7 @@ func runService(conf *config.Configuration) {
 				CNCPortalLoginURL: cncPortalLoginURL,
 				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
 			},
-			dflt.New(globalCtx, &conf.Botwatch, &conf.Telemetry),
+			dflt.New(globalCtx, conf.CNCAuth.SessionCookieName),
 			mqueryReqCounter,
 		)
 		if err != nil {
@@ -402,10 +401,8 @@ func runService(conf *config.Configuration) {
 	if conf.Services.MQueryGPT.ExternalURL != "" {
 		cnca := sessionmap.New(
 			globalCtx,
-			delayStats,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.MQueryGPT.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
 		)
 
 		var mqueryReqCounter chan<- guard.RequestInfo
@@ -453,7 +450,6 @@ func runService(conf *config.Configuration) {
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Treq.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserIDs,
 		)
 		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
@@ -485,8 +481,7 @@ func runService(conf *config.Configuration) {
 			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
 		)
 		analyzer := dflt.New(
-			globalCtx.CNCDB,
-			delayStats,
+			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 		)
 		go analyzer.Run()
@@ -525,16 +520,6 @@ func runService(conf *config.Configuration) {
 		log.Info().Msg("Service KWords enabled")
 	}
 
-	// user handling
-
-	usersActions := userHandlers.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
-
-	apiRoutes.GET("/user/:userID/ban", usersActions.BanInfo)
-
-	apiRoutes.PUT("/user/:userID/ban", usersActions.SetBan)
-
-	apiRoutes.DELETE("/user/:userID/ban", usersActions.DisableBan)
-
 	// session tools
 
 	apiRoutes.GET("/defaults/:serviceID/:key", sessActions.Get)
@@ -543,7 +528,7 @@ func runService(conf *config.Configuration) {
 
 	// administration/monitoring actions
 
-	telemetryActions := tstorage.NewActions(delayStats)
+	telemetryActions := tstorage.NewActions(globalCtx.TelemetryDB)
 	apiRoutes.POST("/telemetry", telemetryActions.Store)
 
 	apiRoutes.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
@@ -568,7 +553,7 @@ func runService(conf *config.Configuration) {
 			}
 		}
 
-		ans, err := delayStats.AnalyzeDelayLog(binWidth, otherLimit)
+		ans, err := globalCtx.TelemetryDB.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
@@ -590,7 +575,7 @@ func runService(conf *config.Configuration) {
 			}
 		}
 
-		ans, err := delayStats.AnalyzeBans(duration)
+		ans, err := globalCtx.TelemetryDB.AnalyzeBans(duration)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)

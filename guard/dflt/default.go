@@ -35,6 +35,11 @@ type Guard struct {
 	clientCounter     chan common.ClientID
 	cleanupInterval   time.Duration
 	loc               *time.Location
+	anonymousUsers    common.AnonymousUsers
+}
+
+func (sra *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
+	return common.InvalidUserID, nil
 }
 
 func (sra *Guard) ExposeAsCounter() chan<- common.ClientID {
@@ -61,10 +66,14 @@ func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.Cli
 	return nil
 }
 
-func (sra *Guard) ClientInducedRespStatus(req *http.Request, serviceName string) guard.ReqProperties {
+func (sra *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
 	return guard.ReqProperties{
 		ProposedStatus: http.StatusOK,
 	}
+}
+
+func (sra *Guard) TestUserIsAnonymous(userID common.UserID) bool {
+	return sra.anonymousUsers.IsAnonymous(userID)
 }
 
 func (sra *Guard) Run() {
@@ -92,5 +101,6 @@ func New(
 		clientCounter:     make(chan common.ClientID),
 		cleanupInterval:   dfltCleanupInterval,
 		loc:               globalCtx.TimezoneLocation,
+		anonymousUsers:    globalCtx.AnonymousUserIDs,
 	}
 }

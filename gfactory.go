@@ -13,6 +13,7 @@ import (
 	"apiguard/guard/dflt"
 	"apiguard/guard/null"
 	"apiguard/guard/sessionmap"
+	"apiguard/proxy"
 	"apiguard/services/cnc"
 	"time"
 )
@@ -22,6 +23,7 @@ func NewGuard(
 	globalCtx *globctx.Context,
 	internalSessCookieName string,
 	externalSessCookieName string,
+	confLimits []proxy.Limit,
 	anonymousUserIDs common.AnonymousUsers,
 	loc *time.Location,
 ) guard.ServiceGuard {
@@ -36,6 +38,7 @@ func NewGuard(
 			globalCtx,
 			internalSessCookieName,
 			externalSessCookieName,
+			confLimits,
 		)
 	case cnc.GuardTypeNull:
 		return null.New()

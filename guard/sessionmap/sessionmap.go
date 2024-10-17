@@ -97,6 +97,7 @@ func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.
 		Delay: time.Duration(0),
 		IsBan: false,
 	}
+
 	isBanned, err := kua.tlmtrStorage.TestIPBan(net.ParseIP(ip))
 	if err != nil {
 		return delayInfo, err
@@ -217,22 +218,24 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 			}
 		}
 	}
-
-	analyzer.rateLimitersMu.Lock()
-	defer analyzer.rateLimitersMu.Unlock()
-	limiter, exists := analyzer.rateLimiters[clientIP]
-	if !exists {
-		flimit := analyzer.confLimits[0]
-		analyzer.rateLimiters[clientIP] = rate.NewLimiter(
-			flimit.NormLimitPerSec(),
-			flimit.BurstLimit,
-		)
-	}
-	if !limiter.Allow() {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusTooManyRequests,
-			UserID:         userID,
-			SessionID:      cookieValue,
+	if len(analyzer.confLimits) > 0 {
+		analyzer.rateLimitersMu.Lock()
+		defer analyzer.rateLimitersMu.Unlock()
+		limiter, exists := analyzer.rateLimiters[clientIP]
+		if !exists {
+			flimit := analyzer.confLimits[0]
+			limiter = rate.NewLimiter(
+				flimit.NormLimitPerSec(),
+				flimit.BurstLimit,
+			)
+			analyzer.rateLimiters[clientIP] = limiter
+		}
+		if !limiter.Allow() {
+			return guard.ReqProperties{
+				ProposedStatus: http.StatusTooManyRequests,
+				UserID:         userID,
+				SessionID:      cookieValue,
+			}
 		}
 	}
 
@@ -248,14 +251,17 @@ func New(
 	globalCtx *globctx.Context,
 	internalSessionCookie string,
 	externalSessionCookie string,
+	confLimits []proxy.Limit,
 
 ) *Guard {
 	return &Guard{
 		db:                    globalCtx.CNCDB,
+		tlmtrStorage:          globalCtx.TelemetryDB,
 		location:              globalCtx.TimezoneLocation,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,
 		anonymousUsers:        globalCtx.AnonymousUserIDs,
+		confLimits:            confLimits,
 		rateLimiters:          make(map[string]*rate.Limiter),
 	}
 }

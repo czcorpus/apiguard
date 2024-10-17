@@ -315,6 +315,7 @@ func runService(conf *config.Configuration) {
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Kontext.ExternalSessionCookieName,
+			conf.Services.Kontext.Limits,
 		)
 
 		var kontextReqCounter chan<- guard.RequestInfo
@@ -403,6 +404,7 @@ func runService(conf *config.Configuration) {
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.MQueryGPT.ExternalSessionCookieName,
+			conf.Services.MQueryGPT.Limits,
 		)
 
 		var mqueryReqCounter chan<- guard.RequestInfo
@@ -450,6 +452,7 @@ func runService(conf *config.Configuration) {
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Treq.ExternalSessionCookieName,
+			conf.Services.Treq.Limits,
 		)
 		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {

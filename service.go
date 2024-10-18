@@ -548,14 +548,14 @@ func runService(conf *config.Configuration) {
 			conf.Services.Gunstick.Limits,
 		)
 		go grd.Run()
-		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		internalURL, err := url.Parse(conf.Services.Gunstick.InternalURL)
 		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			log.Fatal().Err(err).Msg("failed to configure internal URL for Gunstick")
 			return
 		}
-		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		externalURL, err := url.Parse(conf.Services.Gunstick.ExternalURL)
 		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			log.Fatal().Err(err).Msg("failed to configure external URL for Gunstick")
 			return
 		}
 		coreProxy, err := proxy.NewAPIProxy(conf.Services.Gunstick.GetCoreConf())
@@ -594,14 +594,14 @@ func runService(conf *config.Configuration) {
 			conf.Services.Hex.Limits,
 		)
 		go grd.Run()
-		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		internalURL, err := url.Parse(conf.Services.Hex.InternalURL)
 		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			log.Fatal().Err(err).Msg("failed to configure internal URL for Hex")
 			return
 		}
-		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		externalURL, err := url.Parse(conf.Services.Hex.ExternalURL)
 		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			log.Fatal().Err(err).Msg("failed to configure external URL for Hex")
 			return
 		}
 		coreProxy, err := proxy.NewAPIProxy(conf.Services.Hex.GetCoreConf())

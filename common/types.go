@@ -35,6 +35,19 @@ func (u UserID) String() string {
 	return fmt.Sprintf("%d", u)
 }
 
+//
+
+type AnonymousUsers []UserID
+
+func (au AnonymousUsers) IsAnonymous(uid UserID) bool {
+	for _, v := range au {
+		if v == uid {
+			return true
+		}
+	}
+	return false
+}
+
 // ---------------- CheckInterval ------------------
 
 // CheckInterval specifies an interval to which we evaluate

@@ -8,7 +8,8 @@ package dumb
 
 import (
 	"apiguard/services/logging"
-	"apiguard/services/telemetry/backend"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
 	"net/http"
 
 	"github.com/rs/zerolog/log"
@@ -19,7 +20,7 @@ const (
 )
 
 type Analyzer struct {
-	db backend.TelemetryStorage
+	db telemetry.Storage
 }
 
 func (a *Analyzer) Learn() error {
@@ -40,6 +41,6 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	return 0, nil
 }
 
-func NewAnalyzer(db backend.TelemetryStorage) *Analyzer {
+func NewAnalyzer(db telemetry.Storage) *Analyzer {
 	return &Analyzer{db: db}
 }

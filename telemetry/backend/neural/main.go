@@ -8,10 +8,10 @@ package neural
 
 import (
 	"apiguard/services/logging"
-	"apiguard/services/telemetry"
-	"apiguard/services/telemetry/backend"
-	"apiguard/services/telemetry/backend/entropy"
-	"apiguard/services/telemetry/preprocess"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
+	"apiguard/telemetry/backend/entropy"
+	"apiguard/telemetry/preprocess"
 	"encoding/gob"
 	"fmt"
 	"net/http"
@@ -30,7 +30,7 @@ const (
 )
 
 type Analyzer struct {
-	db      backend.TelemetryStorage
+	db      telemetry.Storage
 	conf    *telemetry.Conf
 	network *deep.Neural
 }
@@ -138,7 +138,7 @@ func loadNetwork(npath string) (*deep.Neural, error) {
 }
 
 func NewAnalyzer(
-	db backend.TelemetryStorage,
+	db telemetry.Storage,
 	conf *telemetry.Conf,
 ) (*Analyzer, error) {
 	currDump := mkDumpPath(conf.InternalDataPath)

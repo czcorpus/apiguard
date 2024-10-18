@@ -9,6 +9,7 @@ package cnc
 import (
 	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/session"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -66,13 +67,15 @@ type ProxyConf struct {
 	// service. If empty then no user ID info will be passed.
 	TrueUserIDHeader string `json:"trueUserIdHeader"`
 
-	Limits []monitoring.Limit `json:"limits"`
+	Limits []proxy.Limit `json:"limits"`
 
 	Alarm monitoring.AlarmConf `json:"alarm"`
 
 	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
 
 	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
+
+	SessionValType session.SessionType `json:"sessionValType"`
 }
 
 func (c *ProxyConf) Validate(context string) error {
@@ -83,6 +86,9 @@ func (c *ProxyConf) Validate(context string) error {
 		log.Warn().Msg("found deprecated `userIdPassHeader`, please replace by `trueUserIdHeader`")
 		c.TrueUserIDHeader = c.UserIDPassHeader
 	}
+	if err := c.SessionValType.Validate(); err != nil {
+		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
+	}
 	return nil
 }
 
@@ -92,6 +98,7 @@ func (c *ProxyConf) GetCoreConf() proxy.GeneralProxyConf {
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
+		Limits:              c.Limits,
 	}
 }
 

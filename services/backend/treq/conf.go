@@ -9,6 +9,7 @@ package treq
 import (
 	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/session"
 	"fmt"
 )
 
@@ -30,18 +31,23 @@ type Conf struct {
 	// in the CNCAuth section where a central auth cookie is defined.
 	ExternalSessionCookieName string `json:"externalSessionCookieName"`
 
-	Limits []monitoring.Limit `json:"limits"`
+	Limits []proxy.Limit `json:"limits"`
 
 	Alarm monitoring.AlarmConf `json:"alarm"`
 
 	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
 
 	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
+
+	SessionValType session.SessionType `json:"sessionValType"`
 }
 
 func (c *Conf) Validate(context string) error {
 	if c.InternalURL == "" {
 		return fmt.Errorf("%s.internalURL is missing/empty", context)
+	}
+	if err := c.SessionValType.Validate(); err != nil {
+		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
 	}
 	return nil
 }
@@ -52,5 +58,6 @@ func (c *Conf) GetCoreConf() proxy.GeneralProxyConf {
 		ExternalURL:         c.ExternalURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
+		Limits:              c.Limits,
 	}
 }

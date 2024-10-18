@@ -9,13 +9,30 @@ package proxy
 import (
 	"net/http"
 	"time"
+
+	"golang.org/x/time/rate"
 )
+
+type Limit struct {
+	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
+	ReqCheckingIntervalSecs int `json:"reqCheckingIntervalSecs"`
+	BurstLimit              int `json:"burstLimit"`
+}
+
+func (m Limit) ReqCheckingInterval() time.Duration {
+	return time.Duration(m.ReqCheckingIntervalSecs) * time.Second
+}
+
+func (m Limit) NormLimitPerSec() rate.Limit {
+	return rate.Limit(float64(m.ReqPerTimeThreshold) / float64(m.ReqCheckingIntervalSecs))
+}
 
 type GeneralProxyConf struct {
 	InternalURL         string
 	ExternalURL         string
 	ReqTimeoutSecs      int
 	IdleConnTimeoutSecs int
+	Limits              []Limit
 }
 
 type BackendResponse interface {

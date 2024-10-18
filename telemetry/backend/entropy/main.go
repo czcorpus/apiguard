@@ -9,9 +9,9 @@ package entropy
 import (
 	"apiguard/reporting"
 	"apiguard/services/logging"
-	"apiguard/services/telemetry"
-	"apiguard/services/telemetry/backend"
-	"apiguard/services/telemetry/preprocess"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
+	"apiguard/telemetry/preprocess"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -40,7 +40,7 @@ func loadConf(path string) (*conf, error) {
 }
 
 type Analyzer struct {
-	db         backend.TelemetryStorage
+	db         telemetry.Storage
 	conf       *telemetry.Conf
 	customConf *conf
 	tDBWriter  reporting.ReportingWriter
@@ -88,7 +88,7 @@ func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 }
 
 func NewAnalyzer(
-	db backend.TelemetryStorage,
+	db telemetry.Storage,
 	tDBWriter reporting.ReportingWriter,
 	telemetryConf *telemetry.Conf,
 ) (*Analyzer, error) {

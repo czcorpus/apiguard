@@ -27,6 +27,7 @@ func GetCookieValue(req *http.Request, cookieName string) string {
 			break
 		}
 	}
+	fmt.Println("XXX returning: ", cookieValue)
 	return cookieValue
 }
 

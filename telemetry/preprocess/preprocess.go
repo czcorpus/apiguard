@@ -7,7 +7,7 @@
 package preprocess
 
 import (
-	"apiguard/services/telemetry"
+	"apiguard/telemetry"
 	"fmt"
 	"time"
 )

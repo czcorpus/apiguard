@@ -4,11 +4,11 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package guard
+package telemetry
 
 import (
 	"apiguard/common"
-	"apiguard/services/telemetry"
+	"apiguard/guard"
 	"database/sql"
 	"fmt"
 	"net"
@@ -205,6 +205,27 @@ func (c *DelayStats) resetStats(tx *sql.Tx, data *IPProcData) error {
 		return err
 	}
 	return nil
+}
+
+func (c *DelayStats) TestIPBan(IP net.IP) (bool, error) {
+	now := time.Now().In(c.location)
+	qAns := c.conn.QueryRow(
+		"SELECT ? < end_dt FROM api_ip_ban WHERE ip_address = ? AND active = 1",
+		now,
+		IP.String(),
+	)
+	var isBanned bool
+	scanErr := qAns.Scan(&isBanned)
+	if scanErr == sql.ErrNoRows {
+		return false, nil
+
+	} else if scanErr != nil {
+		return false, scanErr
+	}
+	if qAns.Err() != nil {
+		return false, qAns.Err()
+	}
+	return isBanned, nil
 }
 
 func (c *DelayStats) LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error) {
@@ -410,7 +431,7 @@ func (c *DelayStats) InsertBotLikeTelemetry(clientIP, sessionID string) error {
 	return err
 }
 
-func (c *DelayStats) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) error {
+func (c *DelayStats) InsertTelemetry(transact *sql.Tx, data Payload) error {
 	for _, rec := range data.Telemetry {
 		_, err := transact.Exec(`
 			INSERT INTO apiguard_client_actions (client_ip, session_id, action_name, tile_name,
@@ -425,10 +446,10 @@ func (c *DelayStats) InsertTelemetry(transact *sql.Tx, data telemetry.Payload) e
 	return nil
 }
 
-func (c *DelayStats) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRecord, error) {
-	ans := make([]*telemetry.ActionRecord, 0, 100)
+func (c *DelayStats) exportTelemetryRows(rows *sql.Rows) ([]*ActionRecord, error) {
+	ans := make([]*ActionRecord, 0, 100)
 	for rows.Next() {
-		var item telemetry.ActionRecord
+		var item ActionRecord
 		var sessionID sql.NullString
 		var tileName sql.NullString
 		var trainingFlag sql.NullInt16
@@ -437,7 +458,7 @@ func (c *DelayStats) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRec
 			&item.IsMobile, &item.IsSubquery, &item.Created, &trainingFlag,
 		)
 		if err != nil {
-			return []*telemetry.ActionRecord{}, err
+			return []*ActionRecord{}, err
 		}
 		if sessionID.Valid {
 			item.Client.SessionID = sessionID.String
@@ -458,7 +479,7 @@ func (c *DelayStats) exportTelemetryRows(rows *sql.Rows) ([]*telemetry.ActionRec
 
 // FindLearningClients finds all the clients involved in telemetry data during a specified
 // time interval (maxAgeSecs is including, minAgeSecs is excluding)
-func (c *DelayStats) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*telemetry.Client, error) {
+func (c *DelayStats) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*Client, error) {
 	rows, err := c.conn.Query(
 		`SELECT DISTINCT client_ip, session_id
 		FROM apiguard_client_actions
@@ -471,15 +492,15 @@ func (c *DelayStats) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*tel
 		minAgeSecs,
 	)
 	if err != nil {
-		return []*telemetry.Client{}, err
+		return []*Client{}, err
 	}
-	ans := make([]*telemetry.Client, 0, 100)
+	ans := make([]*Client, 0, 100)
 	for rows.Next() {
 		var sessionID sql.NullString
-		var client telemetry.Client
+		var client Client
 		err := rows.Scan(&client.IP, &sessionID)
 		if err != nil {
-			return []*telemetry.Client{}, err
+			return []*Client{}, err
 		}
 		if sessionID.Valid {
 			client.SessionID = sessionID.String
@@ -493,7 +514,7 @@ func (c *DelayStats) FindLearningClients(maxAgeSecs int, minAgeSecs int) ([]*tel
 func (c *DelayStats) LoadClientTelemetry(
 	sessionID, clientIP string,
 	maxAgeSecs, minAgeSecs int,
-) ([]*telemetry.ActionRecord, error) {
+) ([]*ActionRecord, error) {
 	rows, err := c.conn.Query(
 		`SELECT client_ip, session_id, action_name, tile_name, is_mobile, is_subquery, created, training_flag
 		FROM apiguard_client_actions
@@ -506,23 +527,23 @@ func (c *DelayStats) LoadClientTelemetry(
 		clientIP, string2NullString(sessionID), string2NullString(sessionID), maxAgeSecs, minAgeSecs,
 	)
 	if err != nil {
-		return []*telemetry.ActionRecord{}, err
+		return []*ActionRecord{}, err
 	}
 	x, err := c.exportTelemetryRows(rows)
 	return x, err
 }
 
-func (c *DelayStats) LoadCountingRules() ([]*telemetry.CountingRule, error) {
+func (c *DelayStats) LoadCountingRules() ([]*CountingRule, error) {
 	qAns, err := c.conn.Query(
 		`SELECT tile_name, action_name, count, tolerance
 		FROM apiguard_client_counting_rules`,
 	)
 	if err != nil {
-		return []*telemetry.CountingRule{}, err
+		return []*CountingRule{}, err
 	}
-	ans := make([]*telemetry.CountingRule, 0, 10)
+	ans := make([]*CountingRule, 0, 10)
 	for qAns.Next() {
-		var item telemetry.CountingRule
+		var item CountingRule
 		qAns.Scan(&item.TileName, &item.ActionName, &item.Count, &item.Tolerance)
 		ans = append(ans, &item)
 	}
@@ -608,7 +629,7 @@ func (c *DelayStats) CleanOldData(maxAgeDays int) DataCleanupResult {
 	return ans
 }
 
-func (c *DelayStats) LogAppliedDelay(delayInfo DelayInfo, clientID common.ClientID) error {
+func (c *DelayStats) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.ClientID) error {
 	tx, err := c.StartTx()
 	if err != nil {
 		return err

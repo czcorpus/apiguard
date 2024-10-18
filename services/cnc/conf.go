@@ -9,6 +9,7 @@ package cnc
 import (
 	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/session"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
@@ -73,6 +74,8 @@ type ProxyConf struct {
 	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
 
 	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
+
+	SessionValType session.SessionType `json:"sessionValType"`
 }
 
 func (c *ProxyConf) Validate(context string) error {
@@ -82,6 +85,9 @@ func (c *ProxyConf) Validate(context string) error {
 	if c.TrueUserIDHeader == "" && c.UserIDPassHeader != "" {
 		log.Warn().Msg("found deprecated `userIdPassHeader`, please replace by `trueUserIdHeader`")
 		c.TrueUserIDHeader = c.UserIDPassHeader
+	}
+	if err := c.SessionValType.Validate(); err != nil {
+		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
 	}
 	return nil
 }

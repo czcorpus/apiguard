@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
 )
@@ -81,6 +82,8 @@ type Guard struct {
 	confLimits []proxy.Limit
 
 	rateLimitersMu sync.Mutex
+
+	sessionValFactory func() session.HTTPSession
 }
 
 func (kua *Guard) TestUserIsAnonymous(userID common.UserID) bool {
@@ -143,11 +146,9 @@ func (kua *Guard) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
 	return cookie
 }
 
-func (kua *Guard) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
+func (kua *Guard) getUserCNCSessionID(req *http.Request) session.HTTPSession {
 	v := proxy.GetCookieValue(req, kua.internalSessionCookie)
-	ans := session.CNCSessionValue{}
-	ans.UpdateFrom(v)
-	return ans
+	return kua.sessionValFactory().UpdatedFrom(v)
 }
 
 // DetermineTrueUserID tests whether CNC authentication
@@ -223,10 +224,11 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 	limiter, exists := analyzer.rateLimiters[clientIP]
 	if !exists {
 		flimit := analyzer.confLimits[0]
-		analyzer.rateLimiters[clientIP] = rate.NewLimiter(
+		limiter = rate.NewLimiter(
 			flimit.NormLimitPerSec(),
 			flimit.BurstLimit,
 		)
+		analyzer.rateLimiters[clientIP] = limiter
 	}
 	if !limiter.Allow() {
 		return guard.ReqProperties{
@@ -248,14 +250,20 @@ func New(
 	globalCtx *globctx.Context,
 	internalSessionCookie string,
 	externalSessionCookie string,
+	sessionValueType session.SessionType,
+	confLimits []proxy.Limit,
 
 ) *Guard {
+	spew.Dump(confLimits)
 	return &Guard{
 		db:                    globalCtx.CNCDB,
+		tlmtrStorage:          globalCtx.TelemetryDB,
 		location:              globalCtx.TimezoneLocation,
 		internalSessionCookie: internalSessionCookie,
 		externalSessionCookie: externalSessionCookie,
 		anonymousUsers:        globalCtx.AnonymousUserIDs,
 		rateLimiters:          make(map[string]*rate.Limiter),
+		confLimits:            confLimits,
+		sessionValFactory:     guard.CreateSessionValFactory(sessionValueType),
 	}
 }

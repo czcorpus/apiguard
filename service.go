@@ -178,7 +178,7 @@ func runService(conf *config.Configuration) {
 
 	// "Jazyková příručka ÚJČ"
 
-	if conf.Services.LanguageGuide.BaseURL != "" {
+	if conf.Services.LanguageGuide != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for LanguageGuide")
@@ -186,7 +186,7 @@ func runService(conf *config.Configuration) {
 		}
 		langGuideActions := lguide.NewLanguageGuideActions(
 			globalCtx,
-			&conf.Services.LanguageGuide,
+			conf.Services.LanguageGuide,
 			&conf.Botwatch,
 			conf.Telemetry,
 			conf.ServerReadTimeoutSecs,
@@ -197,7 +197,7 @@ func runService(conf *config.Configuration) {
 
 	// "Akademický slovník současné češtiny"
 
-	if conf.Services.ASSC.BaseURL != "" {
+	if conf.Services.ASSC != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for ASSC")
@@ -205,7 +205,7 @@ func runService(conf *config.Configuration) {
 		}
 		asscActions := assc.NewASSCActions(
 			globalCtx,
-			&conf.Services.ASSC,
+			conf.Services.ASSC,
 			guard,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -215,7 +215,7 @@ func runService(conf *config.Configuration) {
 
 	// "Slovník spisovného jazyka českého"
 
-	if conf.Services.SSJC.BaseURL != "" {
+	if conf.Services.SSJC != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for SSJC")
@@ -223,7 +223,7 @@ func runService(conf *config.Configuration) {
 		}
 		ssjcActions := ssjc.NewSSJCActions(
 			globalCtx,
-			&conf.Services.SSJC,
+			conf.Services.SSJC,
 			guard,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -233,7 +233,7 @@ func runService(conf *config.Configuration) {
 
 	// "Příruční slovník jazyka českého"
 
-	if conf.Services.PSJC.BaseURL != "" {
+	if conf.Services.PSJC != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for PSJC")
@@ -241,7 +241,7 @@ func runService(conf *config.Configuration) {
 		}
 		psjcActions := psjc.NewPSJCActions(
 			globalCtx,
-			&conf.Services.PSJC,
+			conf.Services.PSJC,
 			guard,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -251,7 +251,7 @@ func runService(conf *config.Configuration) {
 
 	// "Kartotéka lexikálního archivu"
 
-	if conf.Services.KLA.BaseURL != "" {
+	if conf.Services.KLA != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for KLA")
@@ -259,7 +259,7 @@ func runService(conf *config.Configuration) {
 		}
 		klaActions := kla.NewKLAActions(
 			globalCtx,
-			&conf.Services.KLA,
+			conf.Services.KLA,
 			guard,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -269,7 +269,7 @@ func runService(conf *config.Configuration) {
 
 	// "Neomat"
 
-	if conf.Services.Neomat.BaseURL != "" {
+	if conf.Services.Neomat != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for Neomat")
@@ -277,7 +277,7 @@ func runService(conf *config.Configuration) {
 		}
 		neomatActions := neomat.NewNeomatActions(
 			globalCtx,
-			&conf.Services.Neomat,
+			conf.Services.Neomat,
 			guard,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -287,7 +287,7 @@ func runService(conf *config.Configuration) {
 
 	// "Český jazykový atlas"
 
-	if conf.Services.CJA.BaseURL != "" {
+	if conf.Services.CJA != nil {
 		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to instantiate guard for CJA")
@@ -295,7 +295,7 @@ func runService(conf *config.Configuration) {
 		}
 		cjaActions := cja.NewCJAActions(
 			globalCtx,
-			&conf.Services.CJA,
+			conf.Services.CJA,
 			guard,
 			conf.ServerReadTimeoutSecs,
 		)
@@ -310,11 +310,13 @@ func runService(conf *config.Configuration) {
 
 	// KonText (API) proxy
 
-	if conf.Services.Kontext.ExternalURL != "" {
+	if conf.Services.Kontext != nil {
 		kontextGuard := sessionmap.New(
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Kontext.ExternalSessionCookieName,
+			conf.Services.Kontext.SessionValType,
+			conf.Services.Kontext.Limits,
 		)
 
 		var kontextReqCounter chan<- guard.RequestInfo
@@ -324,7 +326,7 @@ func runService(conf *config.Configuration) {
 		}
 		kontextActions, err := kontext.NewKontextProxy(
 			globalCtx,
-			&conf.Services.Kontext,
+			conf.Services.Kontext,
 			&cnc.EnvironConf{
 				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
 				AuthTokenEntry:    authTokenEntry,
@@ -357,7 +359,7 @@ func runService(conf *config.Configuration) {
 
 	// MQuery proxy
 
-	if conf.Services.MQuery.ExternalURL != "" {
+	if conf.Services.MQuery != nil {
 		var mqueryReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.MQuery.Limits) > 0 {
 			mqueryReqCounter = alarm.Register(
@@ -365,7 +367,7 @@ func runService(conf *config.Configuration) {
 		}
 		mqueryActions, err := mquery.NewMQueryProxy(
 			globalCtx,
-			&conf.Services.MQuery,
+			conf.Services.MQuery,
 			&cnc.EnvironConf{
 				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
 				AuthTokenEntry:    authTokenEntry,
@@ -398,11 +400,13 @@ func runService(conf *config.Configuration) {
 
 	// MQuery-GPT proxy
 
-	if conf.Services.MQueryGPT.ExternalURL != "" {
+	if conf.Services.MQueryGPT != nil {
 		cnca := sessionmap.New(
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.MQueryGPT.ExternalSessionCookieName,
+			conf.Services.MQueryGPT.SessionValType,
+			conf.Services.MQueryGPT.Limits,
 		)
 
 		var mqueryReqCounter chan<- guard.RequestInfo
@@ -412,7 +416,7 @@ func runService(conf *config.Configuration) {
 		}
 		mqueryActions, err := mquery.NewMQueryProxy(
 			globalCtx,
-			&conf.Services.MQueryGPT,
+			conf.Services.MQueryGPT,
 			&cnc.EnvironConf{
 				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
 				AuthTokenEntry:    authTokenEntry,
@@ -445,11 +449,13 @@ func runService(conf *config.Configuration) {
 
 	// Treq (API) proxy
 
-	if conf.Services.Treq.ExternalURL != "" {
+	if conf.Services.Treq != nil {
 		cnca := sessionmap.New(
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Treq.ExternalSessionCookieName,
+			conf.Services.Treq.SessionValType,
+			conf.Services.Treq.Limits,
 		)
 		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
@@ -458,7 +464,7 @@ func runService(conf *config.Configuration) {
 		}
 		treqActions, err := treq.NewTreqProxy(
 			globalCtx,
-			&conf.Services.Treq,
+			conf.Services.Treq,
 			conf.CNCAuth.SessionCookieName,
 			cnca,
 			conf.ServerReadTimeoutSecs,
@@ -474,7 +480,7 @@ func runService(conf *config.Configuration) {
 
 	// KWords (API) proxy
 
-	if conf.Services.KWords.ExternalURL != "" {
+	if conf.Services.KWords != nil {
 		client := httpclient.New(
 			httpclient.WithFollowRedirects(),
 			httpclient.WithInsecureSkipVerify(),

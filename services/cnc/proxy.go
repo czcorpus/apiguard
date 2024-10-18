@@ -54,6 +54,8 @@ type CoreProxy struct {
 	// to an alarm service. Please note that this value can be nil
 	// (in such case, nothing is sent)
 	reqCounter chan<- guard.RequestInfo
+
+	sessionValFactory func() session.HTTPSession
 }
 
 // Preflight is used by APIGuard client (e.g. WaG) to find out whether
@@ -171,8 +173,7 @@ func (kp *CoreProxy) applyLoginRespCookies(
 		cCopy := *cookie
 		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.ExternalSessionCookieName != "" {
 			var err error
-			var sessionID session.CNCSessionValue
-			sessionID.UpdateFrom(cCopy.Value)
+			sessionID := kp.sessionValFactory().UpdatedFrom(cCopy.Value)
 			userID, err = guard.FindUserBySession(kp.globalCtx.CNCDB, sessionID)
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
@@ -433,7 +434,7 @@ func NewCoreProxy(
 	globalCtx *globctx.Context,
 	conf *ProxyConf,
 	gConf *EnvironConf,
-	guard guard.ServiceGuard,
+	grd guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*CoreProxy, error) {
 	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
@@ -441,12 +442,13 @@ func NewCoreProxy(
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}
 	return &CoreProxy{
-		globalCtx:  globalCtx,
-		conf:       conf,
-		rConf:      gConf,
-		guard:      guard,
-		apiProxy:   proxy,
-		reqCounter: reqCounter,
-		tDBWriter:  globalCtx.ReportingWriter,
+		globalCtx:         globalCtx,
+		conf:              conf,
+		rConf:             gConf,
+		guard:             grd,
+		apiProxy:          proxy,
+		reqCounter:        reqCounter,
+		tDBWriter:         globalCtx.ReportingWriter,
+		sessionValFactory: guard.CreateSessionValFactory(conf.SessionValType),
 	}, nil
 }

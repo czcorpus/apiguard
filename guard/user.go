@@ -16,10 +16,10 @@ import (
 // In case nothing is found, `common.InvalidUserID` is returned
 // (and no error). Error is returned only in case of an actual fail
 // (e.g. failed db query).
-func FindUserBySession(db *sql.DB, sessionID session.CNCSessionValue) (common.UserID, error) {
+func FindUserBySession(db *sql.DB, sessionID session.HTTPSession) (common.UserID, error) {
 	row := db.QueryRow(
 		"SELECT user_id, hashed_validator FROM user_session WHERE selector = ? LIMIT 1",
-		sessionID.Selector,
+		sessionID.SrchSelector(),
 	)
 	var nUserID sql.NullInt64
 	var nHashedValidator sql.NullString
@@ -31,7 +31,7 @@ func FindUserBySession(db *sql.DB, sessionID session.CNCSessionValue) (common.Us
 		return common.InvalidUserID, err
 
 	} else if nUserID.Valid && nHashedValidator.Valid {
-		match, err := sessionID.CompareWithHash(nHashedValidator.String)
+		match, err := sessionID.CompareWithStoredVal(nHashedValidator.String)
 		if err != nil {
 			return common.InvalidUserID, nil
 

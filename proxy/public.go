@@ -78,11 +78,9 @@ func (prox *PublicAPIProxy) getUserCNCSessionCookie(req *http.Request) *http.Coo
 	return cookie
 }
 
-func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.CNCSessionValue {
+func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.HTTPSession {
 	v := GetCookieValue(req, prox.authCookieName)
-	ans := session.CNCSessionValue{}
-	ans.UpdateFrom(v)
-	return ans
+	return session.CNCSessionValue{}.UpdatedFrom(v)
 }
 
 func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {

@@ -294,6 +294,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		IP:     ctx.RemoteIP(),
 		UserID: humanID,
 	}
+
 	if err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.guard, clientID); err != nil {
 		return
 	}

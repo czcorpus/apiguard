@@ -376,7 +376,12 @@ func runService(conf *config.Configuration) {
 				CNCPortalLoginURL: cncPortalLoginURL,
 				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
 			},
-			dflt.New(globalCtx, conf.CNCAuth.SessionCookieName),
+			dflt.New(
+				globalCtx,
+				conf.CNCAuth.SessionCookieName,
+				conf.Services.MQuery.SessionValType,
+				conf.Services.MQuery.Limits,
+			),
 			mqueryReqCounter,
 		)
 		if err != nil {
@@ -489,6 +494,8 @@ func runService(conf *config.Configuration) {
 		analyzer := dflt.New(
 			globalCtx,
 			conf.CNCAuth.SessionCookieName,
+			conf.Services.KWords.SessionValType,
+			conf.Services.KWords.Limits,
 		)
 		go analyzer.Run()
 		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)

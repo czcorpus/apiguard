@@ -10,13 +10,20 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/proxy"
+	"apiguard/session"
 	"apiguard/telemetry"
 	"database/sql"
+	"fmt"
 	"math"
+	"net"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
+	"golang.org/x/time/rate"
 )
 
 const (
@@ -36,6 +43,10 @@ type Guard struct {
 	cleanupInterval   time.Duration
 	loc               *time.Location
 	anonymousUsers    common.AnonymousUsers
+	rateLimiters      map[string]*rate.Limiter
+	confLimits        []proxy.Limit
+	rateLimitersMu    sync.Mutex
+	sessionValFactory func() session.HTTPSession
 }
 
 func (sra *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
@@ -67,6 +78,34 @@ func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.Cli
 }
 
 func (sra *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+	if len(sra.confLimits) > 0 {
+		clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
+		if err != nil {
+			return guard.ReqProperties{
+				ProposedStatus: http.StatusUnauthorized,
+				UserID:         common.InvalidUserID,
+				SessionID:      "",
+				Error:          fmt.Errorf("failed to determine user IP: %w", err),
+			}
+		}
+
+		sra.rateLimitersMu.Lock()
+		defer sra.rateLimitersMu.Unlock()
+		limiter, exists := sra.rateLimiters[clientIP]
+		if !exists {
+			flimit := sra.confLimits[0]
+			limiter = rate.NewLimiter(
+				flimit.NormLimitPerSec(),
+				flimit.BurstLimit,
+			)
+			sra.rateLimiters[clientIP] = limiter
+		}
+		if !limiter.Allow() {
+			return guard.ReqProperties{
+				ProposedStatus: http.StatusTooManyRequests,
+			}
+		}
+	}
 	return guard.ReqProperties{
 		ProposedStatus: http.StatusOK,
 	}
@@ -93,6 +132,8 @@ func (sra *Guard) Run() {
 func New(
 	globalCtx *globctx.Context,
 	sessionCookieName string,
+	sessionType session.SessionType,
+	confLimits []proxy.Limit,
 ) *Guard {
 	return &Guard{
 		db:                globalCtx.CNCDB,
@@ -102,5 +143,8 @@ func New(
 		cleanupInterval:   dfltCleanupInterval,
 		loc:               globalCtx.TimezoneLocation,
 		anonymousUsers:    globalCtx.AnonymousUserIDs,
+		confLimits:        confLimits,
+		rateLimiters:      make(map[string]*rate.Limiter),
+		sessionValFactory: guard.CreateSessionValFactory(sessionType),
 	}
 }

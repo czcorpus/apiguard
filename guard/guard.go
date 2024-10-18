@@ -115,7 +115,7 @@ func RestrictResponseTime(
 	if err := guard.LogAppliedDelay(respDelay, client); err != nil {
 		uniresp.WriteJSONErrorResponse(
 			w,
-			uniresp.NewActionError(err.Error()),
+			uniresp.NewActionError("service handling error: %s", err),
 			http.StatusInternalServerError,
 		)
 		return fmt.Errorf("failed to restrict response time: %w", err)

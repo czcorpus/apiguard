@@ -8,8 +8,8 @@ package counting
 
 import (
 	"apiguard/services/logging"
-	"apiguard/services/telemetry"
-	"apiguard/services/telemetry/backend"
+	"apiguard/telemetry"
+	"apiguard/telemetry/backend"
 	"math"
 	"net/http"
 
@@ -31,7 +31,7 @@ type CountingRuleValue struct {
 }
 
 type Analyzer struct {
-	db            backend.TelemetryStorage
+	db            telemetry.Storage
 	countingRules map[TileActionKey]CountingRuleValue
 }
 
@@ -58,16 +58,16 @@ func (a *Analyzer) Learn() error {
 
 func (a *Analyzer) BotScore(req *http.Request) (float64, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	telemetry, err := a.db.LoadClientTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry, 0)
+	tlmData, err := a.db.LoadClientTelemetry(sessionID, ip, maxAgeSecsRelevantTelemetry, 0)
 	if err != nil {
 		return -1, err
 	}
-	if len(telemetry) == 0 {
+	if len(tlmData) == 0 {
 		return -1, backend.ErrUnknownClient
 	}
 
 	log.Debug().Msgf("about to evaluate IP %s and sessionID %s", ip, sessionID)
-	counts := a.processTelemetry(telemetry)
+	counts := a.processTelemetry(tlmData)
 
 	for key, rule := range a.countingRules {
 		if math.Abs(float64(rule.count-counts[key])) > float64(rule.tolerance) {
@@ -88,10 +88,10 @@ func prepareCountingRules(rulesData []*telemetry.CountingRule) (rules map[TileAc
 	return
 }
 
-func NewAnalyzer(db backend.TelemetryStorage) *Analyzer {
+func NewAnalyzer(db telemetry.Storage) *Analyzer {
 	rulesData, err := db.LoadCountingRules()
 	if err != nil {
-		log.Error().Err(err).Msg("") // TODO return error
+		log.Error().Err(err).Send() // TODO return error
 	}
 
 	return &Analyzer{db: db, countingRules: prepareCountingRules(rulesData)}

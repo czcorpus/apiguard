@@ -8,6 +8,7 @@ package guard
 
 import (
 	"apiguard/common"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -75,12 +76,24 @@ type ServiceGuard interface {
 	// Ideally, this is zero for a new or good behaving client.
 	CalcDelay(req *http.Request, clientID common.ClientID) (DelayInfo, error)
 
+	// LogAppliedDelay should store information about applied delay for future
+	// delay calculations (for the same client)
 	LogAppliedDelay(respDelay DelayInfo, clientID common.ClientID) error
 
-	ClientInducedRespStatus(req *http.Request, serviceName string) ReqProperties
+	ClientInducedRespStatus(req *http.Request) ReqProperties
+
+	TestUserIsAnonymous(userID common.UserID) bool
+
+	DetermineTrueUserID(req *http.Request) (common.UserID, error)
 }
 
-func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutSecs int, guard ServiceGuard, client common.ClientID) error {
+func RestrictResponseTime(
+	w http.ResponseWriter,
+	req *http.Request,
+	readTimeoutSecs int,
+	guard ServiceGuard,
+	client common.ClientID,
+) error {
 	respDelay, err := guard.CalcDelay(req, client)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(
@@ -88,8 +101,7 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 			uniresp.NewActionErrorFrom(err),
 			http.StatusInternalServerError,
 		)
-		log.Error().Err(err).Msg("failed to analyze client")
-		return err
+		return fmt.Errorf("failed to restrict response time: %w", err)
 	}
 	log.Debug().Msgf("Client is going to wait for %v", respDelay)
 	if respDelay.Delay.Seconds() >= float64(readTimeoutSecs) {
@@ -98,9 +110,16 @@ func RestrictResponseTime(w http.ResponseWriter, req *http.Request, readTimeoutS
 			uniresp.NewActionError("service overloaded"),
 			http.StatusServiceUnavailable,
 		)
-		return err
+		return fmt.Errorf("failed to restrict response time: %w", err)
 	}
-	go guard.LogAppliedDelay(respDelay, client)
+	if err := guard.LogAppliedDelay(respDelay, client); err != nil {
+		uniresp.WriteJSONErrorResponse(
+			w,
+			uniresp.NewActionError("service handling error: %s", err),
+			http.StatusInternalServerError,
+		)
+		return fmt.Errorf("failed to restrict response time: %w", err)
+	}
 	time.Sleep(respDelay.Delay)
 	return nil
 }

@@ -58,7 +58,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && *currHumanID != tp.guard.AnonymousUserID {
+		if currHumanID.IsValid() && tp.guard.TestUserIsAnonymous(*currHumanID) {
 			loggedUserID = currHumanID
 		}
 		if tp.reqCounter != nil {
@@ -84,7 +84,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.guard.ClientInducedRespStatus(ctx.Request, ServiceName)
+	reqProps := tp.guard.ClientInducedRespStatus(ctx.Request)
 	userID = reqProps.UserID
 	if reqProps.Error != nil {
 		// TODO
@@ -110,7 +110,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = tp.guard.UserInternalCookieStatus(ctx.Request, ServiceName)
+		humanID, err = tp.guard.DetermineTrueUserID(ctx.Request)
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}
@@ -215,6 +215,6 @@ func NewTreqProxy(
 		readTimeoutSecs: readTimeoutSecs,
 		apiProxy:        proxy,
 		reqCounter:      reqCounter,
-		tDBWriter:       globalCtx.TimescaleDBWriter,
+		tDBWriter:       globalCtx.ReportingWriter,
 	}, nil
 }

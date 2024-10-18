@@ -12,7 +12,7 @@ import (
 	"apiguard/guard"
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
-	"apiguard/guard/telemetry"
+	"apiguard/guard/tlmtr"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reporting"
@@ -28,9 +28,7 @@ import (
 	"apiguard/services/backend/treq"
 	"apiguard/services/cnc"
 	"apiguard/services/defaults"
-	"apiguard/services/requests"
 	"apiguard/services/tstorage"
-	userHandlers "apiguard/users/handlers"
 	"context"
 	"fmt"
 	"net"
@@ -121,25 +119,9 @@ func runService(conf *config.Configuration) {
 		}
 	}
 
-	publicRoutes.GET("/alarm-confirmation", alarm.HandleConfirmationPage)
-
-	apiRoutes.POST("/alarm/:alarmID/confirmation", alarm.HandleReviewAction)
 	apiRoutes.GET("/alarm", alarm.HandleReportListAction)
 	apiRoutes.GET("/alarms/list", alarm.HandleListAction)
 	apiRoutes.POST("/alarms/clean", alarm.HandleCleanAction)
-
-	// delay stats writer and telemetry analyzer
-	delayStats := guard.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
-	telemetryAnalyzer, err := telemetry.New(
-		&conf.Botwatch,
-		&conf.Telemetry,
-		globalCtx.TimescaleDBWriter,
-		delayStats,
-		delayStats,
-	)
-	if err != nil {
-		log.Fatal().Err(err).Send()
-	}
 
 	// ----------------------
 
@@ -152,7 +134,7 @@ func runService(conf *config.Configuration) {
 				Recipients:                   []string{},
 				RecCounterCleanupProbability: 0.5,
 			},
-			[]monitoring.Limit{
+			[]proxy.Limit{
 				{
 					ReqPerTimeThreshold:     10,
 					ReqCheckingIntervalSecs: 10,
@@ -178,7 +160,7 @@ func runService(conf *config.Configuration) {
 				reporting.BackendActionTypeQuery,
 			)
 		}()
-		globalCtx.TimescaleDBWriter.Write(&PingReport{
+		globalCtx.ReportingWriter.Write(&PingReport{
 			DateTime: time.Now(),
 			Status:   200,
 		})
@@ -196,26 +178,35 @@ func runService(conf *config.Configuration) {
 
 	// "Jazyková příručka ÚJČ"
 
-	if conf.Services.LanguageGuide.BaseURL != "" {
+	if conf.Services.LanguageGuide != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for LanguageGuide")
+			return
+		}
 		langGuideActions := lguide.NewLanguageGuideActions(
 			globalCtx,
-			&conf.Services.LanguageGuide,
+			conf.Services.LanguageGuide,
 			&conf.Botwatch,
-			&conf.Telemetry,
+			conf.Telemetry,
 			conf.ServerReadTimeoutSecs,
-			delayStats,
-			telemetryAnalyzer,
+			guard,
 		)
 		apiRoutes.GET("/service/language-guide", langGuideActions.Query)
 	}
 
 	// "Akademický slovník současné češtiny"
 
-	if conf.Services.ASSC.BaseURL != "" {
+	if conf.Services.ASSC != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for ASSC")
+			return
+		}
 		asscActions := assc.NewASSCActions(
 			globalCtx,
-			&conf.Services.ASSC,
-			telemetryAnalyzer,
+			conf.Services.ASSC,
+			guard,
 			conf.ServerReadTimeoutSecs,
 		)
 		apiRoutes.GET("/service/assc", asscActions.Query)
@@ -224,11 +215,16 @@ func runService(conf *config.Configuration) {
 
 	// "Slovník spisovného jazyka českého"
 
-	if conf.Services.SSJC.BaseURL != "" {
+	if conf.Services.SSJC != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for SSJC")
+			return
+		}
 		ssjcActions := ssjc.NewSSJCActions(
 			globalCtx,
-			&conf.Services.SSJC,
-			telemetryAnalyzer,
+			conf.Services.SSJC,
+			guard,
 			conf.ServerReadTimeoutSecs,
 		)
 		apiRoutes.GET("/service/ssjc", ssjcActions.Query)
@@ -237,11 +233,16 @@ func runService(conf *config.Configuration) {
 
 	// "Příruční slovník jazyka českého"
 
-	if conf.Services.PSJC.BaseURL != "" {
+	if conf.Services.PSJC != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for PSJC")
+			return
+		}
 		psjcActions := psjc.NewPSJCActions(
 			globalCtx,
-			&conf.Services.PSJC,
-			telemetryAnalyzer,
+			conf.Services.PSJC,
+			guard,
 			conf.ServerReadTimeoutSecs,
 		)
 		apiRoutes.GET("/service/psjc", psjcActions.Query)
@@ -250,11 +251,16 @@ func runService(conf *config.Configuration) {
 
 	// "Kartotéka lexikálního archivu"
 
-	if conf.Services.KLA.BaseURL != "" {
+	if conf.Services.KLA != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for KLA")
+			return
+		}
 		klaActions := kla.NewKLAActions(
 			globalCtx,
-			&conf.Services.KLA,
-			telemetryAnalyzer,
+			conf.Services.KLA,
+			guard,
 			conf.ServerReadTimeoutSecs,
 		)
 		apiRoutes.GET("/service/kla", klaActions.Query)
@@ -263,11 +269,16 @@ func runService(conf *config.Configuration) {
 
 	// "Neomat"
 
-	if conf.Services.Neomat.BaseURL != "" {
+	if conf.Services.Neomat != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for Neomat")
+			return
+		}
 		neomatActions := neomat.NewNeomatActions(
 			globalCtx,
-			&conf.Services.Neomat,
-			telemetryAnalyzer,
+			conf.Services.Neomat,
+			guard,
 			conf.ServerReadTimeoutSecs,
 		)
 		apiRoutes.GET("/service/neomat", neomatActions.Query)
@@ -276,11 +287,16 @@ func runService(conf *config.Configuration) {
 
 	// "Český jazykový atlas"
 
-	if conf.Services.CJA.BaseURL != "" {
+	if conf.Services.CJA != nil {
+		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to instantiate guard for CJA")
+			return
+		}
 		cjaActions := cja.NewCJAActions(
 			globalCtx,
-			&conf.Services.CJA,
-			telemetryAnalyzer,
+			conf.Services.CJA,
+			guard,
 			conf.ServerReadTimeoutSecs,
 		)
 		apiRoutes.GET("/service/cja", cjaActions.Query)
@@ -294,13 +310,13 @@ func runService(conf *config.Configuration) {
 
 	// KonText (API) proxy
 
-	if conf.Services.Kontext.ExternalURL != "" {
+	if conf.Services.Kontext != nil {
 		kontextGuard := sessionmap.New(
 			globalCtx,
-			delayStats,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Kontext.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
+			conf.Services.Kontext.SessionValType,
+			conf.Services.Kontext.Limits,
 		)
 
 		var kontextReqCounter chan<- guard.RequestInfo
@@ -310,7 +326,7 @@ func runService(conf *config.Configuration) {
 		}
 		kontextActions, err := kontext.NewKontextProxy(
 			globalCtx,
-			&conf.Services.Kontext,
+			conf.Services.Kontext,
 			&cnc.EnvironConf{
 				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
 				AuthTokenEntry:    authTokenEntry,
@@ -343,15 +359,7 @@ func runService(conf *config.Configuration) {
 
 	// MQuery proxy
 
-	if conf.Services.MQuery.ExternalURL != "" {
-		cnca := sessionmap.New(
-			globalCtx,
-			delayStats,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.MQuery.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
-		)
-
+	if conf.Services.MQuery != nil {
 		var mqueryReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.MQuery.Limits) > 0 {
 			mqueryReqCounter = alarm.Register(
@@ -359,7 +367,7 @@ func runService(conf *config.Configuration) {
 		}
 		mqueryActions, err := mquery.NewMQueryProxy(
 			globalCtx,
-			&conf.Services.MQuery,
+			conf.Services.MQuery,
 			&cnc.EnvironConf{
 				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
 				AuthTokenEntry:    authTokenEntry,
@@ -368,7 +376,12 @@ func runService(conf *config.Configuration) {
 				CNCPortalLoginURL: cncPortalLoginURL,
 				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
 			},
-			cnca,
+			dflt.New(
+				globalCtx,
+				conf.CNCAuth.SessionCookieName,
+				conf.Services.MQuery.SessionValType,
+				conf.Services.MQuery.Limits,
+			),
 			mqueryReqCounter,
 		)
 		if err != nil {
@@ -392,13 +405,13 @@ func runService(conf *config.Configuration) {
 
 	// MQuery-GPT proxy
 
-	if conf.Services.MQueryGPT.ExternalURL != "" {
+	if conf.Services.MQueryGPT != nil {
 		cnca := sessionmap.New(
 			globalCtx,
-			delayStats,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.MQueryGPT.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
+			conf.Services.MQueryGPT.SessionValType,
+			conf.Services.MQueryGPT.Limits,
 		)
 
 		var mqueryReqCounter chan<- guard.RequestInfo
@@ -408,7 +421,7 @@ func runService(conf *config.Configuration) {
 		}
 		mqueryActions, err := mquery.NewMQueryProxy(
 			globalCtx,
-			&conf.Services.MQueryGPT,
+			conf.Services.MQueryGPT,
 			&cnc.EnvironConf{
 				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
 				AuthTokenEntry:    authTokenEntry,
@@ -441,13 +454,13 @@ func runService(conf *config.Configuration) {
 
 	// Treq (API) proxy
 
-	if conf.Services.Treq.ExternalURL != "" {
+	if conf.Services.Treq != nil {
 		cnca := sessionmap.New(
 			globalCtx,
-			delayStats,
 			conf.CNCAuth.SessionCookieName,
 			conf.Services.Treq.ExternalSessionCookieName,
-			conf.CNCDB.AnonymousUserID,
+			conf.Services.Treq.SessionValType,
+			conf.Services.Treq.Limits,
 		)
 		var treqReqCounter chan<- guard.RequestInfo
 		if len(conf.Services.Treq.Limits) > 0 {
@@ -456,7 +469,7 @@ func runService(conf *config.Configuration) {
 		}
 		treqActions, err := treq.NewTreqProxy(
 			globalCtx,
-			&conf.Services.Treq,
+			conf.Services.Treq,
 			conf.CNCAuth.SessionCookieName,
 			cnca,
 			conf.ServerReadTimeoutSecs,
@@ -472,16 +485,17 @@ func runService(conf *config.Configuration) {
 
 	// KWords (API) proxy
 
-	if conf.Services.KWords.ExternalURL != "" {
+	if conf.Services.KWords != nil {
 		client := httpclient.New(
 			httpclient.WithFollowRedirects(),
 			httpclient.WithInsecureSkipVerify(),
 			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
 		)
 		analyzer := dflt.New(
-			globalCtx.CNCDB,
-			delayStats,
+			globalCtx,
 			conf.CNCAuth.SessionCookieName,
+			conf.Services.KWords.SessionValType,
+			conf.Services.KWords.Limits,
 		)
 		go analyzer.Run()
 		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
@@ -519,15 +533,97 @@ func runService(conf *config.Configuration) {
 		log.Info().Msg("Service KWords enabled")
 	}
 
-	// user handling
+	// Gunstick proxy
 
-	usersActions := userHandlers.NewActions(globalCtx.CNCDB, conf.TimezoneLocation())
+	if conf.Services.Gunstick != nil {
+		client := httpclient.New(
+			httpclient.WithFollowRedirects(),
+			httpclient.WithInsecureSkipVerify(),
+			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
+		)
+		grd := dflt.New(
+			globalCtx,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Gunstick.SessionValType,
+			conf.Services.Gunstick.Limits,
+		)
+		go grd.Run()
+		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			return
+		}
+		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			return
+		}
+		coreProxy, err := proxy.NewAPIProxy(conf.Services.Gunstick.GetCoreConf())
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize proxy")
+			return
+		}
+		gunstickActions := proxy.NewPublicAPIProxy(
+			coreProxy,
+			client,
+			grd.ExposeAsCounter(),
+			grd,
+			globalCtx.CNCDB,
+			proxy.PublicAPIProxyOpts{
+				ServiceName:     "gunstick",
+				InternalURL:     internalURL,
+				ExternalURL:     externalURL,
+				ReadTimeoutSecs: conf.ServerReadTimeoutSecs,
+			},
+		)
+		apiRoutes.Any("/service/gunstick/*path", gunstickActions.AnyPath)
+	}
 
-	apiRoutes.GET("/user/:userID/ban", usersActions.BanInfo)
+	// Hex proxy
 
-	apiRoutes.PUT("/user/:userID/ban", usersActions.SetBan)
-
-	apiRoutes.DELETE("/user/:userID/ban", usersActions.DisableBan)
+	if conf.Services.Hex != nil {
+		client := httpclient.New(
+			httpclient.WithFollowRedirects(),
+			httpclient.WithInsecureSkipVerify(),
+			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
+		)
+		grd := dflt.New(
+			globalCtx,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Hex.SessionValType,
+			conf.Services.Hex.Limits,
+		)
+		go grd.Run()
+		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			return
+		}
+		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			return
+		}
+		coreProxy, err := proxy.NewAPIProxy(conf.Services.Hex.GetCoreConf())
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize proxy")
+			return
+		}
+		hexActions := proxy.NewPublicAPIProxy(
+			coreProxy,
+			client,
+			grd.ExposeAsCounter(),
+			grd,
+			globalCtx.CNCDB,
+			proxy.PublicAPIProxyOpts{
+				ServiceName:     "hex",
+				InternalURL:     internalURL,
+				ExternalURL:     externalURL,
+				ReadTimeoutSecs: conf.ServerReadTimeoutSecs,
+			},
+		)
+		apiRoutes.Any("/service/hex/*path", hexActions.AnyPath)
+	}
 
 	// session tools
 
@@ -537,13 +633,8 @@ func runService(conf *config.Configuration) {
 
 	// administration/monitoring actions
 
-	telemetryActions := tstorage.NewActions(delayStats)
+	telemetryActions := tstorage.NewActions(globalCtx.TelemetryDB)
 	apiRoutes.POST("/telemetry", telemetryActions.Store)
-
-	requestsActions := requests.NewActions(globalCtx, delayStats, alarm)
-	apiRoutes.GET("/requests", requestsActions.List)
-
-	apiRoutes.GET("/activity/:serviceID", requestsActions.Activity)
 
 	apiRoutes.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
 		binWidth, otherLimit := 0.1, 5.0
@@ -567,7 +658,7 @@ func runService(conf *config.Configuration) {
 			}
 		}
 
-		ans, err := delayStats.AnalyzeDelayLog(binWidth, otherLimit)
+		ans, err := globalCtx.TelemetryDB.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
@@ -589,7 +680,7 @@ func runService(conf *config.Configuration) {
 			}
 		}
 
-		ans, err := delayStats.AnalyzeBans(duration)
+		ans, err := globalCtx.TelemetryDB.AnalyzeBans(duration)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(
 				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
@@ -613,7 +704,7 @@ func runService(conf *config.Configuration) {
 		}
 	}()
 
-	globalCtx.TimescaleDBWriter.LogErrors()
+	globalCtx.ReportingWriter.LogErrors()
 
 	<-globalCtx.Done()
 	// now let's give subsystems some time to save state, clean-up etc.

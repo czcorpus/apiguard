@@ -68,7 +68,7 @@ func (sw *TimescaleDBWriter) AddTableWriter(tableName string) {
 	}
 }
 
-func NewTimescaleDBWriter(connection *pgxpool.Pool, tz *time.Location, ctx context.Context) *TimescaleDBWriter {
+func NewReportingWriter(connection *pgxpool.Pool, tz *time.Location, ctx context.Context) *TimescaleDBWriter {
 	return &TimescaleDBWriter{
 		ctx:    ctx,
 		tz:     tz,

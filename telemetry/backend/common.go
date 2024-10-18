@@ -4,7 +4,10 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package users
+package backend
 
-type Conf struct {
-}
+import (
+	"errors"
+)
+
+var ErrUnknownClient = errors.New("unknown client")

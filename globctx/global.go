@@ -7,9 +7,10 @@
 package globctx
 
 import (
+	"apiguard/common"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/users"
+	"apiguard/telemetry"
 	"context"
 	"database/sql"
 	"time"
@@ -21,13 +22,14 @@ import (
 // It also fulfills context.Context interface so it can be used along with some existing
 // context.
 type Context struct {
-	TimezoneLocation  *time.Location
-	BackendLogger     *BackendLogger
-	CNCDB             *sql.DB
-	TimescaleDBWriter reporting.ReportingWriter
-	Cache             proxy.Cache
-	UserTableProps    users.UserTableProps
-	wCtx              context.Context
+	TimezoneLocation *time.Location
+	BackendLogger    *BackendLogger
+	CNCDB            *sql.DB
+	TelemetryDB      telemetry.Storage
+	ReportingWriter  reporting.ReportingWriter
+	Cache            proxy.Cache
+	wCtx             context.Context
+	AnonymousUserIDs common.AnonymousUsers
 }
 
 func (gc *Context) Deadline() (deadline time.Time, ok bool) {

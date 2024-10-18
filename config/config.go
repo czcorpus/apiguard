@@ -14,6 +14,8 @@ import (
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
+	"apiguard/services/backend/gunstick"
+	"apiguard/services/backend/hex"
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
 	"apiguard/services/backend/kwords"
@@ -23,7 +25,8 @@ import (
 	"apiguard/services/backend/psjc"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
-	"apiguard/services/telemetry"
+	"apiguard/session"
+	"apiguard/telemetry"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -43,21 +46,24 @@ const (
 	DfltTimeZone               = "Europe/Prague"
 	DfltProxyReqTimeoutSecs    = 60
 	DfltIdleConnTimeoutSecs    = 10
+	DfltSessionValType         = session.SessionTypeCNC
 )
 
 type servicesSection struct {
-	LanguageGuide lguide.Conf  `json:"languageGuide"`
-	ASSC          assc.Conf    `json:"assc"`
-	SSJC          ssjc.Conf    `json:"ssjc"`
-	PSJC          psjc.Conf    `json:"psjc"`
-	KLA           kla.Conf     `json:"kla"`
-	Neomat        neomat.Conf  `json:"neomat"`
-	CJA           cja.Conf     `json:"cja"`
-	Kontext       kontext.Conf `json:"kontext"`
-	MQuery        mquery.Conf  `json:"mquery"`
-	MQueryGPT     mquery.Conf  `json:"mqueryGpt"`
-	Treq          treq.Conf    `json:"treq"`
-	KWords        kwords.Conf  `json:"kwords"`
+	LanguageGuide *lguide.Conf   `json:"languageGuide"`
+	ASSC          *assc.Conf     `json:"assc"`
+	SSJC          *ssjc.Conf     `json:"ssjc"`
+	PSJC          *psjc.Conf     `json:"psjc"`
+	KLA           *kla.Conf      `json:"kla"`
+	Neomat        *neomat.Conf   `json:"neomat"`
+	CJA           *cja.Conf      `json:"cja"`
+	Kontext       *kontext.Conf  `json:"kontext"`
+	MQuery        *mquery.Conf   `json:"mquery"`
+	MQueryGPT     *mquery.Conf   `json:"mqueryGpt"`
+	Treq          *treq.Conf     `json:"treq"`
+	KWords        *kwords.Conf   `json:"kwords"`
+	Gunstick      *gunstick.Conf `json:"gunstick"`
+	Hex           *hex.Conf      `json:"hex"`
 }
 
 type CNCAuthConf struct {
@@ -65,9 +71,20 @@ type CNCAuthConf struct {
 }
 
 func (services *servicesSection) validate() error {
-	if services.Kontext.InternalURL != "" {
+	if services.Kontext != nil {
+		if services.Kontext.InternalURL == "" {
+			return errors.New("missing internalUrl configuration for KonText")
+		}
 		if services.Kontext.ExternalURL == "" {
 			return errors.New("missing externalUrl configuration for KonText")
+		}
+		if services.Kontext.SessionValType == "" {
+			log.Warn().Msgf(
+				"missing services.kontext.sessionValType, setting %s", DfltSessionValType)
+			services.Kontext.SessionValType = DfltSessionValType
+		}
+		if err := services.Kontext.SessionValType.Validate(); err != nil {
+			return fmt.Errorf("invalid value of kontext.sessionValType: %w", err)
 		}
 	}
 	if services.Kontext.ReqTimeoutSecs == 0 {
@@ -78,9 +95,20 @@ func (services *servicesSection) validate() error {
 		services.Kontext.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
 		log.Warn().Msgf("missing services.kontext.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
 	}
-	if services.Treq.InternalURL != "" {
+	if services.Treq != nil {
 		if services.Treq.ExternalURL == "" {
 			return errors.New("missing externalUrl configuration for Treq")
+		}
+		if services.Treq.InternalURL == "" {
+			return errors.New("missing internalURL configuration for Treq")
+		}
+		if services.Treq.SessionValType == "" {
+			log.Warn().Msgf(
+				"missing services.treq.sessionValType, setting %s", DfltSessionValType)
+			services.Treq.SessionValType = DfltSessionValType
+		}
+		if err := services.Treq.SessionValType.Validate(); err != nil {
+			return fmt.Errorf("invalid value of treq.sessionValType: %w", err)
 		}
 	}
 	if services.Treq.ReqTimeoutSecs == 0 {
@@ -91,9 +119,12 @@ func (services *servicesSection) validate() error {
 		services.Treq.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
 		log.Warn().Msgf("missing services.treq.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
 	}
-	if services.KWords.InternalURL != "" {
+	if services.KWords != nil {
 		if services.KWords.ExternalURL == "" {
 			return errors.New("missing externalUrl configuration for KWords")
+		}
+		if services.KWords.InternalURL == "" {
+			return errors.New("missing internalURL configuration for KWords")
 		}
 	}
 	if services.KWords.ReqTimeoutSecs == 0 {
@@ -120,7 +151,7 @@ type Configuration struct {
 	// Mostly, we should stick here with our internal network.
 	APIAllowedClients []string                 `json:"apiAllowedClients"`
 	Botwatch          botwatch.Conf            `json:"botwatch"`
-	Telemetry         telemetry.Conf           `json:"telemetry"`
+	Telemetry         *telemetry.Conf          `json:"telemetry"`
 	Services          servicesSection          `json:"services"`
 	Cache             reqcache.Conf            `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
@@ -173,8 +204,10 @@ func (c *Configuration) Validate() error {
 	if err := c.Botwatch.Validate("botwatch"); err != nil {
 		return err
 	}
-	if err := c.Telemetry.Validate("telemetry"); err != nil {
-		return err
+	if c.Telemetry != nil {
+		if err := c.Telemetry.Validate("telemetry"); err != nil {
+			return err
+		}
 	}
 	if err := c.CNCDB.Validate("cncDb"); err != nil {
 		return err

@@ -13,21 +13,18 @@ import (
 	"flag"
 	"fmt"
 	"math/rand"
-	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"apiguard/cnc"
-	"apiguard/common"
 	"apiguard/config"
 	"apiguard/globctx"
-	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services"
+	"apiguard/telemetry"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/hltscl"
@@ -130,7 +127,7 @@ func createTDBWriter(
 	ctx context.Context, conf *reporting.Conf, loc *time.Location) (ans reporting.ReportingWriter) {
 	if conf != nil {
 		pgPool := createPGPool(conf.DB)
-		ans = reporting.NewTimescaleDBWriter(pgPool, loc, ctx)
+		ans = reporting.NewReportingWriter(pgPool, loc, ctx)
 
 	} else {
 		ans = &reporting.NullWriter{}
@@ -162,11 +159,14 @@ func createGlobalCtx(
 	}
 
 	ans.TimezoneLocation = conf.TimezoneLocation()
-	ans.TimescaleDBWriter = tDBWriter
+	ans.ReportingWriter = tDBWriter
 	ans.BackendLogger = globctx.NewBackendLogger(tDBWriter)
 	ans.CNCDB = openCNCDatabase(&conf.CNCDB)
 	ans.Cache = cache
-	ans.UserTableProps = conf.CNCDB.ApplyOverrides()
+	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
+
+	// delay stats writer and telemetry analyzer
+	ans.TelemetryDB = telemetry.NewDelayStats(ans.CNCDB, conf.TimezoneLocation())
 	return ans
 }
 
@@ -236,55 +236,6 @@ func main() {
 			Msg("Starting CNC APIGuard")
 
 		runService(conf)
-	case "cleanup":
-		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		runCleanup(db, conf.TimezoneLocation(), conf.Monitoring)
-	case "ipban":
-		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		delayLog := guard.NewDelayStats(db, conf.TimezoneLocation())
-		if err := delayLog.InsertIPBan(net.ParseIP(flag.Arg(1)), conf.IPBanTTLSecs); err != nil {
-			log.Fatal().Err(err).Send()
-		}
-	case "ipunban":
-		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		delayLog := guard.NewDelayStats(db, conf.TimezoneLocation())
-		if err := delayLog.RemoveIPBan(net.ParseIP(flag.Arg(1))); err != nil {
-			log.Fatal().Err(err).Send()
-		}
-	case "userban":
-		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		now := time.Now().In(conf.TimezoneLocation())
-		userID, err := common.Str2UserID(flag.Arg(1))
-		if err != nil {
-			log.Fatal().Err(err).Send()
-		}
-		banHours := 24
-		_, err = guard.BanUser(
-			db, conf.TimezoneLocation(), userID, nil, now, now.Add(time.Duration(banHours)*time.Hour))
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to ban user")
-
-		} else {
-			log.Info().Msgf("Banned user %d for %d hours", userID, banHours)
-		}
-	case "userunban":
-		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
-		db := openCNCDatabase(&conf.CNCDB)
-		userID, err := strconv.Atoi(flag.Arg(1))
-		if err != nil {
-			log.Fatal().Err(err).Send()
-		}
-		_, err = guard.UnbanUser(db, conf.TimezoneLocation(), userID)
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to unban user")
-
-		} else {
-			log.Info().Msgf("Unbanned user %d", userID)
-		}
 	case "status":
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		ctx := context.TODO()

@@ -15,6 +15,10 @@ import (
 // Null guard implements no restrictions
 type Guard struct{}
 
+func (sra *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
+	return common.InvalidUserID, nil
+}
+
 func (sra *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
 	return guard.DelayInfo{}, nil
 }
@@ -23,10 +27,17 @@ func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.Cli
 	return nil
 }
 
-func (sra *Guard) ClientInducedRespStatus(req *http.Request, serviceName string) guard.ReqProperties {
+func (sra *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
 	return guard.ReqProperties{
 		ProposedStatus: http.StatusOK,
 	}
+}
+
+// TestUserIsAnonymous must always prefer "safe evaluation" in
+// case of Null Guard - i.e. it cannot say some user has non-anonymous
+// rights to anything - that's why we return true here.
+func (sra *Guard) TestUserIsAnonymous(userID common.UserID) bool {
+	return true
 }
 
 func New() *Guard {

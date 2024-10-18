@@ -8,7 +8,6 @@ package monitoring
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/mail"
@@ -21,15 +20,6 @@ const (
 	DfltExceedingsBufferSize     = 10
 	DfltExceedingThreshold       = 0.05
 )
-
-type Limit struct {
-	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
-	ReqCheckingIntervalSecs int `json:"reqCheckingIntervalSecs"`
-}
-
-func (m Limit) ReqCheckingInterval() time.Duration {
-	return time.Duration(m.ReqCheckingIntervalSecs) * time.Second
-}
 
 // AlarmConf describes alarm setup for a concrete service
 type AlarmConf struct {

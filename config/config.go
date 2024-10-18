@@ -86,14 +86,14 @@ func (services *servicesSection) validate() error {
 		if err := services.Kontext.SessionValType.Validate(); err != nil {
 			return fmt.Errorf("invalid value of kontext.sessionValType: %w", err)
 		}
-	}
-	if services.Kontext.ReqTimeoutSecs == 0 {
-		services.Kontext.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
-		log.Warn().Msgf("missing services.kontext.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
-	}
-	if services.Kontext.IdleConnTimeoutSecs == 0 {
-		services.Kontext.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
-		log.Warn().Msgf("missing services.kontext.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+		if services.Kontext.ReqTimeoutSecs == 0 {
+			services.Kontext.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
+			log.Warn().Msgf("missing services.kontext.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
+		}
+		if services.Kontext.IdleConnTimeoutSecs == 0 {
+			services.Kontext.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
+			log.Warn().Msgf("missing services.kontext.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+		}
 	}
 	if services.Treq != nil {
 		if services.Treq.ExternalURL == "" {
@@ -110,14 +110,14 @@ func (services *servicesSection) validate() error {
 		if err := services.Treq.SessionValType.Validate(); err != nil {
 			return fmt.Errorf("invalid value of treq.sessionValType: %w", err)
 		}
-	}
-	if services.Treq.ReqTimeoutSecs == 0 {
-		services.Treq.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
-		log.Warn().Msgf("missing services.treq.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
-	}
-	if services.Treq.IdleConnTimeoutSecs == 0 {
-		services.Treq.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
-		log.Warn().Msgf("missing services.treq.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+		if services.Treq.ReqTimeoutSecs == 0 {
+			services.Treq.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
+			log.Warn().Msgf("missing services.treq.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
+		}
+		if services.Treq.IdleConnTimeoutSecs == 0 {
+			services.Treq.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
+			log.Warn().Msgf("missing services.treq.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+		}
 	}
 	if services.KWords != nil {
 		if services.KWords.ExternalURL == "" {
@@ -126,14 +126,14 @@ func (services *servicesSection) validate() error {
 		if services.KWords.InternalURL == "" {
 			return errors.New("missing internalURL configuration for KWords")
 		}
-	}
-	if services.KWords.ReqTimeoutSecs == 0 {
-		services.KWords.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
-		log.Warn().Msgf("missing services.kwords.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
-	}
-	if services.KWords.IdleConnTimeoutSecs == 0 {
-		services.KWords.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
-		log.Warn().Msgf("missing services.kwords.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+		if services.KWords.ReqTimeoutSecs == 0 {
+			services.KWords.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
+			log.Warn().Msgf("missing services.kwords.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
+		}
+		if services.KWords.IdleConnTimeoutSecs == 0 {
+			services.KWords.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
+			log.Warn().Msgf("missing services.kwords.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
+		}
 	}
 	return nil
 }

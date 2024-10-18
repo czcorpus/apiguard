@@ -58,7 +58,7 @@ type PublicAPIProxy struct {
 	client           *http.Client
 	basicProxy       *APIProxy
 	clientCounter    chan<- common.ClientID
-	reqAnalyzer      guard.ServiceGuard
+	guard            guard.ServiceGuard
 	db               *sql.DB
 }
 
@@ -84,7 +84,7 @@ func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.HTTPS
 }
 
 func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {
-	respDelay, err := prox.reqAnalyzer.CalcDelay(ctx.Request, clientID)
+	respDelay, err := prox.guard.CalcDelay(ctx.Request, clientID)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx,
@@ -156,6 +156,22 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 		UserID: humanID,
 	}
 	prox.clientCounter <- clientID
+
+	reqProps := prox.guard.ClientInducedRespStatus(ctx.Request)
+	if reqProps.Error != nil {
+		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
+		http.Error(
+			ctx.Writer,
+			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
+			reqProps.ProposedStatus,
+		)
+		return
+
+	} else if reqProps.ForbidsAccess() {
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		return
+	}
+
 	err = prox.RestrictResponseTime(ctx, clientID)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
@@ -187,7 +203,7 @@ func NewPublicAPIProxy(
 	basicProxy *APIProxy,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
-	reqAnalyzer guard.ServiceGuard,
+	guard guard.ServiceGuard,
 	db *sql.DB,
 	opts PublicAPIProxyOpts,
 
@@ -198,7 +214,7 @@ func NewPublicAPIProxy(
 		client:        client,
 		basicProxy:    basicProxy,
 		clientCounter: clientCounter,
-		reqAnalyzer:   reqAnalyzer,
+		guard:         guard,
 		db:            db,
 	}
 

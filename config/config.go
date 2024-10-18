@@ -14,6 +14,8 @@ import (
 	"apiguard/reqcache"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
+	"apiguard/services/backend/gunstick"
+	"apiguard/services/backend/hex"
 	"apiguard/services/backend/kla"
 	"apiguard/services/backend/kontext"
 	"apiguard/services/backend/kwords"
@@ -48,18 +50,20 @@ const (
 )
 
 type servicesSection struct {
-	LanguageGuide *lguide.Conf  `json:"languageGuide"`
-	ASSC          *assc.Conf    `json:"assc"`
-	SSJC          *ssjc.Conf    `json:"ssjc"`
-	PSJC          *psjc.Conf    `json:"psjc"`
-	KLA           *kla.Conf     `json:"kla"`
-	Neomat        *neomat.Conf  `json:"neomat"`
-	CJA           *cja.Conf     `json:"cja"`
-	Kontext       *kontext.Conf `json:"kontext"`
-	MQuery        *mquery.Conf  `json:"mquery"`
-	MQueryGPT     *mquery.Conf  `json:"mqueryGpt"`
-	Treq          *treq.Conf    `json:"treq"`
-	KWords        *kwords.Conf  `json:"kwords"`
+	LanguageGuide *lguide.Conf   `json:"languageGuide"`
+	ASSC          *assc.Conf     `json:"assc"`
+	SSJC          *ssjc.Conf     `json:"ssjc"`
+	PSJC          *psjc.Conf     `json:"psjc"`
+	KLA           *kla.Conf      `json:"kla"`
+	Neomat        *neomat.Conf   `json:"neomat"`
+	CJA           *cja.Conf      `json:"cja"`
+	Kontext       *kontext.Conf  `json:"kontext"`
+	MQuery        *mquery.Conf   `json:"mquery"`
+	MQueryGPT     *mquery.Conf   `json:"mqueryGpt"`
+	Treq          *treq.Conf     `json:"treq"`
+	KWords        *kwords.Conf   `json:"kwords"`
+	Gunstick      *gunstick.Conf `json:"gunstick"`
+	Hex           *hex.Conf      `json:"hex"`
 }
 
 type CNCAuthConf struct {

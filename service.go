@@ -533,6 +533,98 @@ func runService(conf *config.Configuration) {
 		log.Info().Msg("Service KWords enabled")
 	}
 
+	// Gunstick proxy
+
+	if conf.Services.Gunstick != nil {
+		client := httpclient.New(
+			httpclient.WithFollowRedirects(),
+			httpclient.WithInsecureSkipVerify(),
+			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
+		)
+		grd := dflt.New(
+			globalCtx,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Gunstick.SessionValType,
+			conf.Services.Gunstick.Limits,
+		)
+		go grd.Run()
+		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			return
+		}
+		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			return
+		}
+		coreProxy, err := proxy.NewAPIProxy(conf.Services.Gunstick.GetCoreConf())
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize proxy")
+			return
+		}
+		gunstickActions := proxy.NewPublicAPIProxy(
+			coreProxy,
+			client,
+			grd.ExposeAsCounter(),
+			grd,
+			globalCtx.CNCDB,
+			proxy.PublicAPIProxyOpts{
+				ServiceName:     "gunstick",
+				InternalURL:     internalURL,
+				ExternalURL:     externalURL,
+				ReadTimeoutSecs: conf.ServerReadTimeoutSecs,
+			},
+		)
+		apiRoutes.Any("/service/gunstick/*path", gunstickActions.AnyPath)
+	}
+
+	// Hex proxy
+
+	if conf.Services.Hex != nil {
+		client := httpclient.New(
+			httpclient.WithFollowRedirects(),
+			httpclient.WithInsecureSkipVerify(),
+			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
+		)
+		grd := dflt.New(
+			globalCtx,
+			conf.CNCAuth.SessionCookieName,
+			conf.Services.Hex.SessionValType,
+			conf.Services.Hex.Limits,
+		)
+		go grd.Run()
+		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
+			return
+		}
+		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
+			return
+		}
+		coreProxy, err := proxy.NewAPIProxy(conf.Services.Hex.GetCoreConf())
+		if err != nil {
+			log.Fatal().Err(err).Msg("failed to initialize proxy")
+			return
+		}
+		hexActions := proxy.NewPublicAPIProxy(
+			coreProxy,
+			client,
+			grd.ExposeAsCounter(),
+			grd,
+			globalCtx.CNCDB,
+			proxy.PublicAPIProxyOpts{
+				ServiceName:     "hex",
+				InternalURL:     internalURL,
+				ExternalURL:     externalURL,
+				ReadTimeoutSecs: conf.ServerReadTimeoutSecs,
+			},
+		)
+		apiRoutes.Any("/service/hex/*path", hexActions.AnyPath)
+	}
+
 	// session tools
 
 	apiRoutes.GET("/defaults/:serviceID/:key", sessActions.Get)

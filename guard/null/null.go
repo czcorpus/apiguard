@@ -10,6 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/guard"
 	"net/http"
+	"time"
 )
 
 // Null guard implements no restrictions
@@ -19,11 +20,11 @@ func (sra *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) 
 	return common.InvalidUserID, nil
 }
 
-func (sra *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
-	return guard.DelayInfo{}, nil
+func (sra *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (time.Duration, error) {
+	return 0, nil
 }
 
-func (sra *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
+func (sra *Guard) LogAppliedDelay(respDelay time.Duration, clientID common.ClientID) error {
 	return nil
 }
 

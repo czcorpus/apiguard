@@ -82,13 +82,13 @@ func Str2UserID(v string) (UserID, error) {
 // the type also allows for unknown users
 // identifiable (roughly) via IP.
 type ClientID struct {
-	IP     string
-	UserID UserID
+	IP string
+	ID UserID
 }
 
 // GetKey is used in situations where we need
 // to address some user-specific information within
 // hash maps etc.
 func (c *ClientID) GetKey() string {
-	return fmt.Sprintf("%s:%d", c.IP, c.UserID)
+	return fmt.Sprintf("%s:%d", c.IP, c.ID)
 }

@@ -60,8 +60,8 @@ func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident str
 
 	if sessionID != "" {
 		clientID := common.ClientID{
-			IP:     ip.String(),
-			UserID: common.InvalidUserID,
+			IP: ip.String(),
+			ID: common.InvalidUserID,
 		}
 		delay, err := telemetryAnalyzer.CalcDelay(fakeReq, clientID)
 		if err != nil {

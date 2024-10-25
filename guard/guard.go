@@ -22,11 +22,6 @@ const (
 	UltraDuration = time.Duration(24) * time.Hour
 )
 
-type DelayInfo struct {
-	Delay time.Duration
-	IsBan bool
-}
-
 type RequestInfo struct {
 	Created     time.Time     `json:"created"`
 	Service     string        `json:"service"`
@@ -52,11 +47,14 @@ func (ipc RequestIPCount) Inc() RequestIPCount {
 }
 
 type ReqProperties struct {
-	// UserID is a user ID used to access the API
+	// ClientID is a user ID used to access the API
 	// In general it can be true user ID or some replacement
 	// for a specific application (e.g. WaG as a whole uses a single
 	// ID)
-	UserID         common.UserID
+	ClientID common.UserID
+	// HumanID specifies true end user ID
+	// In general, this may or may not be available
+	HumanID        common.UserID
 	SessionID      string
 	ProposedStatus int
 	Error          error
@@ -74,11 +72,11 @@ type ServiceGuard interface {
 	// CalcDelay calculates how long should be the current
 	// request delayed based on request properties.
 	// Ideally, this is zero for a new or good behaving client.
-	CalcDelay(req *http.Request, clientID common.ClientID) (DelayInfo, error)
+	CalcDelay(req *http.Request, clientID common.ClientID) (time.Duration, error)
 
 	// LogAppliedDelay should store information about applied delay for future
 	// delay calculations (for the same client)
-	LogAppliedDelay(respDelay DelayInfo, clientID common.ClientID) error
+	LogAppliedDelay(respDelay time.Duration, clientID common.ClientID) error
 
 	ClientInducedRespStatus(req *http.Request) ReqProperties
 
@@ -104,7 +102,7 @@ func RestrictResponseTime(
 		return fmt.Errorf("failed to restrict response time: %w", err)
 	}
 	log.Debug().Msgf("Client is going to wait for %v", respDelay)
-	if respDelay.Delay.Seconds() >= float64(readTimeoutSecs) {
+	if respDelay.Seconds() >= float64(readTimeoutSecs) {
 		uniresp.WriteJSONErrorResponse(
 			w,
 			uniresp.NewActionError("service overloaded"),
@@ -120,6 +118,6 @@ func RestrictResponseTime(
 		)
 		return fmt.Errorf("failed to restrict response time: %w", err)
 	}
-	time.Sleep(respDelay.Delay)
+	time.Sleep(respDelay)
 	return nil
 }

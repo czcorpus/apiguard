@@ -80,7 +80,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	}(&userId)
 
 	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request)
-	userId = reqProps.UserID
+	userId = reqProps.ClientID
 	if reqProps.Error != nil {
 		http.Error(
 			ctx.Writer,
@@ -237,17 +237,13 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
-	defer func(currUserID *common.UserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
-		loggedUserID := currUserID
-		if currHumanID.IsValid() && kp.guard.TestUserIsAnonymous(*currHumanID) {
-			loggedUserID = currHumanID
-		}
+	defer func(currHumanID *common.UserID, indirect *bool, created time.Time) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- guard.RequestInfo{
 				Created:     created,
 				Service:     kp.rConf.ServiceName,
 				NumRequests: 1,
-				UserID:      *loggedUserID,
+				UserID:      *currHumanID,
 				IP:          ctx.ClientIP(),
 			}
 		}
@@ -256,11 +252,11 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 			kp.rConf.ServiceName,
 			time.Since(t0),
 			cached,
-			*loggedUserID,
+			*currHumanID,
 			*indirect,
 			reporting.BackendActionTypeQuery,
 		)
-	}(&userID, &humanID, &indirectAPICall, t0)
+	}(&humanID, &indirectAPICall, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, kp.rConf.ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")
@@ -268,7 +264,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request)
-	userID = reqProps.UserID
+	humanID = reqProps.ClientID
 	if reqProps.Error != nil {
 		// TODO
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
@@ -291,8 +287,8 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 	clientID := common.ClientID{
-		IP:     ctx.RemoteIP(),
-		UserID: humanID,
+		IP: ctx.RemoteIP(),
+		ID: humanID,
 	}
 
 	if err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.guard, clientID); err != nil {

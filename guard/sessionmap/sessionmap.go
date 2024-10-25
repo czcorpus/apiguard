@@ -94,26 +94,11 @@ func (kua *Guard) TestUserIsAnonymous(userID common.UserID) bool {
 // SessionMappingGuard applies only two delays:
 // 1) zero for non-banned users
 // 2) guard.UltraDuration which is basically a ban
-func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
-	ip, _ := logging.ExtractRequestIdentifiers(req)
-	delayInfo := guard.DelayInfo{
-		Delay: time.Duration(0),
-		IsBan: false,
-	}
-
-	isBanned, err := kua.tlmtrStorage.TestIPBan(net.ParseIP(ip))
-	if err != nil {
-		return delayInfo, err
-	}
-	if isBanned {
-		delayInfo.Delay = guard.UltraDuration
-		delayInfo.IsBan = true
-		return delayInfo, nil
-	}
-	return delayInfo, nil
+func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (time.Duration, error) {
+	return 0, nil
 }
 
-func (kua *Guard) LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error {
+func (kua *Guard) LogAppliedDelay(respDelay time.Duration, clientID common.ClientID) error {
 	return kua.tlmtrStorage.LogAppliedDelay(respDelay, clientID)
 }
 
@@ -169,6 +154,22 @@ func (kua *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) 
 	return userID, nil
 }
 
+func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool, error) {
+	ip, _ := logging.ExtractRequestIdentifiers(req)
+	isBanned, err := kua.tlmtrStorage.TestIPBan(net.ParseIP(ip))
+	if err != nil {
+		return isBanned, err
+	}
+	if isBanned {
+		log.Debug().
+			Str("guardType", "sessionmap").
+			Str("clientId", clientID.GetKey()).
+			Msg("applied IP ban")
+		return true, nil
+	}
+	return false, nil
+}
+
 // ClientInducedRespStatus produces a HTTP response status
 // proposal based on user activity.
 // The function prefers external cookie. I.e. if a client (e.g. WaG)
@@ -181,7 +182,7 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 	if err != nil {
 		return guard.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
-			UserID:         common.InvalidUserID,
+			ClientID:       common.InvalidUserID,
 			SessionID:      "",
 			Error:          fmt.Errorf("failed to determine user IP: %w", err),
 		}
@@ -190,7 +191,7 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 	if analyzer.db == nil {
 		return guard.ReqProperties{
 			ProposedStatus: http.StatusOK,
-			UserID:         common.InvalidUserID,
+			ClientID:       common.InvalidUserID,
 			SessionID:      "",
 			Error:          nil,
 		}
@@ -204,7 +205,7 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 			Msgf("failed to find authentication cookies")
 		return guard.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
-			UserID:         common.InvalidUserID,
+			ClientID:       common.InvalidUserID,
 			Error:          fmt.Errorf("session cookie not found"),
 		}
 
@@ -214,7 +215,7 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 		if err != nil {
 			return guard.ReqProperties{
 				ProposedStatus: http.StatusInternalServerError,
-				UserID:         common.InvalidUserID,
+				ClientID:       common.InvalidUserID,
 				Error:          fmt.Errorf("failed to determine userID: %w", err),
 			}
 		}
@@ -234,15 +235,28 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 		if !limiter.Allow() {
 			return guard.ReqProperties{
 				ProposedStatus: http.StatusTooManyRequests,
-				UserID:         userID,
+				ClientID:       userID,
 				SessionID:      cookieValue,
 			}
 		}
 	}
 
+	// test ip ban
+	banned, err := analyzer.checkForBan(req, common.ClientID{IP: clientIP, ID: userID})
+	if err != nil {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusInternalServerError,
+			Error:          err,
+		}
+	}
+	if banned {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusForbidden,
+		}
+	}
 	return guard.ReqProperties{
 		ProposedStatus: http.StatusOK,
-		UserID:         userID,
+		ClientID:       userID,
 		SessionID:      cookieValue,
 		Error:          err,
 	}

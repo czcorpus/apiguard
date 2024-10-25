@@ -7,7 +7,6 @@ package telemetry
 
 import (
 	"apiguard/common"
-	"apiguard/guard"
 	"database/sql"
 	"net"
 	"time"
@@ -18,7 +17,7 @@ type Storage interface {
 	LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*IPProcData, error)
 	LoadIPStats(clientIP string, maxAgeSecs int) (*IPAggData, error)
 	TestIPBan(IP net.IP) (bool, error)
-	LogAppliedDelay(respDelay guard.DelayInfo, clientID common.ClientID) error
+	LogAppliedDelay(respDelay time.Duration, clientID common.ClientID) error
 	FindLearningClients(maxAgeSecs, minAgeSecs int) ([]*Client, error)
 	LoadCountingRules() ([]*CountingRule, error)
 	ResetStats(data *IPProcData) error

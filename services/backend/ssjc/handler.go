@@ -69,8 +69,8 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 	}
 
 	clientID := common.ClientID{
-		IP:     ctx.RemoteIP(),
-		UserID: common.InvalidUserID,
+		IP: ctx.RemoteIP(),
+		ID: common.InvalidUserID,
 	}
 	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard, clientID)
 	if err != nil {

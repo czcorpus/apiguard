@@ -94,8 +94,8 @@ func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID comm
 		log.Error().Err(err).Msg("failed to analyze client")
 		return err
 	}
-	log.Debug().Msgf("Client is going to wait for %v", respDelay.Delay)
-	if respDelay.Delay.Seconds() >= float64(prox.readTimeoutSecs) {
+	log.Debug().Msgf("Client is going to wait for %v", respDelay)
+	if respDelay.Seconds() >= float64(prox.readTimeoutSecs) {
 		uniresp.WriteJSONErrorResponse(
 			ctx.Writer,
 			uniresp.NewActionError("service overloaded"),
@@ -103,7 +103,7 @@ func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID comm
 		)
 		return err
 	}
-	time.Sleep(respDelay.Delay)
+	time.Sleep(respDelay)
 	return nil
 }
 
@@ -152,8 +152,8 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	}
 
 	clientID := common.ClientID{
-		IP:     ctx.RemoteIP(),
-		UserID: humanID,
+		IP: ctx.RemoteIP(),
+		ID: humanID,
 	}
 	prox.clientCounter <- clientID
 

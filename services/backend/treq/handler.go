@@ -54,7 +54,7 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 
 func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	var cached, indirectAPICall bool
-	var userID, humanID common.UserID
+	var clientID, humanID common.UserID
 	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		loggedUserID := currUserID
@@ -79,13 +79,13 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			*indirect,
 			reporting.BackendActionTypeQuery,
 		)
-	}(&userID, &humanID, &indirectAPICall, t0)
+	}(&clientID, &humanID, &indirectAPICall, t0)
 	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
 	reqProps := tp.guard.ClientInducedRespStatus(ctx.Request)
-	userID = reqProps.UserID
+	clientID = reqProps.ClientID
 	if reqProps.Error != nil {
 		// TODO
 		http.Error(
@@ -100,25 +100,27 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 
-	clientID := common.ClientID{
-		IP:     ctx.RemoteIP(),
-		UserID: userID,
-	}
-	guard.RestrictResponseTime(ctx.Writer, ctx.Request, tp.readTimeoutSecs, tp.guard, clientID)
-
 	passedHeaders := ctx.Request.Header
 	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
 		humanID, err = tp.guard.DetermineTrueUserID(ctx.Request)
+		clientID = humanID
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
 		}
-		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
-
-	} else {
-		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
 	}
+	passedHeaders[backend.HeaderAPIUserID] = []string{clientID.String()}
+	guard.RestrictResponseTime(
+		ctx.Writer,
+		ctx.Request,
+		tp.readTimeoutSecs,
+		tp.guard,
+		common.ClientID{
+			IP: ctx.RemoteIP(),
+			ID: clientID,
+		},
+	)
 
 	// first, remap cookie names
 	if tp.reqUsesMappedSession(ctx.Request) {

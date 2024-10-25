@@ -80,34 +80,46 @@ func (a *Guard) Learn() error {
 	return a.backend.Learn()
 }
 
+func (a *Guard) checkForBan(req *http.Request, userID common.UserID) (bool, error) {
+	ip, _ := logging.ExtractRequestIdentifiers(req)
+	isBanned, err := a.storage.TestIPBan(net.ParseIP(ip))
+	if err != nil {
+		return isBanned, err
+	}
+	if isBanned {
+		log.Debug().
+			Str("guardType", "tlmtr").
+			Str("ip", ip).
+			Str("userId", userID.String()).
+			Msg("applied IP ban")
+		return true, nil
+	}
+	return false, nil
+}
+
 func (a *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+	banned, err := a.checkForBan(req, common.InvalidUserID)
+	if err != nil {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusInternalServerError,
+			Error:          err,
+		}
+	}
+	if banned {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusForbidden,
+		}
+	}
 	return guard.ReqProperties{
-		UserID:         common.InvalidUserID,
+		ClientID:       common.InvalidUserID,
 		SessionID:      "",
 		ProposedStatus: http.StatusOK,
 		Error:          nil,
 	}
 }
 
-func (a *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.DelayInfo, error) {
+func (a *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (time.Duration, error) {
 	ip, sessionID := logging.ExtractRequestIdentifiers(req)
-	delayInfo := guard.DelayInfo{
-		Delay: time.Duration(0),
-		IsBan: false,
-	}
-	isBanned, err := a.storage.TestIPBan(net.ParseIP(ip))
-	if err != nil {
-		return delayInfo, err
-	}
-	if isBanned {
-		log.Debug().
-			Str("guardType", "telemetry").
-			Str("clientId", clientID.GetKey()).
-			Msg("found user ban")
-		delayInfo.Delay = guard.UltraDuration
-		delayInfo.IsBan = true
-		return delayInfo, nil
-	}
 	botScore, err := a.backend.BotScore(req)
 	if err == backend.ErrUnknownClient {
 		log.Debug().Msgf(
@@ -118,19 +130,17 @@ func (a *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.De
 			// no telemetry - let's check client's request activity
 			stats, err := a.storage.LoadStats(ip, sessionID, a.conf.WatchedTimeWindowSecs, true)
 			if err != nil {
-				return delayInfo, err
+				return 0, err
 			}
 			if stats.Count > 50 {
 				// user with a "long" session waits from ~8s to infinity
 				// (e.g. 100 req. => ~14s, 500 req. => ~58s)
-				delayInfo.Delay = time.Duration(penaltyFn2(stats.Count)) * time.Millisecond
-				return delayInfo, nil
+				return time.Duration(penaltyFn2(stats.Count)) * time.Millisecond, nil
 
 			} else if stats.Count > 1 {
 				// user with a "long" session and just a few requests
 				// waits for ~1 to ~8 seconds
-				delayInfo.Delay = time.Duration(penaltyFn1(stats.Count)) * time.Millisecond
-				return delayInfo, nil
+				return time.Duration(penaltyFn1(stats.Count)) * time.Millisecond, nil
 			}
 		}
 		// no (valid) session (first request or a simple bot) => let's load stats for the whole IP
@@ -139,24 +149,21 @@ func (a *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (guard.De
 			"loaded stats of whole IP (users without telemetry), num req: %d, latest: %v",
 			stats.Count, stats.LastAccess)
 		if err != nil {
-			return delayInfo, err
+			return 0, err
 		}
-		// user w
-		delayInfo.Delay = time.Duration(penaltyFn3(stats.Count)) * time.Millisecond
-		return delayInfo, nil
+		return time.Duration(penaltyFn3(stats.Count)) * time.Millisecond, nil
 
 	} else if err != nil {
-		return delayInfo, err
+		return 0, err
 
 	} else {
 		log.Debug().Msg("Client with telemetry...")
 		// user with telemetry waits from 0 to ~6s
-		delayInfo.Delay = time.Duration(1000*2.5*botScore*2.5*botScore) * time.Millisecond
-		return delayInfo, nil
+		return time.Duration(1000*2.5*botScore*2.5*botScore) * time.Millisecond, nil
 	}
 }
 
-func (a *Guard) LogAppliedDelay(delayInfo guard.DelayInfo, clientID common.ClientID) error {
+func (a *Guard) LogAppliedDelay(delayInfo time.Duration, clientID common.ClientID) error {
 	err := a.storage.LogAppliedDelay(delayInfo, clientID)
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to register delay log")

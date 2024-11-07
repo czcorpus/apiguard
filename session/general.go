@@ -11,7 +11,7 @@ import "fmt"
 type SessionType string
 
 func (st SessionType) Validate() error {
-	if st != SessionTypeCNC && st != SessionTypeSimple {
+	if st != SessionTypeCNC && st != SessionTypeSimple && st != SessionTypeNone {
 		return fmt.Errorf("invalid session type: `%s`", st)
 	}
 	return nil
@@ -20,6 +20,7 @@ func (st SessionType) Validate() error {
 const (
 	SessionTypeCNC    SessionType = "cnc"
 	SessionTypeSimple SessionType = "simple"
+	SessionTypeNone   SessionType = "none"
 )
 
 type HTTPSession interface {

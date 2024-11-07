@@ -12,23 +12,9 @@ import (
 	"apiguard/monitoring"
 	"apiguard/reporting"
 	"apiguard/reqcache"
-	"apiguard/services/backend/assc"
-	"apiguard/services/backend/cja"
-	"apiguard/services/backend/gunstick"
-	"apiguard/services/backend/hex"
-	"apiguard/services/backend/kla"
-	"apiguard/services/backend/kontext"
-	"apiguard/services/backend/kwords"
-	"apiguard/services/backend/lguide"
-	"apiguard/services/backend/mquery"
-	"apiguard/services/backend/neomat"
-	"apiguard/services/backend/psjc"
-	"apiguard/services/backend/ssjc"
-	"apiguard/services/backend/treq"
 	"apiguard/session"
 	"apiguard/telemetry"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -49,51 +35,19 @@ const (
 	DfltSessionValType         = session.SessionTypeCNC
 )
 
-type servicesSection struct {
-	LanguageGuide *lguide.Conf   `json:"languageGuide"`
-	ASSC          *assc.Conf     `json:"assc"`
-	SSJC          *ssjc.Conf     `json:"ssjc"`
-	PSJC          *psjc.Conf     `json:"psjc"`
-	KLA           *kla.Conf      `json:"kla"`
-	Neomat        *neomat.Conf   `json:"neomat"`
-	CJA           *cja.Conf      `json:"cja"`
-	Kontext       *kontext.Conf  `json:"kontext"`
-	MQuery        *mquery.Conf   `json:"mquery"`
-	MQueryGPT     *mquery.Conf   `json:"mqueryGpt"`
-	Treq          *treq.Conf     `json:"treq"`
-	KWords        *kwords.Conf   `json:"kwords"`
-	Gunstick      *gunstick.Conf `json:"gunstick"`
-	Hex           *hex.Conf      `json:"hex"`
+type GeneralServiceConf struct {
+	Type string          `json:"type"`
+	Conf json.RawMessage `json:"conf"`
 }
 
 type CNCAuthConf struct {
 	SessionCookieName string `json:"sessionCookieName"`
 }
 
+/*
 func (services *servicesSection) validate() error {
 	if services.Kontext != nil {
-		if services.Kontext.InternalURL == "" {
-			return errors.New("missing internalUrl configuration for KonText")
-		}
-		if services.Kontext.ExternalURL == "" {
-			return errors.New("missing externalUrl configuration for KonText")
-		}
-		if services.Kontext.SessionValType == "" {
-			log.Warn().Msgf(
-				"missing services.kontext.sessionValType, setting %s", DfltSessionValType)
-			services.Kontext.SessionValType = DfltSessionValType
-		}
-		if err := services.Kontext.SessionValType.Validate(); err != nil {
-			return fmt.Errorf("invalid value of kontext.sessionValType: %w", err)
-		}
-		if services.Kontext.ReqTimeoutSecs == 0 {
-			services.Kontext.ReqTimeoutSecs = DfltProxyReqTimeoutSecs
-			log.Warn().Msgf("missing services.kontext.reqTimeoutSecs, setting %d", DfltProxyReqTimeoutSecs)
-		}
-		if services.Kontext.IdleConnTimeoutSecs == 0 {
-			services.Kontext.IdleConnTimeoutSecs = DfltIdleConnTimeoutSecs
-			log.Warn().Msgf("missing services.kontext.idleConnTimeoutSecs, setting %d", DfltIdleConnTimeoutSecs)
-		}
+
 	}
 	if services.Treq != nil {
 		if services.Treq.ExternalURL == "" {
@@ -137,6 +91,7 @@ func (services *servicesSection) validate() error {
 	}
 	return nil
 }
+*/
 
 type Configuration struct {
 	apiAllowedClientsCache []net.IPNet
@@ -152,7 +107,7 @@ type Configuration struct {
 	APIAllowedClients []string                 `json:"apiAllowedClients"`
 	Botwatch          botwatch.Conf            `json:"botwatch"`
 	Telemetry         *telemetry.Conf          `json:"telemetry"`
-	Services          servicesSection          `json:"services"`
+	Services          []GeneralServiceConf     `json:"services"`
 	Cache             reqcache.Conf            `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
 	LogPath           string                   `json:"logPath"`
@@ -210,9 +165,6 @@ func (c *Configuration) Validate() error {
 		}
 	}
 	if err := c.CNCDB.Validate("cncDb"); err != nil {
-		return err
-	}
-	if err := c.Services.validate(); err != nil {
 		return err
 	}
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {

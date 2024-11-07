@@ -11,6 +11,7 @@ import "fmt"
 type Conf struct {
 	BaseURL         string `json:"baseURL"`
 	ClientUserAgent string `json:"clientUserAgent"`
+	Type            string `json:"type"`
 }
 
 func (lgc *Conf) Validate(context string) error {

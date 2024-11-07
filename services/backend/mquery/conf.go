@@ -6,6 +6,26 @@
 
 package mquery
 
-import "apiguard/services/cnc"
+import (
+	"apiguard/guard"
+	"apiguard/guard/token"
+	"apiguard/services/cnc"
+	"fmt"
+)
 
-type Conf = cnc.ProxyConf
+type Conf struct {
+	cnc.ProxyConf
+	GuardType       guard.GuardType   `json:"guardType"`
+	TokenHeaderName string            `json:"tokenHeaderName"`
+	Tokens          []token.TokenConf `json:"tokens"`
+}
+
+func (c *Conf) Validate(context string) error {
+	if err := c.ProxyConf.Validate(context); err != nil {
+		return err
+	}
+	if len(c.Tokens) == 0 {
+		return fmt.Errorf("no tokens defined for token guard - the service won't be accessible")
+	}
+	return nil
+}

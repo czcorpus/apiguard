@@ -22,7 +22,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
 )
@@ -270,7 +269,6 @@ func New(
 	confLimits []proxy.Limit,
 
 ) *Guard {
-	spew.Dump(confLimits)
 	return &Guard{
 		db:                    globalCtx.CNCDB,
 		tlmtrStorage:          globalCtx.TelemetryDB,

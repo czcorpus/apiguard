@@ -8,18 +8,23 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/gob"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"apiguard/cnc"
 	"apiguard/config"
 	"apiguard/globctx"
+	"apiguard/guard/token"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/reqcache"
@@ -28,6 +33,7 @@ import (
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/hltscl"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -185,7 +191,6 @@ func determineConfigPath(argPos int) string {
 }
 
 func main() {
-	rand.Seed(time.Now().Unix())
 
 	cmdOpts := new(CmdOptions)
 	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on")
@@ -204,17 +209,12 @@ func main() {
 			"apiguard - CNC API protection and response data polishing"+
 				"\n\nUsage:"+
 				"\n\t%s [options] start [conf.json]"+
-				"\n\t%s [options] cleanup [conf.json]"+
-				"\n\t%s [options] ipban [ip address] [conf.json]"+
-				"\n\t%s [options] ipunban [ip address] [conf.json]"+
-				"\n\t%s [options] userban [user ID] [conf.json]"+
-				"\n\t%s [options] userunban [user ID] [conf.json]"+
 				"\n\t%s [options] status [session id / IP address] [conf.json]"+
 				"\n\t%s [options] learn [conf.json]"+
+				"\n\t%s generate-token"+
 				"\n\t%s [options] version\n",
 			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
-			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
-			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
+			filepath.Base(os.Args[0]), filepath.Base(os.Args[0]),
 		)
 		flag.PrintDefaults()
 	}
@@ -248,6 +248,31 @@ func main() {
 		tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
 		globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
 		runLearn(globalCtx, conf)
+	case "generate-token":
+		id := uuid.New()
+		bytes := make([]byte, 16)
+		if _, err := rand.Read(bytes); err != nil {
+			fmt.Println("failed to generate token: ", err)
+			os.Exit(1)
+			return
+		}
+		tk := base64.URLEncoding.EncodeToString(append([]byte(id.String()), bytes...))
+		var tkJS token.TokenConf
+		tkJS.HashedValue = fmt.Sprintf("%x", sha256.Sum256([]byte(tk)))
+		tkJS.UserID = 1
+		fmt.Println("token: ", tk)
+		var jsonOut strings.Builder
+		mrs := json.NewEncoder(&jsonOut)
+		mrs.SetIndent("", "  ")
+		err := mrs.Encode(tkJS)
+		if err != nil {
+			fmt.Println("failed to generate token: ", err)
+			os.Exit(1)
+			return
+		}
+		fmt.Printf("conf:\n%s", &jsonOut)
+		return
+
 	default:
 		fmt.Printf("Unknown action [%s]. Try -h for help\n", flag.Arg(0))
 		os.Exit(1)

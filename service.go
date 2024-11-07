@@ -10,30 +10,14 @@ import (
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/guard"
-	"apiguard/guard/dflt"
-	"apiguard/guard/sessionmap"
-	"apiguard/guard/tlmtr"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/services/backend/assc"
-	"apiguard/services/backend/cja"
-	"apiguard/services/backend/kla"
-	"apiguard/services/backend/kontext"
-	"apiguard/services/backend/lguide"
-	"apiguard/services/backend/mquery"
-	"apiguard/services/backend/neomat"
-	"apiguard/services/backend/psjc"
-	"apiguard/services/backend/ssjc"
-	"apiguard/services/backend/treq"
-	"apiguard/services/cnc"
-	"apiguard/services/defaults"
 	"apiguard/services/tstorage"
 	"context"
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strconv"
@@ -42,7 +26,6 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
-	"github.com/czcorpus/cnc-gokit/httpclient"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -127,25 +110,23 @@ func runService(conf *config.Configuration) {
 
 	var pingReqCounter chan<- guard.RequestInfo
 
-	if len(conf.Services.Kontext.Limits) > 0 {
-		pingReqCounter = alarm.Register(
-			"ping",
-			monitoring.AlarmConf{
-				Recipients:                   []string{},
-				RecCounterCleanupProbability: 0.5,
+	pingReqCounter = alarm.Register(
+		"ping",
+		monitoring.AlarmConf{
+			Recipients:                   []string{},
+			RecCounterCleanupProbability: 0.5,
+		},
+		[]proxy.Limit{
+			{
+				ReqPerTimeThreshold:     10,
+				ReqCheckingIntervalSecs: 10,
 			},
-			[]proxy.Limit{
-				{
-					ReqPerTimeThreshold:     10,
-					ReqCheckingIntervalSecs: 10,
-				},
-				{
-					ReqPerTimeThreshold:     20,
-					ReqCheckingIntervalSecs: 60,
-				},
+			{
+				ReqPerTimeThreshold:     20,
+				ReqCheckingIntervalSecs: 60,
 			},
-		)
-	}
+		},
+	)
 
 	apiRoutes.GET("/service/ping", func(ctx *gin.Context) {
 		t0 := time.Now()
@@ -176,460 +157,15 @@ func runService(conf *config.Configuration) {
 
 	// --------------------
 
-	// "Jazyková příručka ÚJČ"
-
-	if conf.Services.LanguageGuide != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for LanguageGuide")
-			return
-		}
-		langGuideActions := lguide.NewLanguageGuideActions(
-			globalCtx,
-			conf.Services.LanguageGuide,
-			&conf.Botwatch,
-			conf.Telemetry,
-			conf.ServerReadTimeoutSecs,
-			guard,
-		)
-		apiRoutes.GET("/service/language-guide", langGuideActions.Query)
+	if err := InitServices(
+		globalCtx,
+		apiRoutes,
+		conf,
+		alarm,
+	); err != nil {
+		log.Fatal().Err(err).Msg("failed to start APIGuard")
+		return
 	}
-
-	// "Akademický slovník současné češtiny"
-
-	if conf.Services.ASSC != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for ASSC")
-			return
-		}
-		asscActions := assc.NewASSCActions(
-			globalCtx,
-			conf.Services.ASSC,
-			guard,
-			conf.ServerReadTimeoutSecs,
-		)
-		apiRoutes.GET("/service/assc", asscActions.Query)
-		log.Info().Msg("Service ASSC enabled")
-	}
-
-	// "Slovník spisovného jazyka českého"
-
-	if conf.Services.SSJC != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for SSJC")
-			return
-		}
-		ssjcActions := ssjc.NewSSJCActions(
-			globalCtx,
-			conf.Services.SSJC,
-			guard,
-			conf.ServerReadTimeoutSecs,
-		)
-		apiRoutes.GET("/service/ssjc", ssjcActions.Query)
-		log.Info().Msg("Service SSJC enabled")
-	}
-
-	// "Příruční slovník jazyka českého"
-
-	if conf.Services.PSJC != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for PSJC")
-			return
-		}
-		psjcActions := psjc.NewPSJCActions(
-			globalCtx,
-			conf.Services.PSJC,
-			guard,
-			conf.ServerReadTimeoutSecs,
-		)
-		apiRoutes.GET("/service/psjc", psjcActions.Query)
-		log.Info().Msg("Service PSJC enabled")
-	}
-
-	// "Kartotéka lexikálního archivu"
-
-	if conf.Services.KLA != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for KLA")
-			return
-		}
-		klaActions := kla.NewKLAActions(
-			globalCtx,
-			conf.Services.KLA,
-			guard,
-			conf.ServerReadTimeoutSecs,
-		)
-		apiRoutes.GET("/service/kla", klaActions.Query)
-		log.Info().Msg("Service KLA enabled")
-	}
-
-	// "Neomat"
-
-	if conf.Services.Neomat != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for Neomat")
-			return
-		}
-		neomatActions := neomat.NewNeomatActions(
-			globalCtx,
-			conf.Services.Neomat,
-			guard,
-			conf.ServerReadTimeoutSecs,
-		)
-		apiRoutes.GET("/service/neomat", neomatActions.Query)
-		log.Info().Msg("Service Neomat enabled")
-	}
-
-	// "Český jazykový atlas"
-
-	if conf.Services.CJA != nil {
-		guard, err := tlmtr.New(globalCtx, &conf.Botwatch, conf.Telemetry)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to instantiate guard for CJA")
-			return
-		}
-		cjaActions := cja.NewCJAActions(
-			globalCtx,
-			conf.Services.CJA,
-			guard,
-			conf.ServerReadTimeoutSecs,
-		)
-		apiRoutes.GET("/service/cja", cjaActions.Query)
-		log.Info().Msg("Service CJA enabled")
-	}
-
-	// common for KonText & Treq
-
-	servicesDefaults := make(map[string]defaults.DefaultsProvider)
-	sessActions := defaults.NewActions(servicesDefaults)
-
-	// KonText (API) proxy
-
-	if conf.Services.Kontext != nil {
-		kontextGuard := sessionmap.New(
-			globalCtx,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.Kontext.ExternalSessionCookieName,
-			conf.Services.Kontext.SessionValType,
-			conf.Services.Kontext.Limits,
-		)
-
-		var kontextReqCounter chan<- guard.RequestInfo
-		if len(conf.Services.Kontext.Limits) > 0 {
-			kontextReqCounter = alarm.Register(
-				"kontext", conf.Services.Kontext.Alarm, conf.Services.Kontext.Limits)
-		}
-		kontextActions, err := kontext.NewKontextProxy(
-			globalCtx,
-			conf.Services.Kontext,
-			&cnc.EnvironConf{
-				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
-				AuthTokenEntry:    authTokenEntry,
-				ServicePath:       "/service/kontext",
-				ServiceName:       "kontext",
-				CNCPortalLoginURL: cncPortalLoginURL,
-				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
-			},
-			kontextGuard,
-			kontextReqCounter,
-		)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to start services")
-		}
-
-		apiRoutes.Any("/service/kontext/*path", func(ctx *gin.Context) {
-			if ctx.Param("path") == "/login" && ctx.Request.Method == http.MethodPost {
-				kontextActions.Login(ctx)
-
-			} else if ctx.Param("path") == "/preflight" {
-				kontextActions.Preflight(ctx)
-
-			} else {
-				kontextActions.AnyPath(ctx)
-			}
-		})
-		servicesDefaults["kontext"] = kontextActions
-		log.Info().Msg("Service Kontext enabled")
-	}
-
-	// MQuery proxy
-
-	if conf.Services.MQuery != nil {
-		var mqueryReqCounter chan<- guard.RequestInfo
-		if len(conf.Services.MQuery.Limits) > 0 {
-			mqueryReqCounter = alarm.Register(
-				"mquery", conf.Services.MQuery.Alarm, conf.Services.MQuery.Limits)
-		}
-		mqueryActions, err := mquery.NewMQueryProxy(
-			globalCtx,
-			conf.Services.MQuery,
-			&cnc.EnvironConf{
-				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
-				AuthTokenEntry:    authTokenEntry,
-				ServicePath:       "/service/mquery",
-				ServiceName:       "mquery",
-				CNCPortalLoginURL: cncPortalLoginURL,
-				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
-			},
-			dflt.New(
-				globalCtx,
-				conf.CNCAuth.SessionCookieName,
-				conf.Services.MQuery.SessionValType,
-				conf.Services.MQuery.Limits,
-			),
-			mqueryReqCounter,
-		)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to start services")
-			return
-		}
-
-		apiRoutes.Any("/service/mquery/*path", func(ctx *gin.Context) {
-			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
-				mqueryActions.Login(ctx)
-
-			} else if ctx.Param("path") == "/preflight" {
-				mqueryActions.Preflight(ctx)
-
-			} else {
-				mqueryActions.AnyPath(ctx)
-			}
-		})
-		log.Info().Msg("Service MQuery enabled")
-	}
-
-	// MQuery-GPT proxy
-
-	if conf.Services.MQueryGPT != nil {
-		cnca := sessionmap.New(
-			globalCtx,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.MQueryGPT.ExternalSessionCookieName,
-			conf.Services.MQueryGPT.SessionValType,
-			conf.Services.MQueryGPT.Limits,
-		)
-
-		var mqueryReqCounter chan<- guard.RequestInfo
-		if len(conf.Services.MQueryGPT.Limits) > 0 {
-			mqueryReqCounter = alarm.Register(
-				"mquery-gpt", conf.Services.MQueryGPT.Alarm, conf.Services.MQueryGPT.Limits)
-		}
-		mqueryActions, err := mquery.NewMQueryProxy(
-			globalCtx,
-			conf.Services.MQueryGPT,
-			&cnc.EnvironConf{
-				CNCAuthCookie:     conf.CNCAuth.SessionCookieName,
-				AuthTokenEntry:    authTokenEntry,
-				ServicePath:       "/service/mquery-gpt",
-				ServiceName:       "mquery-gpt",
-				CNCPortalLoginURL: cncPortalLoginURL,
-				ReadTimeoutSecs:   conf.ServerReadTimeoutSecs,
-			},
-			cnca,
-			mqueryReqCounter,
-		)
-		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to start services")
-			return
-		}
-
-		apiRoutes.Any("/service/mquery-gpt/*path", func(ctx *gin.Context) {
-			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
-				mqueryActions.Login(ctx)
-
-			} else if ctx.Param("path") == "/preflight" {
-				mqueryActions.Preflight(ctx)
-
-			} else {
-				mqueryActions.AnyPath(ctx)
-			}
-		})
-		log.Info().Msg("Service MQuery-GPT enabled")
-	}
-
-	// Treq (API) proxy
-
-	if conf.Services.Treq != nil {
-		cnca := sessionmap.New(
-			globalCtx,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.Treq.ExternalSessionCookieName,
-			conf.Services.Treq.SessionValType,
-			conf.Services.Treq.Limits,
-		)
-		var treqReqCounter chan<- guard.RequestInfo
-		if len(conf.Services.Treq.Limits) > 0 {
-			treqReqCounter = alarm.Register(
-				treq.ServiceName, conf.Services.Treq.Alarm, conf.Services.Treq.Limits)
-		}
-		treqActions, err := treq.NewTreqProxy(
-			globalCtx,
-			conf.Services.Treq,
-			conf.CNCAuth.SessionCookieName,
-			cnca,
-			conf.ServerReadTimeoutSecs,
-			treqReqCounter,
-		)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to initialize Treq proxy")
-			return
-		}
-		apiRoutes.Any("/service/treq/*path", treqActions.AnyPath)
-		log.Info().Msg("Service Treq enabled")
-	}
-
-	// KWords (API) proxy
-
-	if conf.Services.KWords != nil {
-		client := httpclient.New(
-			httpclient.WithFollowRedirects(),
-			httpclient.WithInsecureSkipVerify(),
-			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
-		)
-		analyzer := dflt.New(
-			globalCtx,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.KWords.SessionValType,
-			conf.Services.KWords.Limits,
-		)
-		go analyzer.Run()
-		internalURL, err := url.Parse(conf.Services.KWords.InternalURL)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure internal URL for KWords")
-			return
-		}
-		externalURL, err := url.Parse(conf.Services.KWords.ExternalURL)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure external URL for KWords")
-			return
-		}
-		coreProxy, err := proxy.NewAPIProxy(conf.Services.KWords.GetCoreConf())
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to initialize proxy")
-			return
-		}
-
-		kwordsActions := proxy.NewPublicAPIProxy(
-			coreProxy,
-			client,
-			analyzer.ExposeAsCounter(),
-			analyzer,
-			globalCtx.CNCDB,
-			proxy.PublicAPIProxyOpts{
-				ServiceName:      "kwords",
-				InternalURL:      internalURL,
-				ExternalURL:      externalURL,
-				AuthCookieName:   conf.CNCAuth.SessionCookieName,
-				UserIDHeaderName: conf.Services.KWords.TrueUserIDHeader,
-				ReadTimeoutSecs:  conf.ServerReadTimeoutSecs,
-			},
-		)
-		apiRoutes.Any("/service/kwords/*path", kwordsActions.AnyPath)
-		log.Info().Msg("Service KWords enabled")
-	}
-
-	// Gunstick proxy
-
-	if conf.Services.Gunstick != nil {
-		client := httpclient.New(
-			httpclient.WithFollowRedirects(),
-			httpclient.WithInsecureSkipVerify(),
-			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
-		)
-		grd := dflt.New(
-			globalCtx,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.Gunstick.SessionValType,
-			conf.Services.Gunstick.Limits,
-		)
-		go grd.Run()
-		internalURL, err := url.Parse(conf.Services.Gunstick.InternalURL)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure internal URL for Gunstick")
-			return
-		}
-		externalURL, err := url.Parse(conf.Services.Gunstick.ExternalURL)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure external URL for Gunstick")
-			return
-		}
-		coreProxy, err := proxy.NewAPIProxy(conf.Services.Gunstick.GetCoreConf())
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to initialize proxy")
-			return
-		}
-		gunstickActions := proxy.NewPublicAPIProxy(
-			coreProxy,
-			client,
-			grd.ExposeAsCounter(),
-			grd,
-			globalCtx.CNCDB,
-			proxy.PublicAPIProxyOpts{
-				ServiceName:     "gunstick",
-				InternalURL:     internalURL,
-				ExternalURL:     externalURL,
-				ReadTimeoutSecs: conf.ServerReadTimeoutSecs,
-			},
-		)
-		apiRoutes.Any("/service/gunstick/*path", gunstickActions.AnyPath)
-	}
-
-	// Hex proxy
-
-	if conf.Services.Hex != nil {
-		client := httpclient.New(
-			httpclient.WithFollowRedirects(),
-			httpclient.WithInsecureSkipVerify(),
-			httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
-		)
-		grd := dflt.New(
-			globalCtx,
-			conf.CNCAuth.SessionCookieName,
-			conf.Services.Hex.SessionValType,
-			conf.Services.Hex.Limits,
-		)
-		go grd.Run()
-		internalURL, err := url.Parse(conf.Services.Hex.InternalURL)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure internal URL for Hex")
-			return
-		}
-		externalURL, err := url.Parse(conf.Services.Hex.ExternalURL)
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to configure external URL for Hex")
-			return
-		}
-		coreProxy, err := proxy.NewAPIProxy(conf.Services.Hex.GetCoreConf())
-		if err != nil {
-			log.Fatal().Err(err).Msg("failed to initialize proxy")
-			return
-		}
-		hexActions := proxy.NewPublicAPIProxy(
-			coreProxy,
-			client,
-			grd.ExposeAsCounter(),
-			grd,
-			globalCtx.CNCDB,
-			proxy.PublicAPIProxyOpts{
-				ServiceName:     "hex",
-				InternalURL:     internalURL,
-				ExternalURL:     externalURL,
-				ReadTimeoutSecs: conf.ServerReadTimeoutSecs,
-			},
-		)
-		apiRoutes.Any("/service/hex/*path", hexActions.AnyPath)
-	}
-
-	// session tools
-
-	apiRoutes.GET("/defaults/:serviceID/:key", sessActions.Get)
-
-	apiRoutes.POST("/defaults/:serviceID/:key", sessActions.Set)
 
 	// administration/monitoring actions
 

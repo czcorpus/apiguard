@@ -13,6 +13,7 @@ import (
 	"apiguard/guard/dflt"
 	"apiguard/guard/sessionmap"
 	"apiguard/guard/tlmtr"
+	"apiguard/guard/token"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/services/backend/assc"
@@ -30,6 +31,7 @@ import (
 	"apiguard/services/backend/treq"
 	"apiguard/services/cnc"
 	"apiguard/services/defaults"
+	"apiguard/session"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -304,6 +306,8 @@ func InitServices(
 			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
 				return fmt.Errorf("failed to initialize service %d (mquery): %w", sid, err)
 			}
+			// we don't want to bother admins with none session type, so we set it here
+			typedConf.SessionValType = session.SessionTypeNone
 			if err := typedConf.Validate("mquery"); err != nil {
 				return fmt.Errorf("failed to initialize service %d (mquery): %w", sid, err)
 			}
@@ -315,9 +319,29 @@ func InitServices(
 					typedConf.Limits,
 				)
 			}
+			var grd guard.ServiceGuard
+			switch typedConf.GuardType {
+			case guard.GuardTypeToken:
+				grd = token.NewGuard(
+					ctx,
+					typedConf.TokenHeaderName,
+					typedConf.Limits,
+					typedConf.Tokens,
+				)
+			case guard.GuardTypeDflt:
+				grd = dflt.New(
+					ctx,
+					globalConf.CNCAuth.SessionCookieName,
+					typedConf.SessionValType,
+					typedConf.Limits,
+				)
+			default:
+				return fmt.Errorf("MQuery proxy does not support guard type `%s`", typedConf.GuardType)
+			}
+
 			mqueryActions, err := mquery.NewMQueryProxy(
 				ctx,
-				&typedConf,
+				&typedConf.ProxyConf,
 				&cnc.EnvironConf{
 					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
 					AuthTokenEntry:    authTokenEntry,
@@ -326,12 +350,7 @@ func InitServices(
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
 				},
-				dflt.New(
-					ctx,
-					globalConf.CNCAuth.SessionCookieName,
-					typedConf.SessionValType,
-					typedConf.Limits,
-				),
+				grd,
 				mqueryReqCounter,
 			)
 			if err != nil {

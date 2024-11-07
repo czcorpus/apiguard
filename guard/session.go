@@ -17,6 +17,8 @@ func CreateSessionValFactory(st session.SessionType) func() session.HTTPSession 
 		return func() session.HTTPSession { return session.CNCSessionValue{} }
 	case session.SessionTypeSimple:
 		return func() session.HTTPSession { return session.SimpleSessionValue{} }
+	case session.SessionTypeNone:
+		return func() session.HTTPSession { return session.NoneSessionValue{} }
 	}
 	panic(fmt.Errorf("unsupported session value type: `%s`", st))
 }

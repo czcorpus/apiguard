@@ -201,6 +201,7 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 // logged as a warning providing also a respective fallback value.
 func NewPublicAPIProxy(
 	basicProxy *APIProxy,
+	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
 	guard guard.ServiceGuard,
@@ -265,7 +266,7 @@ func NewPublicAPIProxy(
 	} else {
 		p.serviceName = opts.ServiceName
 	}
-	p.servicePath = fmt.Sprintf("/service/%s", p.serviceName)
+	p.servicePath = fmt.Sprintf("/service/%d/%s", sid, p.serviceName)
 
 	if opts.UserIDHeaderName == "" {
 		log.Warn().Msg("UserIDHeaderName not set for public proxy, no CNC user ID will be passed via headers")

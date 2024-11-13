@@ -133,7 +133,11 @@ func (sra *Guard) TestUserIsAnonymous(userID common.UserID) bool {
 }
 
 func (sra *Guard) Run() {
-
+	for range sra.clientCounter {
+		// NOP, but we must read the channel to prevent infinite hang
+		// on the proxy side which wants to push information no matter
+		// which guard type it deals with
+	}
 }
 
 func New(
@@ -144,6 +148,7 @@ func New(
 ) *Guard {
 	return &Guard{
 		db:                globalCtx.CNCDB,
+		storage:           globalCtx.TelemetryDB,
 		sessionCookieName: sessionCookieName,
 		clientCounter:     make(chan common.ClientID),
 		cleanupInterval:   dfltCleanupInterval,

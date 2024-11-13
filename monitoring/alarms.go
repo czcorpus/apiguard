@@ -313,14 +313,20 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 					GetByProps(reqInfo).
 					Requests.
 					Append(reqCounterItem{Created: reqInfo.Created})
-			}
-			aticker.checkServiceUsage(
-				aticker.clients.Get(reqInfo.Service),
-				reqInfo,
-			)
-			// from time to time, remove users with no recent activity
-			if rand.Float64() < aticker.clients.Get(reqInfo.Service).Conf.RecCounterCleanupProbability {
-				go aticker.removeUsersWithNoRecentActivity()
+
+				aticker.checkServiceUsage(
+					entry,
+					reqInfo,
+				)
+				// from time to time, remove users with no recent activity
+				if rand.Float64() < entry.Conf.RecCounterCleanupProbability {
+					go aticker.removeUsersWithNoRecentActivity()
+				}
+
+			} else {
+				log.Error().
+					Strs("availServices", aticker.clients.Keys()).
+					Msgf("AlarmTicker failed to process service %s", reqInfo.Service)
 			}
 		}
 	}

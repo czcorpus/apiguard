@@ -397,6 +397,7 @@ func InitServices(
 			treqActions, err := treq.NewTreqProxy(
 				ctx,
 				&typedConf,
+				sid,
 				globalConf.CNCAuth.SessionCookieName,
 				cnca,
 				globalConf.ServerReadTimeoutSecs,
@@ -447,6 +448,7 @@ func InitServices(
 
 			kwordsActions := proxy.NewPublicAPIProxy(
 				coreProxy,
+				sid,
 				client,
 				analyzer.ExposeAsCounter(),
 				analyzer,
@@ -500,6 +502,7 @@ func InitServices(
 			}
 			gunstickActions := proxy.NewPublicAPIProxy(
 				coreProxy,
+				sid,
 				client,
 				grd.ExposeAsCounter(),
 				grd,
@@ -552,6 +555,7 @@ func InitServices(
 			}
 			hexActions := proxy.NewPublicAPIProxy(
 				coreProxy,
+				sid,
 				client,
 				grd.ExposeAsCounter(),
 				grd,

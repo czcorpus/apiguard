@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	ServicePath = "/service/treq"
 	ServiceName = "treq"
 )
 
@@ -37,6 +36,7 @@ type TreqProxy struct {
 	guard           *sessionmap.Guard
 	apiProxy        *proxy.APIProxy
 	tDBWriter       reporting.ReportingWriter
+	servicePath     string
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -80,7 +80,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			reporting.BackendActionTypeQuery,
 		)
 	}(&clientID, &humanID, &indirectAPICall, t0)
-	if !strings.HasPrefix(ctx.Request.URL.Path, ServicePath) {
+	if !strings.HasPrefix(ctx.Request.URL.Path, tp.servicePath) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
@@ -177,7 +177,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 	cacheApplCookies := []string{tp.conf.ExternalSessionCookieName, tp.cncAuthCookie}
 	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
-		path := req.URL.Path[len(ServicePath):]
+		path := req.URL.Path[len(tp.servicePath):]
 		resp = tp.apiProxy.Request(
 			path,
 			req.URL.Query(),
@@ -200,6 +200,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 func NewTreqProxy(
 	globalCtx *globctx.Context,
 	conf *Conf,
+	sid int,
 	cncAuthCookie string,
 	guard *sessionmap.Guard,
 	readTimeoutSecs int,
@@ -218,5 +219,6 @@ func NewTreqProxy(
 		apiProxy:        proxy,
 		reqCounter:      reqCounter,
 		tDBWriter:       globalCtx.ReportingWriter,
+		servicePath:     fmt.Sprintf("/service/%d/treq", sid),
 	}, nil
 }

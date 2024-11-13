@@ -392,7 +392,7 @@ func InitServices(
 			var treqReqCounter chan<- guard.RequestInfo
 			if len(typedConf.Limits) > 0 {
 				treqReqCounter = alarm.Register(
-					treq.ServiceName, typedConf.Alarm, typedConf.Limits)
+					fmt.Sprintf("%d/treq", sid), typedConf.Alarm, typedConf.Limits)
 			}
 			treqActions, err := treq.NewTreqProxy(
 				ctx,

@@ -24,10 +24,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	ServiceName = "treq"
-)
-
 type TreqProxy struct {
 	globalCtx       *globctx.Context
 	conf            *Conf
@@ -37,6 +33,7 @@ type TreqProxy struct {
 	apiProxy        *proxy.APIProxy
 	tDBWriter       reporting.ReportingWriter
 	servicePath     string
+	serviceKey      string
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -64,7 +61,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		if tp.reqCounter != nil {
 			tp.reqCounter <- guard.RequestInfo{
 				Created:     created,
-				Service:     ServiceName,
+				Service:     tp.serviceKey,
 				NumRequests: 1,
 				UserID:      *loggedUserID,
 				IP:          ctx.ClientIP(),
@@ -72,7 +69,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		}
 		tp.globalCtx.BackendLogger.Log(
 			ctx.Request,
-			ServiceName,
+			tp.serviceKey,
 			time.Since(t0),
 			cached,
 			*loggedUserID,
@@ -153,7 +150,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		DateTime: time.Now().In(tp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
-		Service:  ServiceName,
+		Service:  tp.serviceKey,
 	})
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
@@ -219,6 +216,7 @@ func NewTreqProxy(
 		apiProxy:        proxy,
 		reqCounter:      reqCounter,
 		tDBWriter:       globalCtx.ReportingWriter,
+		serviceKey:      fmt.Sprintf("%d/treq", sid),
 		servicePath:     fmt.Sprintf("/service/%d/treq", sid),
 	}, nil
 }

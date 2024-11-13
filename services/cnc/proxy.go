@@ -56,6 +56,11 @@ type CoreProxy struct {
 	reqCounter chan<- guard.RequestInfo
 
 	sessionValFactory func() session.HTTPSession
+
+	// serviceKey is a unique id of service considering
+	// possible multiple instances of the same service type
+	// It looks like [conf order int]/[type] - e.g. 4/kontext
+	serviceKey string
 }
 
 // Preflight is used by APIGuard client (e.g. WaG) to find out whether
@@ -70,7 +75,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	defer func(currUserID *common.UserID) {
 		kp.globalCtx.BackendLogger.Log(
 			ctx.Request,
-			kp.rConf.ServiceName,
+			kp.serviceKey,
 			time.Since(t0),
 			false,
 			*currUserID,
@@ -204,7 +209,7 @@ func (kp *CoreProxy) Login(ctx *gin.Context) {
 	defer func(currUserID *common.UserID) {
 		kp.globalCtx.BackendLogger.Log(
 			ctx.Request,
-			kp.rConf.ServiceName,
+			kp.serviceKey,
 			time.Since(t0),
 			false,
 			*currUserID,
@@ -241,7 +246,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		if kp.reqCounter != nil {
 			kp.reqCounter <- guard.RequestInfo{
 				Created:     created,
-				Service:     kp.rConf.ServiceName,
+				Service:     kp.serviceKey,
 				NumRequests: 1,
 				UserID:      *currHumanID,
 				IP:          ctx.ClientIP(),
@@ -249,7 +254,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		}
 		kp.globalCtx.BackendLogger.Log(
 			ctx.Request,
-			kp.rConf.ServiceName,
+			kp.serviceKey,
 			time.Since(t0),
 			cached,
 			*currHumanID,
@@ -348,7 +353,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
-		Service:  kp.rConf.ServiceName,
+		Service:  kp.serviceKey,
 	})
 	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {

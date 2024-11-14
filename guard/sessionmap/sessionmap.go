@@ -26,17 +26,25 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Guard analyzes user request and based on session,
-// detected user ID and IP address it can calculate suitable delay
-// and response status.
+// Guard in the sessionmap package allows access to any user
+// with valid session ID - i.e. it does not matter whether
+// the user is public (anonymous) or registered. But the guard
+// is able to use the knowledge about user ID when determining
+// how "gently" it should react to user's possible high request
+// rate.
 //
-// Its key distinct property is that it can
-// handle configurations with user session remapping where some
-// outer session cookie (typically - cnc_toolbar_sid) which is used
-// for communication between a user and APIGuard is internally remapped
-// (during proxying) to a defined internal cookie which is used
-// in communication between APIGuard and protected application server.
-// This is used e.g. with WaG.
+// One of its crucial functions is that it can allow access
+// anonymous users to APIs which otherwise require registered
+// users - not to prevent data access (it wouldn't make sense as
+// APIGuard with this guard opens such data to anyone) but rather
+// for situations where we (our APIs) highly prefer registered users
+// so we can generate more concrete reports about usage of our services.
+//
+// A typical example:
+// KonText API is only for registered users. And our WaG application
+// (Slovo v kostce, Slovo v poezii) also uses KonText API but WaG
+// is for all users (unregistered users even make up the majority
+// of users there).
 type Guard struct {
 	db *sql.DB
 

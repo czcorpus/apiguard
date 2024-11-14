@@ -25,7 +25,7 @@ type KonTextProxy struct {
 	analyzer *sessionmap.Guard
 }
 
-func (kp *KonTextProxy) CreateDefaultArgs(reqProps guard.ReqProperties) defaults.Args {
+func (kp *KonTextProxy) CreateDefaultArgs(reqProps guard.ReqEvaluation) defaults.Args {
 	dfltArgs, ok := kp.defaults.GetWithTest(reqProps.SessionID)
 	if !ok {
 		dfltArgs = defaults.NewServiceDefaults("format", "corpname", "usesubcorp")

@@ -177,30 +177,30 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 	return false, nil
 }
 
-// ClientInducedRespStatus produces a HTTP response status
+// EvaluateRequest produces a HTTP response status
 // proposal based on user activity.
 // The function prefers external cookie. I.e. if a client (e.g. WaG)
 // sends custom auth cookie, then the user identified by that cookie
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
-func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 
 	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusUnauthorized,
-			ClientID:       common.InvalidUserID,
-			SessionID:      "",
-			Error:          fmt.Errorf("failed to determine user IP: %w", err),
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusUnauthorized,
+			ClientID:         common.InvalidUserID,
+			SessionID:        "",
+			Error:            fmt.Errorf("failed to determine user IP: %w", err),
 		}
 	}
 
 	if analyzer.db == nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusOK,
-			ClientID:       common.InvalidUserID,
-			SessionID:      "",
-			Error:          nil,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusOK,
+			ClientID:         common.InvalidUserID,
+			SessionID:        "",
+			Error:            nil,
 		}
 	}
 	cookieValue, _ := analyzer.getSession(req)
@@ -210,20 +210,20 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 			Str("internalCookie", analyzer.internalSessionCookie).
 			Str("externalCookie", analyzer.externalSessionCookie).
 			Msgf("failed to find authentication cookies")
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusUnauthorized,
-			ClientID:       common.InvalidUserID,
-			Error:          fmt.Errorf("session cookie not found"),
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusUnauthorized,
+			ClientID:         common.InvalidUserID,
+			Error:            fmt.Errorf("session cookie not found"),
 		}
 
 	} else {
 		var err error
 		userID, err = analyzer.DetermineTrueUserID(req)
 		if err != nil {
-			return guard.ReqProperties{
-				ProposedStatus: http.StatusInternalServerError,
-				ClientID:       common.InvalidUserID,
-				Error:          fmt.Errorf("failed to determine userID: %w", err),
+			return guard.ReqEvaluation{
+				ProposedResponse: http.StatusInternalServerError,
+				ClientID:         common.InvalidUserID,
+				Error:            fmt.Errorf("failed to determine userID: %w", err),
 			}
 		}
 	}
@@ -240,10 +240,10 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 			analyzer.rateLimiters[clientIP] = limiter
 		}
 		if !limiter.Allow() {
-			return guard.ReqProperties{
-				ProposedStatus: http.StatusTooManyRequests,
-				ClientID:       userID,
-				SessionID:      cookieValue,
+			return guard.ReqEvaluation{
+				ProposedResponse: http.StatusTooManyRequests,
+				ClientID:         userID,
+				SessionID:        cookieValue,
 			}
 		}
 	}
@@ -251,21 +251,21 @@ func (analyzer *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqPrope
 	// test ip ban
 	banned, err := analyzer.checkForBan(req, common.ClientID{IP: clientIP, ID: userID})
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusInternalServerError,
-			Error:          err,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusInternalServerError,
+			Error:            err,
 		}
 	}
 	if banned {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusForbidden,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusForbidden,
 		}
 	}
-	return guard.ReqProperties{
-		ProposedStatus: http.StatusOK,
-		ClientID:       userID,
-		SessionID:      cookieValue,
-		Error:          err,
+	return guard.ReqEvaluation{
+		ProposedResponse: http.StatusOK,
+		ClientID:         userID,
+		SessionID:        cookieValue,
+		Error:            err,
 	}
 }
 

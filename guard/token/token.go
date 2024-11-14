@@ -105,24 +105,24 @@ func (g *Guard) pathMatchesExclude(req *http.Request) bool {
 	return false
 }
 
-func (g *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+func (g *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 	userID := g.validateToken(req.Header.Get(g.tokenHeaderName))
 	if !(userID.IsValid() || g.pathMatchesExclude(req)) {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusUnauthorized,
-			ClientID:       common.InvalidUserID,
-			SessionID:      "",
-			Error:          fmt.Errorf("invalid authentication token"),
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusUnauthorized,
+			ClientID:         common.InvalidUserID,
+			SessionID:        "",
+			Error:            fmt.Errorf("invalid authentication token"),
 		}
 	}
 
 	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusUnauthorized,
-			ClientID:       common.InvalidUserID,
-			SessionID:      "",
-			Error:          fmt.Errorf("failed to determine user IP: %w", err),
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusUnauthorized,
+			ClientID:         common.InvalidUserID,
+			SessionID:        "",
+			Error:            fmt.Errorf("failed to determine user IP: %w", err),
 		}
 	}
 
@@ -139,10 +139,10 @@ func (g *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
 			g.rateLimiters[clientIP] = limiter
 		}
 		if !limiter.Allow() {
-			return guard.ReqProperties{
-				ProposedStatus: http.StatusTooManyRequests,
-				ClientID:       userID,
-				SessionID:      "",
+			return guard.ReqEvaluation{
+				ProposedResponse: http.StatusTooManyRequests,
+				ClientID:         userID,
+				SessionID:        "",
 			}
 		}
 	}
@@ -150,21 +150,21 @@ func (g *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
 	// test ip ban
 	banned, err := g.checkForBan(req, common.ClientID{IP: clientIP, ID: userID})
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusInternalServerError,
-			Error:          err,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusInternalServerError,
+			Error:            err,
 		}
 	}
 	if banned {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusForbidden,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusForbidden,
 		}
 	}
-	return guard.ReqProperties{
-		ProposedStatus: http.StatusOK,
-		ClientID:       userID,
-		SessionID:      "",
-		Error:          err,
+	return guard.ReqEvaluation{
+		ProposedResponse: http.StatusOK,
+		ClientID:         userID,
+		SessionID:        "",
+		Error:            err,
 	}
 }
 

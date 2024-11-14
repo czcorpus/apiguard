@@ -84,18 +84,18 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 		)
 	}(&userId)
 
-	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request)
+	reqProps := kp.guard.EvaluateRequest(ctx.Request)
 	userId = reqProps.ClientID
 	if reqProps.Error != nil {
 		http.Error(
 			ctx.Writer,
 			fmt.Sprintf("Failed to process preflight request: %s", reqProps.Error),
-			reqProps.ProposedStatus,
+			reqProps.ProposedResponse,
 		)
 		return
 
-	} else if reqProps.ProposedStatus >= 400 && reqProps.ProposedStatus < 500 {
-		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+	} else if reqProps.ProposedResponse >= 400 && reqProps.ProposedResponse < 500 {
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
 		return
 	}
 	ctx.Writer.WriteHeader(http.StatusNoContent)
@@ -268,7 +268,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.guard.ClientInducedRespStatus(ctx.Request)
+	reqProps := kp.guard.EvaluateRequest(ctx.Request)
 	humanID = reqProps.ClientID
 	if reqProps.Error != nil {
 		// TODO
@@ -276,12 +276,12 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(
 			ctx.Writer,
 			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
-			reqProps.ProposedStatus,
+			reqProps.ProposedResponse,
 		)
 		return
 
 	} else if reqProps.ForbidsAccess() {
-		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
 		return
 	}
 
@@ -373,7 +373,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	ctx.Writer.Write([]byte(serviceResp.GetBody()))
 }
 
-func (kp *CoreProxy) CreateDefaultArgs(reqProps guard.ReqProperties) defaults.Args {
+func (kp *CoreProxy) CreateDefaultArgs(reqProps guard.ReqEvaluation) defaults.Args {
 	return make(defaults.Args)
 }
 
@@ -402,7 +402,7 @@ func (kp *CoreProxy) debugLogRequest(req *http.Request) {
 
 func (kp *CoreProxy) makeRequest(
 	req *http.Request,
-	reqProps guard.ReqProperties,
+	reqProps guard.ReqEvaluation,
 ) proxy.BackendResponse {
 	kp.debugLogRequest(req)
 	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.ExternalSessionCookieName}

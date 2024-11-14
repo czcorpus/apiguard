@@ -97,24 +97,24 @@ func (a *Guard) checkForBan(req *http.Request, userID common.UserID) (bool, erro
 	return false, nil
 }
 
-func (a *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+func (a *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 	banned, err := a.checkForBan(req, common.InvalidUserID)
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusInternalServerError,
-			Error:          err,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusInternalServerError,
+			Error:            err,
 		}
 	}
 	if banned {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusForbidden,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusForbidden,
 		}
 	}
-	return guard.ReqProperties{
-		ClientID:       common.InvalidUserID,
-		SessionID:      "",
-		ProposedStatus: http.StatusOK,
-		Error:          nil,
+	return guard.ReqEvaluation{
+		ClientID:         common.InvalidUserID,
+		SessionID:        "",
+		ProposedResponse: http.StatusOK,
+		Error:            nil,
 	}
 }
 

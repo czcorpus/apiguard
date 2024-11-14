@@ -197,6 +197,7 @@ func NewGuard(
 	authExcludedPathPrefixes []string,
 ) *Guard {
 	return &Guard{
+		servicePath:              servicePath,
 		tlmtrStorage:             globalCtx.TelemetryDB,
 		anonymousUsers:           globalCtx.AnonymousUserIDs,
 		tokenHeaderName:          tokenHeaderName,

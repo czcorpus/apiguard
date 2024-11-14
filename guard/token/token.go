@@ -106,13 +106,8 @@ func (g *Guard) pathMatchesExclude(req *http.Request) bool {
 }
 
 func (g *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
-	if g.pathMatchesExclude(req) {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusOK,
-		}
-	}
 	userID := g.validateToken(req.Header.Get(g.tokenHeaderName))
-	if !userID.IsValid() {
+	if !(userID.IsValid() || g.pathMatchesExclude(req)) {
 		return guard.ReqProperties{
 			ProposedStatus: http.StatusUnauthorized,
 			ClientID:       common.InvalidUserID,

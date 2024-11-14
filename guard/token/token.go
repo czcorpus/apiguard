@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -30,7 +31,12 @@ type TokenConf struct {
 	UserID      common.UserID `json:"userId"`
 }
 
+// Guard in the `token` package - besides standard functions like throttling
+// too high request rate and applying IP bans - allows access only to users
+// with valid access tokens provided via an HTTP header.
 type Guard struct {
+	servicePath string
+
 	tlmtrStorage telemetry.Storage
 
 	anonymousUsers common.AnonymousUsers
@@ -44,6 +50,8 @@ type Guard struct {
 	rateLimitersMu sync.Mutex
 
 	hashedTokens []TokenConf
+
+	authExcludedPathPrefixes []string
 }
 
 func (g *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (time.Duration, error) {
@@ -83,7 +91,26 @@ func (g *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool, 
 	return false, nil
 }
 
+func (g *Guard) pathMatchesExclude(req *http.Request) bool {
+	for _, excl := range g.authExcludedPathPrefixes {
+		tst, err := url.JoinPath(g.servicePath, excl)
+		if err != nil {
+			log.Error().Err(err).Msg("pathMatchesExclude failed to join service path and exclusion path")
+			return false
+		}
+		if req.URL.Path == tst {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+	if g.pathMatchesExclude(req) {
+		return guard.ReqProperties{
+			ProposedStatus: http.StatusOK,
+		}
+	}
 	userID := g.validateToken(req.Header.Get(g.tokenHeaderName))
 	if !userID.IsValid() {
 		return guard.ReqProperties{
@@ -155,18 +182,27 @@ func (g *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
 	return userID, nil
 }
 
+// NewGuard creates a new token guard.
+// The `authExcludedPathPrefixes` should not contain a leading slash
+// as they are used relative to respective APIGuard's service URL path.
+// E.g. to exclude endpoint `/openapi`, one defines the argument
+// as []string{"openapi"} and APIGuard adds that to respective service
+// URL path - e.g. `/service/3/mquery/openapi`
 func NewGuard(
 	globalCtx *globctx.Context,
+	servicePath string,
 	tokenHeaderName string,
 	confLimits []proxy.Limit,
 	hashedTokens []TokenConf,
+	authExcludedPathPrefixes []string,
 ) *Guard {
 	return &Guard{
-		tlmtrStorage:    globalCtx.TelemetryDB,
-		anonymousUsers:  globalCtx.AnonymousUserIDs,
-		tokenHeaderName: tokenHeaderName,
-		confLimits:      confLimits,
-		rateLimiters:    make(map[string]*rate.Limiter),
-		hashedTokens:    hashedTokens,
+		tlmtrStorage:             globalCtx.TelemetryDB,
+		anonymousUsers:           globalCtx.AnonymousUserIDs,
+		tokenHeaderName:          tokenHeaderName,
+		confLimits:               confLimits,
+		rateLimiters:             make(map[string]*rate.Limiter),
+		hashedTokens:             hashedTokens,
+		authExcludedPathPrefixes: authExcludedPathPrefixes,
 	}
 }

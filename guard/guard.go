@@ -58,7 +58,7 @@ func (ipc RequestIPCount) Inc() RequestIPCount {
 	}
 }
 
-type ReqProperties struct {
+type ReqEvaluation struct {
 	// ClientID is a user ID used to access the API
 	// In general it can be true user ID or some replacement
 	// for a specific application (e.g. WaG as a whole uses a single
@@ -66,14 +66,14 @@ type ReqProperties struct {
 	ClientID common.UserID
 	// HumanID specifies true end user ID
 	// In general, this may or may not be available
-	HumanID        common.UserID
-	SessionID      string
-	ProposedStatus int
-	Error          error
+	HumanID          common.UserID
+	SessionID        string
+	ProposedResponse int
+	Error            error
 }
 
-func (rp ReqProperties) ForbidsAccess() bool {
-	return rp.ProposedStatus >= 400 && rp.ProposedStatus < 500
+func (rp ReqEvaluation) ForbidsAccess() bool {
+	return rp.ProposedResponse >= 400 && rp.ProposedResponse < 500
 }
 
 // ServiceGuard is an object which helps a proxy to decide
@@ -90,7 +90,15 @@ type ServiceGuard interface {
 	// delay calculations (for the same client)
 	LogAppliedDelay(respDelay time.Duration, clientID common.ClientID) error
 
-	ClientInducedRespStatus(req *http.Request) ReqProperties
+	// EvaluateRequest is expected to analyze the request and based
+	// on:
+	//  * guard's local information (e.g. recent requests from the same IP etc.),
+	//  * IP ban database
+	//  * authentication
+	//  * etc.
+	// ... it should determine which response to return along with
+	// some additional info (user ID, session ID - if available/applicable)
+	EvaluateRequest(req *http.Request) ReqEvaluation
 
 	TestUserIsAnonymous(userID common.UserID) bool
 

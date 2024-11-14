@@ -157,18 +157,18 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	}
 	prox.clientCounter <- clientID
 
-	reqProps := prox.guard.ClientInducedRespStatus(ctx.Request)
+	reqProps := prox.guard.EvaluateRequest(ctx.Request)
 	if reqProps.Error != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
 		http.Error(
 			ctx.Writer,
 			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
-			reqProps.ProposedStatus,
+			reqProps.ProposedResponse,
 		)
 		return
 
 	} else if reqProps.ForbidsAccess() {
-		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
 		return
 	}
 

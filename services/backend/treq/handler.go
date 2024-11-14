@@ -81,19 +81,19 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.guard.ClientInducedRespStatus(ctx.Request)
+	reqProps := tp.guard.EvaluateRequest(ctx.Request)
 	clientID = reqProps.ClientID
 	if reqProps.Error != nil {
 		// TODO
 		http.Error(
 			ctx.Writer,
 			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
-			reqProps.ProposedStatus,
+			reqProps.ProposedResponse,
 		)
 		return
 
 	} else if reqProps.ForbidsAccess() {
-		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedStatus), reqProps.ProposedStatus)
+		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
 		return
 	}
 

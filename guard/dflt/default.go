@@ -82,14 +82,14 @@ func (sra *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 	return false, nil
 }
 
-func (sra *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties {
+func (sra *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusUnauthorized,
-			ClientID:       common.InvalidUserID,
-			SessionID:      "",
-			Error:          fmt.Errorf("failed to determine user IP: %w", err),
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusUnauthorized,
+			ClientID:         common.InvalidUserID,
+			SessionID:        "",
+			Error:            fmt.Errorf("failed to determine user IP: %w", err),
 		}
 	}
 
@@ -106,25 +106,25 @@ func (sra *Guard) ClientInducedRespStatus(req *http.Request) guard.ReqProperties
 			sra.rateLimiters[clientIP] = limiter
 		}
 		if !limiter.Allow() {
-			return guard.ReqProperties{
-				ProposedStatus: http.StatusTooManyRequests,
+			return guard.ReqEvaluation{
+				ProposedResponse: http.StatusTooManyRequests,
 			}
 		}
 	}
 	banned, err := sra.checkForBan(req, common.ClientID{IP: clientIP, ID: common.InvalidUserID})
 	if err != nil {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusInternalServerError,
-			Error:          err,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusInternalServerError,
+			Error:            err,
 		}
 	}
 	if banned {
-		return guard.ReqProperties{
-			ProposedStatus: http.StatusForbidden,
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusForbidden,
 		}
 	}
-	return guard.ReqProperties{
-		ProposedStatus: http.StatusOK,
+	return guard.ReqEvaluation{
+		ProposedResponse: http.StatusOK,
 	}
 }
 

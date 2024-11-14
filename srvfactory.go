@@ -324,9 +324,11 @@ func InitServices(
 			case guard.GuardTypeToken:
 				grd = token.NewGuard(
 					ctx,
+					fmt.Sprintf("/service/%d/mquery", sid),
 					typedConf.TokenHeaderName,
 					typedConf.Limits,
 					typedConf.Tokens,
+					[]string{"/openapi"},
 				)
 			case guard.GuardTypeDflt:
 				grd = dflt.New(

@@ -82,6 +82,10 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 	reqProps := tp.guard.EvaluateRequest(ctx.Request)
+	log.Debug().
+		Str("reqPath", ctx.Request.URL.Path).
+		Any("reqProps", reqProps).
+		Msg("evaluated user treq/* request")
 	clientID = reqProps.ClientID
 	if reqProps.Error != nil {
 		// TODO

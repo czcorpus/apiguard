@@ -23,14 +23,14 @@ const (
 	// can be considered an "infinite wait".
 	UltraDuration = time.Duration(24) * time.Hour
 
-	GuardTypeNull       GuardType = "null"
-	GuardTypeDflt       GuardType = "dflt"
-	GuardTypeSessionmap GuardType = "sessionmap"
-	GuardTypeToken      GuardType = "token"
+	GuardTypeNull    GuardType = "null"
+	GuardTypeDflt    GuardType = "dflt"
+	GuardTypeCNCAuth GuardType = "cncauth"
+	GuardTypeToken   GuardType = "token"
 )
 
 func (gt GuardType) IsValid() bool {
-	return gt == GuardTypeNull || gt == GuardTypeDflt || gt == GuardTypeSessionmap ||
+	return gt == GuardTypeNull || gt == GuardTypeDflt || gt == GuardTypeCNCAuth ||
 		gt == GuardTypeToken
 }
 

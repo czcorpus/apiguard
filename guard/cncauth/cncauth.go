@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package sessionmap
+package cncauth
 
 import (
 	"apiguard/common"
@@ -26,7 +26,7 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// Guard in the sessionmap package allows access to any user
+// Guard in the cncauth package allows access to any user
 // with valid session ID - i.e. it does not matter whether
 // the user is public (anonymous) or registered. But the guard
 // is able to use the knowledge about user ID when determining
@@ -98,7 +98,7 @@ func (kua *Guard) TestUserIsAnonymous(userID common.UserID) bool {
 }
 
 // CalcDelay calculates a delay user deserves.
-// SessionMappingGuard applies only two delays:
+// CNC-auth guard applies only two delays:
 // 1) zero for non-banned users
 // 2) guard.UltraDuration which is basically a ban
 func (kua *Guard) CalcDelay(req *http.Request, clientID common.ClientID) (time.Duration, error) {
@@ -169,7 +169,7 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 	}
 	if isBanned {
 		log.Debug().
-			Str("guardType", "sessionmap").
+			Str("guardType", "cncauth").
 			Str("clientId", clientID.GetKey()).
 			Msg("applied IP ban")
 		return true, nil

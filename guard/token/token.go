@@ -83,7 +83,7 @@ func (g *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool, 
 	}
 	if isBanned {
 		log.Debug().
-			Str("guardType", "sessionmap").
+			Str("guardType", "cncauth").
 			Str("clientId", clientID.GetKey()).
 			Msg("applied IP ban")
 		return true, nil

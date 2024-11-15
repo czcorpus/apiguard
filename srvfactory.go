@@ -10,8 +10,8 @@ import (
 	"apiguard/config"
 	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/guard/cncauth"
 	"apiguard/guard/dflt"
-	"apiguard/guard/sessionmap"
 	"apiguard/guard/tlmtr"
 	"apiguard/guard/token"
 	"apiguard/monitoring"
@@ -249,7 +249,7 @@ func InitServices(
 			if err := typedConf.Validate(fmt.Sprintf("%d/kontext", sid)); err != nil {
 				return fmt.Errorf("failed to initialize service %d (kontext): %w", sid, err)
 			}
-			kontextGuard := sessionmap.New(
+			kontextGuard := cncauth.New(
 				ctx,
 				globalConf.CNCAuth.SessionCookieName,
 				typedConf.ExternalSessionCookieName,
@@ -384,7 +384,7 @@ func InitServices(
 			if err := typedConf.Validate("treq"); err != nil {
 				return fmt.Errorf("failed to initialize service %d (treq): %w", sid, err)
 			}
-			cnca := sessionmap.New(
+			cnca := cncauth.New(
 				ctx,
 				globalConf.CNCAuth.SessionCookieName,
 				typedConf.ExternalSessionCookieName,

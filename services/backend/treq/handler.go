@@ -10,7 +10,7 @@ import (
 	"apiguard/common"
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/guard/sessionmap"
+	"apiguard/guard/cncauth"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/reqcache"
@@ -29,7 +29,7 @@ type TreqProxy struct {
 	conf            *Conf
 	cncAuthCookie   string
 	readTimeoutSecs int
-	guard           *sessionmap.Guard
+	guard           *cncauth.Guard
 	apiProxy        *proxy.APIProxy
 	tDBWriter       reporting.ReportingWriter
 	servicePath     string
@@ -199,7 +199,7 @@ func NewTreqProxy(
 	conf *Conf,
 	sid int,
 	cncAuthCookie string,
-	guard *sessionmap.Guard,
+	guard *cncauth.Guard,
 	readTimeoutSecs int,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {

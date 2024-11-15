@@ -85,6 +85,10 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	}(&userId)
 
 	reqProps := kp.guard.EvaluateRequest(ctx.Request)
+	log.Debug().
+		Str("reqPath", ctx.Request.URL.Path).
+		Any("reqProps", reqProps).
+		Msg("evaluated user preflight request")
 	userId = reqProps.ClientID
 	if reqProps.Error != nil {
 		http.Error(
@@ -233,6 +237,8 @@ func (kp *CoreProxy) Login(ctx *gin.Context) {
 	}
 
 	userId = kp.applyLoginRespCookies(ctx, resp)
+	log.Debug().Str("userId", userId.String()).Msg("user authenticated via CNC auth")
+
 	uniresp.WriteJSONResponse(ctx.Writer, resp.message)
 }
 
@@ -269,6 +275,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 	reqProps := kp.guard.EvaluateRequest(ctx.Request)
+	log.Debug().
+		Str("reqPath", ctx.Request.URL.Path).
+		Any("reqProps", reqProps).
+		Msg("evaluated user * request")
 	humanID = reqProps.ClientID
 	if reqProps.Error != nil {
 		// TODO

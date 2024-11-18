@@ -48,14 +48,14 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 		}
 	}
 	if cmdOpts.LogLevel != "" {
-		conf.LogLevel = cmdOpts.LogLevel
+		conf.Logging.Level = cmdOpts.LogLevel
 
-	} else if conf.LogLevel == "" {
-		conf.LogLevel = "info"
+	} else if conf.Logging.Level == "" {
+		conf.Logging.Level = "info"
 	}
-	setupLog(conf.LogPath, conf.LogLevel, conf.LogRollingFiles)
+	setupLog(conf.Logging)
 	log.Info().Msgf("loaded configuration from %s", explicitPath)
-	log.Info().Msgf("using logging level '%s'", conf.LogLevel)
+	log.Info().Msgf("using logging level '%s'", conf.Logging.Level)
 	applyDefaults(conf)
 	err := overrideConfWithCmd(conf, cmdOpts)
 	if err != nil {
@@ -120,9 +120,9 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) er
 		origConf.ServerWriteTimeoutSecs = config.DfltServerWriteTimeoutSecs
 	}
 	if cmdConf.LogPath != "" {
-		origConf.LogPath = cmdConf.LogPath
+		origConf.Logging.Path = cmdConf.LogPath
 
-	} else if origConf.LogPath == "" {
+	} else if origConf.Logging.Path == "" {
 		log.Warn().Msg("logPath not specified, using stderr")
 	}
 	banDuration, err := cmdConf.BanDuration()

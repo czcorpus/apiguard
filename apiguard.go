@@ -86,28 +86,20 @@ func init() {
 	}
 }
 
-func setupLog(path, level string, roll *config.LogRollingFilesConf) {
-	lev, ok := levelMapping[level]
+func setupLog(loggingConf config.LoggingConf) {
+	lev, ok := levelMapping[loggingConf.Level]
 	if !ok {
-		log.Fatal().Msgf("invalid logging level: %s", level)
+		log.Fatal().Msgf("invalid logging level: %s", loggingConf.Level)
 	}
 	zerolog.SetGlobalLevel(lev)
-	if path != "" {
-		if roll != nil {
-			log.Logger = log.Output(&lumberjack.Logger{
-				Filename:   path,
-				MaxSize:    roll.MaxSize,
-				MaxBackups: roll.MaxBackups,
-				MaxAge:     roll.MaxAge,
-				Compress:   false,
-			})
-		} else {
-			logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				log.Fatal().Msgf("Failed to initialize log. File: %s", path)
-			}
-			log.Logger = log.Output(logf)
-		}
+	if loggingConf.Path != "" {
+		log.Logger = log.Output(&lumberjack.Logger{
+			Filename:   loggingConf.Path,
+			MaxSize:    loggingConf.MaxFileSize,
+			MaxBackups: loggingConf.MaxFiles,
+			MaxAge:     loggingConf.MaxAgeDays,
+			Compress:   false,
+		})
 
 	} else {
 		log.Logger = log.Output(

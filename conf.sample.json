@@ -13,46 +13,64 @@
         "dataDelaySecs": 10,
         "maxAgeSecsRelevant": 3600
     },
-    "services": {
-        "languageGuide": {
-            "baseURL": "https://prirucka.ujc.cas.cz",
-            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
-        },
-        "assc": {
-            "baseURL": "https://slovnikcestiny.cz",
-            "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
-        },
-        "kontext": {
-            "internalUrl": "http://localhost:8080",
-            "externalUrl": "http://localhost:3010/service/kontext",
-            "limits": [
-                {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
-            ],
-            "alarm": {
-                "recipients": ["tomas.machalek@gmail.com"]
+    "services": [
+        {
+            "type": "languageGuide",
+            "conf": {
+                "baseURL": "https://prirucka.ujc.cas.cz",
+                "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
             }
         },
-        "treq": {
-            "internalUrl": "http://localhost:8081",
-            "externalUrl": "http://localhost:3010/service/treq",
-            "limits": [
-                {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
-            ],
-            "alarm": {
-                "recipients": ["tomas.machalek@gmail.com"]
+        {
+            "type": "assc",
+            "conf": {
+                "baseURL": "https://slovnikcestiny.cz",
+                "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
             }
         },
-        "kwords": {
-            "internalUrl": "http://localhost:8082",
-            "externalUrl": "http://localhost:3010/service/kwords",
-            "limits": [
-                {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
-            ],
-            "alarm": {
-                "recipients": ["tomas.machalek@gmail.com"]
+        {
+            "type": "kontext",
+            "conf": {
+                "internalUrl": "http://localhost:8080",
+                "externalUrl": "http://localhost:3010/service/kontext",
+                "limits": [
+                    {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+                ],
+                "alarm": {
+                    "recipients": ["tomas.machalek@gmail.com"]
+                },
+                "sessionValType": "none"
+            }
+        },
+        {
+            "type": "treq",
+            "conf": {
+                "internalUrl": "http://localhost:8081",
+                "externalUrl": "http://localhost:3010/service/treq",
+                "limits": [
+                    {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+                ],
+                "alarm": {
+                    "recipients": ["tomas.machalek@gmail.com"]
+                },
+                "sessionValType": "none"
+            }
+        },
+        {
+            "type": "kwords",
+            "conf": {
+                "internalUrl": "http://localhost:8082",
+                "externalUrl": "http://localhost:3010/service/kwords",
+                "limits": [
+                    {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+                ],
+                "alarm": {
+                    "recipients": ["tomas.machalek@gmail.com"]
+                },
+                "sessionValType": "none"
             }
         }
-    },
+    ],
     "cache": {
         "fileRootPath": "",
         "ttlSecs": 3600

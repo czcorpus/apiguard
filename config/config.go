@@ -24,18 +24,18 @@ import (
 )
 
 const (
-	DfltServerReadTimeoutSecs     = 10
-	DfltServerWriteTimeoutSecs    = 30
-	DftlServerPort                = 8080
-	DfltServerHost                = "localhost"
-	DfltBanSecs                   = 3600
-	DfltTimeZone                  = "Europe/Prague"
-	DfltProxyReqTimeoutSecs       = 60
-	DfltIdleConnTimeoutSecs       = 10
-	DfltSessionValType            = session.SessionTypeCNC
-	DfltLogRollingFilesMaxSize    = 500
-	DfltLogRollingFilesMaxBackups = 3
-	DfltLogRollingFilesMaxAge     = 28
+	DfltServerReadTimeoutSecs  = 10
+	DfltServerWriteTimeoutSecs = 30
+	DftlServerPort             = 8080
+	DfltServerHost             = "localhost"
+	DfltBanSecs                = 3600
+	DfltTimeZone               = "Europe/Prague"
+	DfltProxyReqTimeoutSecs    = 60
+	DfltIdleConnTimeoutSecs    = 10
+	DfltSessionValType         = session.SessionTypeCNC
+	DfltLoggingMaxFileSize     = 500
+	DfltLoggingMaxFiles        = 3
+	DfltLoggingMaxAgeDays      = 28
 )
 
 type GeneralServiceConf struct {
@@ -113,9 +113,7 @@ type Configuration struct {
 	Services          []GeneralServiceConf     `json:"services"`
 	Cache             reqcache.Conf            `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
-	LogPath           string                   `json:"logPath"`
-	LogLevel          string                   `json:"logLevel"`
-	LogRollingFiles   *LogRollingFilesConf     `json:"logRollingFiles"`
+	Logging           LoggingConf              `json:"logging"`
 	Monitoring        *monitoring.LimitingConf `json:"monitoring"`
 	IPBanTTLSecs      int                      `json:"IpBanTtlSecs"`
 	CNCDB             cnc.Conf                 `json:"cncDb"`
@@ -156,24 +154,26 @@ func (c *Configuration) IPAllowedForAPI(ip net.IP) bool {
 	return false
 }
 
-type LogRollingFilesConf struct {
-	MaxSize    int `json:"maxSize"` // megabytes
-	MaxBackups int `json:"maxBackups"`
-	MaxAge     int `json:"maxAge"` // days
+type LoggingConf struct {
+	Path        string `json:"path"`
+	Level       string `json:"level"`
+	MaxFileSize int    `json:"maxFileSize"`
+	MaxFiles    int    `json:"maxFiles"`
+	MaxAgeDays  int    `json:"maxAgeDays"`
 }
 
-func (roll *LogRollingFilesConf) validate() error {
-	if roll.MaxSize == 0 {
-		roll.MaxSize = DfltLogRollingFilesMaxSize
-		log.Warn().Msgf("missing logRollingFiles.maxSize, setting %d", DfltLogRollingFilesMaxSize)
+func (roll *LoggingConf) validate() error {
+	if roll.MaxFileSize == 0 {
+		roll.MaxFileSize = DfltLoggingMaxFileSize
+		log.Warn().Msgf("missing logging.maxFileSize, setting %d", DfltLoggingMaxFileSize)
 	}
-	if roll.MaxBackups == 0 {
-		roll.MaxBackups = DfltLogRollingFilesMaxBackups
-		log.Warn().Msgf("missing logRollingFiles.maxBackups, setting %d", DfltLogRollingFilesMaxBackups)
+	if roll.MaxFiles == 0 {
+		roll.MaxFiles = DfltLoggingMaxFiles
+		log.Warn().Msgf("missing logging.maxFiles, setting %d", DfltLoggingMaxFiles)
 	}
-	if roll.MaxAge == 0 {
-		roll.MaxAge = DfltLogRollingFilesMaxAge
-		log.Warn().Msgf("missing logRollingFiles.maxAge, setting %d", DfltLogRollingFilesMaxAge)
+	if roll.MaxAgeDays == 0 {
+		roll.MaxAgeDays = DfltLoggingMaxAgeDays
+		log.Warn().Msgf("missing logging.maxAgeDays, setting %d", DfltLoggingMaxAgeDays)
 	}
 	return nil
 }
@@ -202,10 +202,8 @@ func (c *Configuration) Validate() error {
 	if err := c.Reporting.ValidateAndDefaults(); err != nil {
 		return err
 	}
-	if c.LogRollingFiles != nil {
-		if err := c.LogRollingFiles.validate(); err != nil {
-			return err
-		}
+	if err := c.Logging.validate(); err != nil {
+		return err
 	}
 	return nil
 }

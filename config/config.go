@@ -24,15 +24,18 @@ import (
 )
 
 const (
-	DfltServerReadTimeoutSecs  = 10
-	DfltServerWriteTimeoutSecs = 30
-	DftlServerPort             = 8080
-	DfltServerHost             = "localhost"
-	DfltBanSecs                = 3600
-	DfltTimeZone               = "Europe/Prague"
-	DfltProxyReqTimeoutSecs    = 60
-	DfltIdleConnTimeoutSecs    = 10
-	DfltSessionValType         = session.SessionTypeCNC
+	DfltServerReadTimeoutSecs     = 10
+	DfltServerWriteTimeoutSecs    = 30
+	DftlServerPort                = 8080
+	DfltServerHost                = "localhost"
+	DfltBanSecs                   = 3600
+	DfltTimeZone                  = "Europe/Prague"
+	DfltProxyReqTimeoutSecs       = 60
+	DfltIdleConnTimeoutSecs       = 10
+	DfltSessionValType            = session.SessionTypeCNC
+	DfltLogRollingFilesMaxSize    = 500
+	DfltLogRollingFilesMaxBackups = 3
+	DfltLogRollingFilesMaxAge     = 28
 )
 
 type GeneralServiceConf struct {
@@ -112,6 +115,7 @@ type Configuration struct {
 	Reporting         *reporting.Conf          `json:"reporting"`
 	LogPath           string                   `json:"logPath"`
 	LogLevel          string                   `json:"logLevel"`
+	LogRollingFiles   *LogRollingFilesConf     `json:"logRollingFiles"`
 	Monitoring        *monitoring.LimitingConf `json:"monitoring"`
 	IPBanTTLSecs      int                      `json:"IpBanTtlSecs"`
 	CNCDB             cnc.Conf                 `json:"cncDb"`
@@ -152,6 +156,28 @@ func (c *Configuration) IPAllowedForAPI(ip net.IP) bool {
 	return false
 }
 
+type LogRollingFilesConf struct {
+	MaxSize    int `json:"maxSize"` // megabytes
+	MaxBackups int `json:"maxBackups"`
+	MaxAge     int `json:"maxAge"` // days
+}
+
+func (roll *LogRollingFilesConf) validate() error {
+	if roll.MaxSize == 0 {
+		roll.MaxSize = DfltLogRollingFilesMaxSize
+		log.Warn().Msgf("missing logRollingFiles.maxSize, setting %d", DfltLogRollingFilesMaxSize)
+	}
+	if roll.MaxBackups == 0 {
+		roll.MaxBackups = DfltLogRollingFilesMaxBackups
+		log.Warn().Msgf("missing logRollingFiles.maxBackups, setting %d", DfltLogRollingFilesMaxBackups)
+	}
+	if roll.MaxAge == 0 {
+		roll.MaxAge = DfltLogRollingFilesMaxAge
+		log.Warn().Msgf("missing logRollingFiles.maxAge, setting %d", DfltLogRollingFilesMaxAge)
+	}
+	return nil
+}
+
 func (c *Configuration) Validate() error {
 	if err := c.loadAPIAllowlist(); err != nil {
 		return err
@@ -175,6 +201,11 @@ func (c *Configuration) Validate() error {
 	}
 	if err := c.Reporting.ValidateAndDefaults(); err != nil {
 		return err
+	}
+	if c.LogRollingFiles != nil {
+		if err := c.LogRollingFiles.validate(); err != nil {
+			return err
+		}
 	}
 	return nil
 }

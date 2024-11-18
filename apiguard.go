@@ -35,6 +35,7 @@ import (
 	"github.com/czcorpus/hltscl"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/natefinch/lumberjack"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -85,18 +86,28 @@ func init() {
 	}
 }
 
-func setupLog(path, level string) {
+func setupLog(path, level string, roll *config.LogRollingFilesConf) {
 	lev, ok := levelMapping[level]
 	if !ok {
 		log.Fatal().Msgf("invalid logging level: %s", level)
 	}
 	zerolog.SetGlobalLevel(lev)
 	if path != "" {
-		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatal().Msgf("Failed to initialize log. File: %s", path)
+		if roll != nil {
+			log.Logger = log.Output(&lumberjack.Logger{
+				Filename:   path,
+				MaxSize:    roll.MaxSize,
+				MaxBackups: roll.MaxBackups,
+				MaxAge:     roll.MaxAge,
+				Compress:   false,
+			})
+		} else {
+			logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				log.Fatal().Msgf("Failed to initialize log. File: %s", path)
+			}
+			log.Logger = log.Output(logf)
 		}
-		log.Logger = log.Output(logf)
 
 	} else {
 		log.Logger = log.Output(

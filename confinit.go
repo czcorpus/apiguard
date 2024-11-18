@@ -53,7 +53,7 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 	} else if conf.LogLevel == "" {
 		conf.LogLevel = "info"
 	}
-	setupLog(conf.LogPath, conf.LogLevel)
+	setupLog(conf.LogPath, conf.LogLevel, conf.LogRollingFiles)
 	log.Info().Msgf("loaded configuration from %s", explicitPath)
 	log.Info().Msgf("using logging level '%s'", conf.LogLevel)
 	applyDefaults(conf)

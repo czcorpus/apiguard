@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/czcorpus/cnc-gokit/fs"
+	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
 )
 
@@ -48,12 +49,12 @@ func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configu
 		}
 	}
 	if cmdOpts.LogLevel != "" {
-		conf.Logging.Level = cmdOpts.LogLevel
+		conf.Logging.Level = logging.LogLevel(cmdOpts.LogLevel)
 
 	} else if conf.Logging.Level == "" {
 		conf.Logging.Level = "info"
 	}
-	setupLog(conf.Logging)
+	logging.SetupLogging(conf.Logging)
 	log.Info().Msgf("loaded configuration from %s", explicitPath)
 	log.Info().Msgf("using logging level '%s'", conf.Logging.Level)
 	applyDefaults(conf)

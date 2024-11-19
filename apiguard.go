@@ -35,8 +35,6 @@ import (
 	"github.com/czcorpus/hltscl"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/natefinch/lumberjack"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -49,13 +47,6 @@ var (
 		Version:   version,
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
-	}
-	levelMapping = map[string]zerolog.Level{
-		"debug":   zerolog.DebugLevel,
-		"info":    zerolog.InfoLevel,
-		"warning": zerolog.WarnLevel,
-		"warn":    zerolog.WarnLevel,
-		"error":   zerolog.ErrorLevel,
 	}
 )
 
@@ -83,31 +74,6 @@ func (opts CmdOptions) BanDuration() (time.Duration, error) {
 func init() {
 	if defaultConfigPath == "" {
 		defaultConfigPath = "/usr/local/etc/apiguard.json"
-	}
-}
-
-func setupLog(loggingConf config.LoggingConf) {
-	lev, ok := levelMapping[loggingConf.Level]
-	if !ok {
-		log.Fatal().Msgf("invalid logging level: %s", loggingConf.Level)
-	}
-	zerolog.SetGlobalLevel(lev)
-	if loggingConf.Path != "" {
-		log.Logger = log.Output(&lumberjack.Logger{
-			Filename:   loggingConf.Path,
-			MaxSize:    loggingConf.MaxFileSize,
-			MaxBackups: loggingConf.MaxFiles,
-			MaxAge:     loggingConf.MaxAgeDays,
-			Compress:   false,
-		})
-
-	} else {
-		log.Logger = log.Output(
-			zerolog.ConsoleWriter{
-				Out:        os.Stderr,
-				TimeFormat: time.RFC3339,
-			},
-		)
 	}
 }
 

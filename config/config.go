@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
 )
 
@@ -110,8 +111,7 @@ type Configuration struct {
 	Services          []GeneralServiceConf     `json:"services"`
 	Cache             reqcache.Conf            `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
-	LogPath           string                   `json:"logPath"`
-	LogLevel          string                   `json:"logLevel"`
+	Logging           logging.LoggingConf      `json:"logging"`
 	Monitoring        *monitoring.LimitingConf `json:"monitoring"`
 	IPBanTTLSecs      int                      `json:"IpBanTtlSecs"`
 	CNCDB             cnc.Conf                 `json:"cncDb"`

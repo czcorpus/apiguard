@@ -86,10 +86,16 @@ func (c *ProxyConf) GetCoreConf() proxy.GeneralProxyConf {
 }
 
 type EnvironConf struct {
-	CNCAuthCookie     string
-	AuthTokenEntry    string
-	ReadTimeoutSecs   int
-	ServiceName       string
-	ServicePath       string
+	CNCAuthCookie   string
+	AuthTokenEntry  string
+	ReadTimeoutSecs int
+	ServiceName     string
+	ServicePath     string
+
+	// ServiceKey is a unique id of service considering
+	// possible multiple instances of the same service type
+	// It looks like [conf order int]/[type] - e.g. 4/kontext
+	ServiceKey string
+
 	CNCPortalLoginURL string
 }

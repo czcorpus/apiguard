@@ -272,6 +272,7 @@ func InitServices(
 					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
 					AuthTokenEntry:    authTokenEntry,
 					ServicePath:       fmt.Sprintf("/service/%d/kontext", sid),
+					ServiceKey:        fmt.Sprintf("%d/kontext", sid),
 					ServiceName:       "kontext",
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,

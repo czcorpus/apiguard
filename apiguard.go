@@ -35,7 +35,6 @@ import (
 	"github.com/czcorpus/hltscl"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -48,13 +47,6 @@ var (
 		Version:   version,
 		BuildDate: buildDate,
 		GitCommit: gitCommit,
-	}
-	levelMapping = map[string]zerolog.Level{
-		"debug":   zerolog.DebugLevel,
-		"info":    zerolog.InfoLevel,
-		"warning": zerolog.WarnLevel,
-		"warn":    zerolog.WarnLevel,
-		"error":   zerolog.ErrorLevel,
 	}
 )
 
@@ -82,29 +74,6 @@ func (opts CmdOptions) BanDuration() (time.Duration, error) {
 func init() {
 	if defaultConfigPath == "" {
 		defaultConfigPath = "/usr/local/etc/apiguard.json"
-	}
-}
-
-func setupLog(path, level string) {
-	lev, ok := levelMapping[level]
-	if !ok {
-		log.Fatal().Msgf("invalid logging level: %s", level)
-	}
-	zerolog.SetGlobalLevel(lev)
-	if path != "" {
-		logf, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatal().Msgf("Failed to initialize log. File: %s", path)
-		}
-		log.Logger = log.Output(logf)
-
-	} else {
-		log.Logger = log.Output(
-			zerolog.ConsoleWriter{
-				Out:        os.Stderr,
-				TimeFormat: time.RFC3339,
-			},
-		)
 	}
 }
 

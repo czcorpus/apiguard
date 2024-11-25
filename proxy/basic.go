@@ -78,8 +78,8 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 }
 
 type APIProxy struct {
-	InternalURL *url.URL
-	ExternalURL *url.URL
+	BackendURL  *url.URL
+	FrontendURL *url.URL
 	client      *http.Client
 }
 
@@ -95,8 +95,8 @@ func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 			// External KonText API URL is https://www.korpus.cz/kontext-api/v0.17
 			// Now KonText wants to redirect to https://localhost:8195/kontext-api/v0.17/query
 			// => we have to replace Host
-			if redirectURL.Host == proxy.InternalURL.Host {
-				redirectURL.Host = proxy.ExternalURL.Host
+			if redirectURL.Host == proxy.BackendURL.Host {
+				redirectURL.Host = proxy.FrontendURL.Host
 			}
 			headers[name] = []string{redirectURL.String()}
 			break
@@ -113,7 +113,7 @@ func (proxy *APIProxy) Request(
 	rbody io.Reader,
 ) *ProxiedResponse {
 
-	targetURL := proxy.InternalURL.JoinPath(urlPath)
+	targetURL := proxy.BackendURL.JoinPath(urlPath)
 	targetURL.RawQuery = args.Encode()
 	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
@@ -166,17 +166,17 @@ func NewAPIProxy(conf GeneralProxyConf) (*APIProxy, error) {
 	transport.MaxConnsPerHost = httpclient.TransportMaxConnsPerHost
 	transport.MaxIdleConnsPerHost = httpclient.TransportMaxIdleConnsPerHost
 	transport.IdleConnTimeout = time.Duration(conf.IdleConnTimeoutSecs) * time.Second
-	internalURL, err := url.Parse(conf.InternalURL)
+	backendURL, err := url.Parse(conf.BackendURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create APIProxy: %w", err)
 	}
-	externalURL, err := url.Parse(conf.ExternalURL)
+	frontendURL, err := url.Parse(conf.FrontendURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create APIProxy: %w", err)
 	}
 	return &APIProxy{
-		InternalURL: internalURL,
-		ExternalURL: externalURL,
+		BackendURL:  backendURL,
+		FrontendURL: frontendURL,
 		client: &http.Client{
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse

@@ -30,21 +30,28 @@ const (
 	HeaderIndirectCall = "X-Indirect-Call"
 )
 
-func MapSessionCookie(req *http.Request, externalCookie, internalCookie string) error {
-	ec, err := req.Cookie(externalCookie)
+// MapFrontendCookieToBackend takes current user's frontend authentication
+// (based on the frontendCookie) and passes it as backend authentication
+// (to an API server) under the backend cookie name.
+// The function expects that the frontend cookie is already set as otherwise
+// there would be noting to map from. This is typically fulfilled either by user
+// visiting already other CNC applications or by sequence "preflight" -> "login"
+// performed by a compatible application APIGuard is attached to (mostly WaG).
+func MapFrontendCookieToBackend(req *http.Request, frontendCookie, backendCookie string) error {
+	ec, err := req.Cookie(frontendCookie)
 	if err == http.ErrNoCookie {
 		return nil
 
 	} else if err != nil {
-		return fmt.Errorf("failed to map cookie %s", externalCookie)
+		return fmt.Errorf("failed to map cookie %s", frontendCookie)
 	}
 
-	_, err = req.Cookie(internalCookie)
+	_, err = req.Cookie(backendCookie)
 	if err == nil {
 		allCookies := req.Cookies()
 		req.Header.Del("cookie")
 		for _, c := range allCookies {
-			if c.Name == internalCookie {
+			if c.Name == backendCookie {
 				c.Value = ec.Value
 			}
 			req.AddCookie(c)
@@ -54,8 +61,8 @@ func MapSessionCookie(req *http.Request, externalCookie, internalCookie string) 
 		allCookies := req.Cookies()
 		req.Header.Del("cookie")
 		for _, c := range allCookies {
-			if c.Name == externalCookie {
-				c.Name = internalCookie
+			if c.Name == frontendCookie {
+				c.Name = backendCookie
 			}
 			req.AddCookie(c)
 		}

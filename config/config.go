@@ -51,11 +51,11 @@ func (services *servicesSection) validate() error {
 
 	}
 	if services.Treq != nil {
-		if services.Treq.ExternalURL == "" {
-			return errors.New("missing externalUrl configuration for Treq")
+		if services.Treq.FrontendURL == "" {
+			return errors.New("missing frontendUrl configuration for Treq")
 		}
-		if services.Treq.InternalURL == "" {
-			return errors.New("missing internalURL configuration for Treq")
+		if services.Treq.BackendURL == "" {
+			return errors.New("missing backendUrl configuration for Treq")
 		}
 		if services.Treq.SessionValType == "" {
 			log.Warn().Msgf(
@@ -75,11 +75,11 @@ func (services *servicesSection) validate() error {
 		}
 	}
 	if services.KWords != nil {
-		if services.KWords.ExternalURL == "" {
-			return errors.New("missing externalUrl configuration for KWords")
+		if services.KWords.FrontendURL == "" {
+			return errors.New("missing frontendUrl configuration for KWords")
 		}
-		if services.KWords.InternalURL == "" {
-			return errors.New("missing internalURL configuration for KWords")
+		if services.KWords.BackendURL == "" {
+			return errors.New("missing backendUrl configuration for KWords")
 		}
 		if services.KWords.ReqTimeoutSecs == 0 {
 			services.KWords.ReqTimeoutSecs = DfltProxyReqTimeoutSecs

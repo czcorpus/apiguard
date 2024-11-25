@@ -31,8 +31,8 @@
         {
             "type": "kontext",
             "conf": {
-                "internalUrl": "http://localhost:8080",
-                "externalUrl": "http://localhost:3010/service/kontext",
+                "backendUrl": "http://localhost:8080",
+                "frontendUrl": "http://localhost:3010/service/kontext",
                 "limits": [
                     {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
                 ],
@@ -45,8 +45,8 @@
         {
             "type": "treq",
             "conf": {
-                "internalUrl": "http://localhost:8081",
-                "externalUrl": "http://localhost:3010/service/treq",
+                "backendUrl": "http://localhost:8081",
+                "frontendUrl": "http://localhost:3010/service/treq",
                 "limits": [
                     {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
                 ],
@@ -59,8 +59,8 @@
         {
             "type": "kwords",
             "conf": {
-                "internalUrl": "http://localhost:8082",
-                "externalUrl": "http://localhost:3010/service/kwords",
+                "backendUrl": "http://localhost:8082",
+                "frontendUrl": "http://localhost:3010/service/kwords",
                 "limits": [
                     {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
                 ],

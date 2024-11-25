@@ -52,9 +52,9 @@ type Guard struct {
 
 	tlmtrStorage telemetry.Storage
 
-	// internalSessionCookie is a cookie used between APIGuard and API (e.g. KonText-API)
+	// backendSessionCookie is a cookie used between APIGuard and API (e.g. KonText-API)
 	// Please note that CNC central authentication cookie is typically the same
-	// as internalSessionCookie in which sense the term "internal" may sound weird.
+	// as backendSessionCookie in which sense the term "internal" may sound weird.
 	// The reason is that APIGuard creates additional layer between user and CNC auth mechanism
 	// in which case the former "external" becomes "internal" from APIGuard point of view.
 	//
@@ -69,18 +69,18 @@ type Guard struct {
 	// Here by default, APIGuard will ignore c1 (it again used c2 and renames it to c1 for KonText API)
 	//
 	// We also use the fact that in terms of value, both cookies are the same and in case we need
-	// to check whether an external authentication (user logged via CNC login page)
-	// provides valid user, we refer to this internalSessionCookie - so don't be confused
+	// to check whether the frontend authentication (user logged via CNC login page)
+	// provides a valid user, we refer to this backendSessionCookie - so don't be confused
 	// by this.
-	internalSessionCookie string
+	backendSessionCookie string
 
-	// externalSessionCookie is a cookie used between APIGuard client (e.g. WaG) and
+	// frontendSessionCookie is a cookie used between APIGuard client (e.g. WaG) and
 	// APIGuard. This allows access for both authenticated CNC users (in which case
 	// their credentials will be passed to a target API), and for public users in which
 	// case APIGuard will use its capabilities (e.g. a configured fallback user account
 	// created not for a human user but rather for an application) to authenticate
 	// (possibly with some lowered permissions) such user to otherwise non-public CNC APIs.
-	externalSessionCookie string
+	frontendSessionCookie string
 
 	anonymousUsers common.AnonymousUsers
 
@@ -109,30 +109,25 @@ func (kua *Guard) LogAppliedDelay(respDelay time.Duration, clientID common.Clien
 	return kua.tlmtrStorage.LogAppliedDelay(respDelay, clientID)
 }
 
-// getSession returns a user session value value along with the information
-// whether the session was obtained via external cookie (see configuration
+// getFrontendOrBackendSession returns a user session value value along with the information
+// whether the session was obtained via frontend cookie (see configuration
 // for explanation).
-func (kua *Guard) getSession(req *http.Request) (cookieValue string, isExternal bool) {
-	cookieValue = proxy.GetCookieValue(req, kua.externalSessionCookie)
-	if cookieValue != "" {
-		isExternal = true
+// As the name suggests, the method first tries the frontend session and only if it gives
+// no value, it looks also for backend session (which is typically cnc auth session).
+func (kua *Guard) getFrontendOrBackendSession(
+	req *http.Request,
+) (cookieValue session.HTTPSession, isFrontend bool) {
+	cookieValue = kua.sessionValFactory().UpdatedFrom(proxy.GetCookieValue(req, kua.frontendSessionCookie))
+	if !cookieValue.IsZero() {
+		isFrontend = true
 		return
 	}
-	cookieValue = proxy.GetCookieValue(req, kua.internalSessionCookie)
+	cookieValue = kua.sessionValFactory().UpdatedFrom(proxy.GetCookieValue(req, kua.backendSessionCookie))
 	return
 }
 
-// GetSessionID extracts relevant user session ID from the provided Request.
-func (kua *Guard) GetSessionID(req *http.Request) string {
-	v, _ := kua.getSession(req)
-	if v != "" {
-		return strings.SplitN(v, "-", 2)[0]
-	}
-	return ""
-}
-
 func (kua *Guard) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
-	cookie, err := req.Cookie(kua.internalSessionCookie)
+	cookie, err := req.Cookie(kua.backendSessionCookie)
 	if err == http.ErrNoCookie {
 		return nil
 	}
@@ -140,7 +135,7 @@ func (kua *Guard) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
 }
 
 func (kua *Guard) getUserCNCSessionID(req *http.Request) session.HTTPSession {
-	v := proxy.GetCookieValue(req, kua.internalSessionCookie)
+	v := proxy.GetCookieValue(req, kua.backendSessionCookie)
 	return kua.sessionValFactory().UpdatedFrom(v)
 }
 
@@ -179,7 +174,7 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 
 // EvaluateRequest produces a HTTP response status
 // proposal based on user activity.
-// The function prefers external cookie. I.e. if a client (e.g. WaG)
+// The function prefers frontend cookie. I.e. if a client (e.g. WaG)
 // sends custom auth cookie, then the user identified by that cookie
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
@@ -203,28 +198,30 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 			Error:            nil,
 		}
 	}
-	cookieValue, _ := analyzer.getSession(req)
-	userID := common.InvalidUserID
-	if cookieValue == "" {
+	cookieValue, _ := analyzer.getFrontendOrBackendSession(req)
+	if cookieValue.IsZero() {
 		proxy.LogCookies(req, log.Debug()).
-			Str("internalCookie", analyzer.internalSessionCookie).
-			Str("externalCookie", analyzer.externalSessionCookie).
+			Str("backendCookie", analyzer.backendSessionCookie).
+			Str("frontendCookie", analyzer.frontendSessionCookie).
 			Msgf("failed to find authentication cookies")
 		return guard.ReqEvaluation{
 			ProposedResponse: http.StatusUnauthorized,
 			ClientID:         common.InvalidUserID,
 			Error:            fmt.Errorf("session cookie not found"),
 		}
-
-	} else {
-		var err error
-		userID, err = analyzer.DetermineTrueUserID(req)
-		if err != nil {
-			return guard.ReqEvaluation{
-				ProposedResponse: http.StatusInternalServerError,
-				ClientID:         common.InvalidUserID,
-				Error:            fmt.Errorf("failed to determine userID: %w", err),
-			}
+	}
+	apiUserID, err := guard.FindUserBySession(
+		analyzer.db, analyzer.sessionValFactory().UpdatedFrom(cookieValue.String()))
+	if err != nil {
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusInternalServerError,
+			ClientID:         apiUserID,
+			Error:            fmt.Errorf("failed to determine userID: %w", err),
+		}
+	}
+	if !apiUserID.IsValid() {
+		return guard.ReqEvaluation{
+			ProposedResponse: http.StatusUnauthorized,
 		}
 	}
 	if len(analyzer.confLimits) > 0 {
@@ -242,14 +239,14 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 		if !limiter.Allow() {
 			return guard.ReqEvaluation{
 				ProposedResponse: http.StatusTooManyRequests,
-				ClientID:         userID,
-				SessionID:        cookieValue,
+				ClientID:         apiUserID,
+				SessionID:        cookieValue.String(),
 			}
 		}
 	}
 
 	// test ip ban
-	banned, err := analyzer.checkForBan(req, common.ClientID{IP: clientIP, ID: userID})
+	banned, err := analyzer.checkForBan(req, common.ClientID{IP: clientIP, ID: apiUserID})
 	if err != nil {
 		return guard.ReqEvaluation{
 			ProposedResponse: http.StatusInternalServerError,
@@ -263,16 +260,16 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 	}
 	return guard.ReqEvaluation{
 		ProposedResponse: http.StatusOK,
-		ClientID:         userID,
-		SessionID:        cookieValue,
+		ClientID:         apiUserID,
+		SessionID:        cookieValue.String(),
 		Error:            err,
 	}
 }
 
 func New(
 	globalCtx *globctx.Context,
-	internalSessionCookie string,
-	externalSessionCookie string,
+	backendSessionCookie string,
+	frontendSessionCookie string,
 	sessionType session.SessionType,
 	confLimits []proxy.Limit,
 
@@ -281,8 +278,8 @@ func New(
 		db:                    globalCtx.CNCDB,
 		tlmtrStorage:          globalCtx.TelemetryDB,
 		location:              globalCtx.TimezoneLocation,
-		internalSessionCookie: internalSessionCookie,
-		externalSessionCookie: externalSessionCookie,
+		backendSessionCookie:  backendSessionCookie,
+		frontendSessionCookie: frontendSessionCookie,
 		anonymousUsers:        globalCtx.AnonymousUserIDs,
 		confLimits:            confLimits,
 		rateLimiters:          make(map[string]*rate.Limiter),

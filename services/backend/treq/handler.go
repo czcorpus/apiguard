@@ -42,10 +42,10 @@ type TreqProxy struct {
 }
 
 func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
-	if tp.conf.ExternalSessionCookieName == "" {
+	if tp.conf.FrontendSessionCookieName == "" {
 		return false
 	}
-	_, err := req.Cookie(tp.conf.ExternalSessionCookieName)
+	_, err := req.Cookie(tp.conf.FrontendSessionCookieName)
 	return err == nil
 }
 
@@ -102,7 +102,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	}
 
 	passedHeaders := ctx.Request.Header
-	if tp.cncAuthCookie != tp.conf.ExternalSessionCookieName {
+	if tp.cncAuthCookie != tp.conf.FrontendSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
 		humanID, err = tp.guard.DetermineTrueUserID(ctx.Request)
@@ -125,9 +125,9 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	// first, remap cookie names
 	if tp.reqUsesMappedSession(ctx.Request) {
-		err := backend.MapSessionCookie(
+		err := backend.MapFrontendCookieToBackend(
 			ctx.Request,
-			tp.conf.ExternalSessionCookieName,
+			tp.conf.FrontendSessionCookieName,
 			tp.cncAuthCookie,
 		)
 		if err != nil {
@@ -175,7 +175,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 }
 
 func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
-	cacheApplCookies := []string{tp.conf.ExternalSessionCookieName, tp.cncAuthCookie}
+	cacheApplCookies := []string{tp.conf.FrontendSessionCookieName, tp.cncAuthCookie}
 	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
 		path := req.URL.Path[len(tp.servicePath):]

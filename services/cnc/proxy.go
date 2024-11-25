@@ -14,7 +14,6 @@ import (
 	"apiguard/reporting"
 	"apiguard/reqcache"
 	"apiguard/services/backend"
-	"apiguard/services/defaults"
 	"apiguard/session"
 	"crypto/tls"
 	"encoding/json"
@@ -62,7 +61,7 @@ type CoreProxy struct {
 // the user using the client is logged in or not.
 // To be able to recognize users logged in via CNC cookie (which is the
 // one e.g. WaG does not use intentionally) we must actually make two
-// tests - 1. external cookie, 2. internal cookie
+// tests - 1. frontend cookie, 2. backend cookie
 func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	userId := common.InvalidUserID
@@ -102,10 +101,10 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 }
 
 func (kp *CoreProxy) reqUsesMappedSession(req *http.Request) bool {
-	if kp.conf.ExternalSessionCookieName == "" {
+	if kp.conf.FrontendSessionCookieName == "" {
 		return false
 	}
-	_, err := req.Cookie(kp.conf.ExternalSessionCookieName)
+	_, err := req.Cookie(kp.conf.FrontendSessionCookieName)
 	return err == nil
 }
 
@@ -175,17 +174,17 @@ func (kp *CoreProxy) applyLoginRespCookies(
 ) (userID common.UserID) {
 	for _, cookie := range resp.cookies {
 		cCopy := *cookie
-		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.ExternalSessionCookieName != "" {
+		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.FrontendSessionCookieName != "" {
 			var err error
 			sessionID := kp.sessionValFactory().UpdatedFrom(cCopy.Value)
 			userID, err = guard.FindUserBySession(kp.globalCtx.CNCDB, sessionID)
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
 			}
-			cCopy.Name = kp.conf.ExternalSessionCookieName
+			cCopy.Name = kp.conf.FrontendSessionCookieName
 			log.Debug().
-				Str("internalCookie", kp.rConf.CNCAuthCookie).
-				Str("externalCookie", kp.conf.ExternalSessionCookieName).
+				Str("backendCookie", kp.rConf.CNCAuthCookie).
+				Str("frontendCookie", kp.conf.FrontendSessionCookieName).
 				Str("value", cCopy.Value).
 				Msg("login action - mapping back internal cookie")
 		}
@@ -307,7 +306,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	passedHeaders := ctx.Request.Header
 
-	if kp.rConf.CNCAuthCookie != kp.conf.ExternalSessionCookieName {
+	if kp.rConf.CNCAuthCookie != kp.conf.FrontendSessionCookieName {
 		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
 
 	} else {
@@ -325,7 +324,7 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(ctx.Request) {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxy.GetCookieValue(ctx.Request, kp.conf.ExternalSessionCookieName),
+				proxy.GetCookieValue(ctx.Request, kp.conf.FrontendSessionCookieName),
 			}
 
 		} else {
@@ -336,9 +335,9 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	} else if kp.reqUsesMappedSession(ctx.Request) {
 
-		err := backend.MapSessionCookie(
+		err := backend.MapFrontendCookieToBackend(
 			ctx.Request,
-			kp.conf.ExternalSessionCookieName,
+			kp.conf.FrontendSessionCookieName,
 			kp.rConf.CNCAuthCookie,
 		)
 		if err != nil {
@@ -378,10 +377,6 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	ctx.Writer.Write([]byte(serviceResp.GetBody()))
 }
 
-func (kp *CoreProxy) CreateDefaultArgs(reqProps guard.ReqEvaluation) defaults.Args {
-	return make(defaults.Args)
-}
-
 func (kp *CoreProxy) debugLogResponse(req *http.Request, res proxy.BackendResponse, err error) {
 	evt := log.Debug()
 	evt.Str("url", req.URL.String())
@@ -410,16 +405,13 @@ func (kp *CoreProxy) makeRequest(
 	reqProps guard.ReqEvaluation,
 ) proxy.BackendResponse {
 	kp.debugLogRequest(req)
-	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.ExternalSessionCookieName}
+	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName}
 	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
 	if err == reqcache.ErrCacheMiss {
-		dfltArgs := kp.CreateDefaultArgs(reqProps)
-		urlArgs := req.URL.Query()
-		dfltArgs.ApplyTo(urlArgs)
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
-			urlArgs,
+			req.URL.Query(),
 			req.Method,
 			req.Header,
 			req.Body,

@@ -28,8 +28,8 @@ func (m Limit) NormLimitPerSec() rate.Limit {
 }
 
 type GeneralProxyConf struct {
-	InternalURL         string
-	ExternalURL         string
+	BackendURL          string
+	FrontendURL         string
 	ReqTimeoutSecs      int
 	IdleConnTimeoutSecs int
 	Limits              []Limit

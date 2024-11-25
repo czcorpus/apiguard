@@ -14,22 +14,22 @@ import (
 )
 
 type Conf struct {
-	// InternalURL is a URL where the backend is installed
+	// BackendURL is a URL where the backend is installed
 	// (typically something like "http://192.168.1.x:8080")
 	// The URL should not end with the slash character
-	InternalURL string `json:"internalUrl"`
+	BackendURL string `json:"backendUrl"`
 
-	// ExternalURL should specify a URL clients access the
+	// FrontendURL should specify a URL clients access the
 	// API from. E.g. for KonText it can be something
 	// like https://www.korpus.cz/kontext-api/v0.17
 	// The URL should not end with the slash character
-	ExternalURL string `json:"externalUrl"`
+	FrontendURL string `json:"frontendUrl"`
 
-	// ExternalSessionCookieName provides a name of the session cookie
+	// FrontendSessionCookieName provides a name of the session cookie
 	// used between APIGuard clients (e.g. WaG) and APIGuard.
 	// If defined, APIGuard will remap this cookie to the one used
 	// in the CNCAuth section where a central auth cookie is defined.
-	ExternalSessionCookieName string `json:"externalSessionCookieName"`
+	FrontendSessionCookieName string `json:"frontendSessionCookieName"`
 
 	Limits []proxy.Limit `json:"limits"`
 
@@ -43,8 +43,8 @@ type Conf struct {
 }
 
 func (c *Conf) Validate(context string) error {
-	if c.InternalURL == "" {
-		return fmt.Errorf("%s.internalURL is missing/empty", context)
+	if c.BackendURL == "" {
+		return fmt.Errorf("%s.backendUrl is missing/empty", context)
 	}
 	if err := c.SessionValType.Validate(); err != nil {
 		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
@@ -54,8 +54,8 @@ func (c *Conf) Validate(context string) error {
 
 func (c *Conf) GetCoreConf() proxy.GeneralProxyConf {
 	return proxy.GeneralProxyConf{
-		InternalURL:         c.InternalURL,
-		ExternalURL:         c.ExternalURL,
+		BackendURL:          c.BackendURL,
+		FrontendURL:         c.FrontendURL,
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
 		Limits:              c.Limits,

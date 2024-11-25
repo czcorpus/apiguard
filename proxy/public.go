@@ -30,14 +30,14 @@ const (
 )
 
 var (
-	DfltInternalURL = mustParseURL("http://127.0.0.1:8080/")
-	DfltExternalURL = mustParseURL("http://127.0.0.1/")
+	DfltBackendURL  = mustParseURL("http://127.0.0.1:8080/")
+	DflFfrontendURL = mustParseURL("http://127.0.0.1/")
 )
 
 type PublicAPIProxyOpts struct {
 	ServiceName      string
-	InternalURL      *url.URL
-	ExternalURL      *url.URL
+	BackendURL       *url.URL
+	FrontendURL      *url.URL
 	AuthCookieName   string
 	UserIDHeaderName string
 	ReadTimeoutSecs  int
@@ -50,8 +50,8 @@ type PublicAPIProxyOpts struct {
 type PublicAPIProxy struct {
 	serviceName      string
 	servicePath      string
-	InternalURL      *url.URL
-	ExternalURL      *url.URL
+	BackendURL       *url.URL
+	FrontendURL      *url.URL
 	authCookieName   string
 	userIDHeaderName string
 	readTimeoutSecs  int
@@ -129,7 +129,7 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 
 	defer func(userID *common.UserID) {
 		log.Debug().
-			Str("internalURL", prox.InternalURL.String()).
+			Str("backendURL", prox.BackendURL.String()).
 			Str("requestPath", path).
 			Str("servicePath", prox.servicePath).
 			Int("userID", int(humanID)).
@@ -227,20 +227,20 @@ func NewPublicAPIProxy(
 		p.authCookieName = opts.AuthCookieName
 	}
 
-	if opts.ExternalURL == nil {
-		p.ExternalURL = DfltExternalURL
-		log.Warn().Str("value", DfltExternalURL.String()).Msg("ExternalURL not set for public proxy, using default")
+	if opts.FrontendURL == nil {
+		p.FrontendURL = DflFfrontendURL
+		log.Warn().Str("value", DflFfrontendURL.String()).Msg("frontendUrl not set for public proxy, using default")
 
 	} else {
-		p.ExternalURL = opts.ExternalURL
+		p.FrontendURL = opts.FrontendURL
 	}
 
-	if opts.InternalURL == nil {
-		p.InternalURL = DfltInternalURL
-		log.Warn().Str("value", DfltInternalURL.String()).Msg("InternalURL not set for public proxy, using default")
+	if opts.BackendURL == nil {
+		p.BackendURL = DfltBackendURL
+		log.Warn().Str("value", DfltBackendURL.String()).Msg("backendUrl not set for public proxy, using default")
 
 	} else {
-		p.InternalURL = opts.InternalURL
+		p.BackendURL = opts.BackendURL
 	}
 
 	if opts.ReadTimeoutSecs == 0 {

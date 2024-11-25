@@ -30,7 +30,6 @@ import (
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
 	"apiguard/services/cnc"
-	"apiguard/services/defaults"
 	"apiguard/session"
 	"encoding/json"
 	"fmt"
@@ -49,15 +48,6 @@ func InitServices(
 	globalConf *config.Configuration,
 	alarm *monitoring.AlarmTicker,
 ) error {
-
-	servicesDefaults := make(map[string]defaults.DefaultsProvider)
-	sessActions := defaults.NewActions(servicesDefaults)
-
-	// session tools
-
-	apiRoutes.GET("/defaults/:serviceID/:key", sessActions.Get)
-
-	apiRoutes.POST("/defaults/:serviceID/:key", sessActions.Set)
 
 	for sid, servConf := range globalConf.Services {
 
@@ -252,7 +242,7 @@ func InitServices(
 			kontextGuard := cncauth.New(
 				ctx,
 				globalConf.CNCAuth.SessionCookieName,
-				typedConf.ExternalSessionCookieName,
+				typedConf.FrontendSessionCookieName,
 				typedConf.SessionValType,
 				typedConf.Limits,
 			)
@@ -298,7 +288,6 @@ func InitServices(
 					}
 				},
 			)
-			servicesDefaults[fmt.Sprintf("%d/kontext", sid)] = kontextActions
 			log.Info().Int("sid", sid).Msg("Proxy for Kontext enabled")
 
 		// MQuery proxy
@@ -388,7 +377,7 @@ func InitServices(
 			cnca := cncauth.New(
 				ctx,
 				globalConf.CNCAuth.SessionCookieName,
-				typedConf.ExternalSessionCookieName,
+				typedConf.FrontendSessionCookieName,
 				typedConf.SessionValType,
 				typedConf.Limits,
 			)
@@ -436,11 +425,11 @@ func InitServices(
 				typedConf.Limits,
 			)
 			go analyzer.Run()
-			internalURL, err := url.Parse(typedConf.InternalURL)
+			backendURL, err := url.Parse(typedConf.BackendURL)
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (kwords): %w", sid, err)
 			}
-			externalURL, err := url.Parse(typedConf.ExternalURL)
+			frontendUrl, err := url.Parse(typedConf.FrontendURL)
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (kwords): %w", sid, err)
 			}
@@ -458,8 +447,8 @@ func InitServices(
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{
 					ServiceName:      "kwords",
-					InternalURL:      internalURL,
-					ExternalURL:      externalURL,
+					BackendURL:       backendURL,
+					FrontendURL:      frontendUrl,
 					AuthCookieName:   globalConf.CNCAuth.SessionCookieName,
 					UserIDHeaderName: typedConf.TrueUserIDHeader,
 					ReadTimeoutSecs:  globalConf.ServerReadTimeoutSecs,
@@ -491,11 +480,11 @@ func InitServices(
 				typedConf.Limits,
 			)
 			go grd.Run()
-			internalURL, err := url.Parse(typedConf.InternalURL)
+			backendURL, err := url.Parse(typedConf.BackendURL)
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (gunstick): %w", sid, err)
 			}
-			externalURL, err := url.Parse(typedConf.ExternalURL)
+			frontendURL, err := url.Parse(typedConf.FrontendURL)
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (gunstick): %w", sid, err)
 			}
@@ -512,8 +501,8 @@ func InitServices(
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{
 					ServiceName:     "gunstick",
-					InternalURL:     internalURL,
-					ExternalURL:     externalURL,
+					BackendURL:      backendURL,
+					FrontendURL:     frontendURL,
 					ReadTimeoutSecs: globalConf.ServerReadTimeoutSecs,
 				},
 			)
@@ -544,11 +533,11 @@ func InitServices(
 				typedConf.Limits,
 			)
 			go grd.Run()
-			internalURL, err := url.Parse(typedConf.InternalURL)
+			backendURL, err := url.Parse(typedConf.BackendURL)
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (hex): %w", sid, err)
 			}
-			externalURL, err := url.Parse(typedConf.ExternalURL)
+			frontendURL, err := url.Parse(typedConf.FrontendURL)
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (hex): %w", sid, err)
 			}
@@ -565,8 +554,8 @@ func InitServices(
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{
 					ServiceName:     "hex",
-					InternalURL:     internalURL,
-					ExternalURL:     externalURL,
+					BackendURL:      backendURL,
+					FrontendURL:     frontendURL,
 					ReadTimeoutSecs: globalConf.ServerReadTimeoutSecs,
 				},
 			)

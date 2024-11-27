@@ -114,16 +114,7 @@ func (g *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 			Error:            fmt.Errorf("invalid authentication token"),
 		}
 	}
-	tmpIP := proxy.ExtractClientIP(req)
-	clientIP, _, err := net.SplitHostPort(tmpIP)
-	if err != nil {
-		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusUnauthorized,
-			ClientID:         common.InvalidUserID,
-			SessionID:        "",
-			Error:            fmt.Errorf("failed to determine user IP: %w", err),
-		}
-	}
+	clientIP := proxy.ExtractClientIP(req)
 
 	if len(g.confLimits) > 0 {
 		g.rateLimitersMu.Lock()

@@ -179,16 +179,7 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 // cookie.
 func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 
-	tmpIP := proxy.ExtractClientIP(req)
-	clientIP, _, err := net.SplitHostPort(tmpIP)
-	if err != nil {
-		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusUnauthorized,
-			ClientID:         common.InvalidUserID,
-			SessionID:        "",
-			Error:            fmt.Errorf("failed to determine user IP: %w", err),
-		}
-	}
+	clientIP := proxy.ExtractClientIP(req)
 
 	if analyzer.db == nil {
 		return guard.ReqEvaluation{

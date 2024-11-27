@@ -15,7 +15,6 @@ import (
 	"apiguard/session"
 	"apiguard/telemetry"
 	"database/sql"
-	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -82,16 +81,7 @@ func (sra *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 }
 
 func (sra *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
-	tmpIP := proxy.ExtractClientIP(req)
-	clientIP, _, err := net.SplitHostPort(tmpIP)
-	if err != nil {
-		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusUnauthorized,
-			ClientID:         common.InvalidUserID,
-			SessionID:        "",
-			Error:            fmt.Errorf("failed to determine user IP: %w", err),
-		}
-	}
+	clientIP := proxy.ExtractClientIP(req)
 
 	if len(sra.confLimits) > 0 {
 		sra.rateLimitersMu.Lock()

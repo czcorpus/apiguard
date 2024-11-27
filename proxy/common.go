@@ -8,6 +8,7 @@ package proxy
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -51,4 +52,16 @@ type Cache interface {
 
 type GlobalContext struct {
 	TimezoneLocation *time.Location
+}
+
+func ExtractClientIP(req *http.Request) string {
+	ip := req.Header.Get("x-forwarded-for")
+	if ip != "" {
+		return strings.Split(",", ip)[0]
+	}
+	ip = req.Header.Get("x-real-ip")
+	if ip != "" {
+		return ip
+	}
+	return strings.Split(req.RemoteAddr, ":")[0]
 }

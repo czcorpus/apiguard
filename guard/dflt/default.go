@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -83,7 +82,8 @@ func (sra *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 }
 
 func (sra *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
-	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
+	tmpIP := proxy.ExtractClientIP(req)
+	clientIP, _, err := net.SplitHostPort(tmpIP)
 	if err != nil {
 		return guard.ReqEvaluation{
 			ProposedResponse: http.StatusUnauthorized,
@@ -106,6 +106,7 @@ func (sra *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 			sra.rateLimiters[clientIP] = limiter
 		}
 		if !limiter.Allow() {
+			log.Debug().Str("clientIp", clientIP).Msg("limiting client with status 429")
 			return guard.ReqEvaluation{
 				ProposedResponse: http.StatusTooManyRequests,
 			}

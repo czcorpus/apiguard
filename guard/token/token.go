@@ -18,7 +18,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -115,8 +114,8 @@ func (g *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 			Error:            fmt.Errorf("invalid authentication token"),
 		}
 	}
-
-	clientIP, _, err := net.SplitHostPort(strings.TrimSpace(req.RemoteAddr))
+	tmpIP := proxy.ExtractClientIP(req)
+	clientIP, _, err := net.SplitHostPort(tmpIP)
 	if err != nil {
 		return guard.ReqEvaluation{
 			ProposedResponse: http.StatusUnauthorized,
@@ -139,6 +138,7 @@ func (g *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 			g.rateLimiters[clientIP] = limiter
 		}
 		if !limiter.Allow() {
+			log.Debug().Str("clientIp", clientIP).Msg("limiting client with status 429")
 			return guard.ReqEvaluation{
 				ProposedResponse: http.StatusTooManyRequests,
 				ClientID:         userID,

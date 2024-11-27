@@ -7,10 +7,10 @@
 package logging
 
 import (
+	"apiguard/proxy"
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -20,14 +20,6 @@ const (
 	WaGSessionName        = "wag.session"
 	maxSessionValueLength = 64
 )
-
-func ExtractClientIP(req *http.Request) string {
-	ip := req.Header.Get("x-forwarded-for")
-	if ip != "" {
-		return ip
-	}
-	return strings.Split(req.RemoteAddr, ":")[0]
-}
 
 func NormalizeSessionID(sid string) string {
 	if len(sid) <= maxSessionValueLength {
@@ -59,7 +51,7 @@ func (rr *LGRequestRecord) GetTime() time.Time {
 }
 
 func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
-	ip := ExtractClientIP(req)
+	ip := proxy.ExtractClientIP(req)
 	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
 	if err == nil {
@@ -77,7 +69,7 @@ func NewLGRequestRecord(req *http.Request) *LGRequestRecord {
 // function does not consider it as an error and return just an empty
 // string as the second value.
 func ExtractRequestIdentifiers(req *http.Request) (string, string) {
-	ip := ExtractClientIP(req)
+	ip := proxy.ExtractClientIP(req)
 	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
 	if err == nil {

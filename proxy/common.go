@@ -57,7 +57,7 @@ type GlobalContext struct {
 func ExtractClientIP(req *http.Request) string {
 	ip := req.Header.Get("x-forwarded-for")
 	if ip != "" {
-		return strings.Split(",", ip)[0]
+		return strings.Split(ip, ",")[0]
 	}
 	ip = req.Header.Get("x-real-ip")
 	if ip != "" {

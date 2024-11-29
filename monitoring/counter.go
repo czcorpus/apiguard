@@ -196,6 +196,10 @@ func (cr *ClientRequests) GetByProps(props guard.RequestInfo) *UserActivity {
 	return cr.Get(cr.mkKey(props))
 }
 
+func (cr *ClientRequests) GetWithTestByProps(props guard.RequestInfo) (*UserActivity, bool) {
+	return cr.GetWithTest(cr.mkKey(props))
+}
+
 func (cr *ClientRequests) HasByProps(props guard.RequestInfo) bool {
 	return cr.HasKey(cr.mkKey(props))
 }

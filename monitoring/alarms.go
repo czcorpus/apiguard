@@ -167,8 +167,8 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 	})
 }
 
-func (aticker *AlarmTicker) checkServiceUsage(service *serviceEntry, req guard.RequestInfo) {
-	userActivity := service.ClientRequests.GetByProps(req)
+func (aticker *AlarmTicker) checkServiceUsage(
+	service *serviceEntry, userActivity *UserActivity, req guard.RequestInfo) {
 	for checkInterval, limit := range service.limits {
 		t0 := time.Now().In(aticker.location)
 		numReq := userActivity.NumReqSince(time.Duration(checkInterval), aticker.location)
@@ -299,25 +299,20 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 				break
 			}
 			if entry, ok := aticker.clients.GetWithTest(reqInfo.Service); ok {
-				if !entry.ClientRequests.HasByProps(reqInfo) {
+				userActivity, ok := entry.ClientRequests.GetWithTestByProps(reqInfo)
+				if !ok {
+					userActivity = &UserActivity{
+						Requests: collections.NewCircularList[reqCounterItem](
+							aticker.limitingConf.UserReqCounterBufferSize),
+						NumReqAboveLimit: NewLimitExceedings(aticker.limitingConf),
+					}
 					entry.ClientRequests.SetByProps(
 						reqInfo,
-						&UserActivity{
-							Requests: collections.NewCircularList[reqCounterItem](
-								aticker.limitingConf.UserReqCounterBufferSize),
-							NumReqAboveLimit: NewLimitExceedings(aticker.limitingConf),
-						},
+						userActivity,
 					)
 				}
-				entry.ClientRequests.
-					GetByProps(reqInfo).
-					Requests.
-					Append(reqCounterItem{Created: reqInfo.Created})
-
-				aticker.checkServiceUsage(
-					entry,
-					reqInfo,
-				)
+				userActivity.Requests.Append(reqCounterItem{Created: reqInfo.Created})
+				aticker.checkServiceUsage(entry, userActivity, reqInfo)
 				// from time to time, remove users with no recent activity
 				if rand.Float64() < entry.Conf.RecCounterCleanupProbability {
 					go aticker.removeUsersWithNoRecentActivity()

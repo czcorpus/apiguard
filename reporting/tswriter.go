@@ -8,7 +8,6 @@ package reporting
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/czcorpus/hltscl"
@@ -37,12 +36,13 @@ func (sw *TimescaleDBWriter) LogErrors() {
 				case <-sw.ctx.Done():
 					log.Info().Msgf("about to close %s status writer", name)
 					return
-				case err := <-table.errCh:
-					log.Error().
-						Err(err.Err).
-						Str("entry", err.Entry.String()).
-						Msg("error writing data to TimescaleDB")
-					fmt.Println("reporting timescale write err: ", err.Err)
+				case err, ok := <-table.errCh:
+					if ok {
+						log.Error().
+							Err(err.Err).
+							Str("entry", err.Entry.String()).
+							Msg("error writing data to TimescaleDB")
+					}
 				}
 			}
 		}(name, table)
@@ -51,8 +51,13 @@ func (sw *TimescaleDBWriter) LogErrors() {
 
 func (sw *TimescaleDBWriter) Write(item Timescalable) {
 	table, ok := sw.tables[item.GetTableName()]
+	log.Debug().
+		Float64("timeout", table.writer.CurrentQueryTimeout().Seconds()).
+		Str("table", item.GetTableName()).
+		Msg("writing record to TimescaleDB")
 	if ok {
 		table.opsDataCh <- *item.ToTimescaleDB(table.writer)
+
 	} else {
 		log.Warn().Str("table_name", item.GetTableName()).Msg("Undefined table name in writer")
 	}
@@ -60,7 +65,8 @@ func (sw *TimescaleDBWriter) Write(item Timescalable) {
 
 func (sw *TimescaleDBWriter) AddTableWriter(tableName string) {
 	twriter := hltscl.NewTableWriter(sw.conn, tableName, "time", sw.tz)
-	opsDataCh, errCh := twriter.Activate()
+	opsDataCh, errCh := twriter.Activate(
+		sw.ctx, hltscl.WithTimeout(10*time.Second))
 	sw.tables[tableName] = &Table{
 		writer:    twriter,
 		opsDataCh: opsDataCh,

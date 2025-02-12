@@ -9,21 +9,19 @@ package kontext
 import (
 	"apiguard/globctx"
 	"apiguard/guard"
-	"apiguard/guard/cncauth"
 	"apiguard/services/cnc"
 	"fmt"
 )
 
 type KonTextProxy struct {
 	*cnc.CoreProxy
-	analyzer *cncauth.Guard
 }
 
 func NewKontextProxy(
 	globalCtx *globctx.Context,
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
-	guard *cncauth.Guard,
+	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*KonTextProxy, error) {
 	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)

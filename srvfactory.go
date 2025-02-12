@@ -12,6 +12,7 @@ import (
 	"apiguard/guard"
 	"apiguard/guard/cncauth"
 	"apiguard/guard/dflt"
+	"apiguard/guard/null"
 	"apiguard/guard/tlmtr"
 	"apiguard/guard/token"
 	"apiguard/monitoring"
@@ -239,13 +240,26 @@ func InitServices(
 			if err := typedConf.Validate(fmt.Sprintf("%d/kontext", sid)); err != nil {
 				return fmt.Errorf("failed to initialize service %d (kontext): %w", sid, err)
 			}
-			kontextGuard := cncauth.New(
-				ctx,
-				globalConf.CNCAuth.SessionCookieName,
-				typedConf.FrontendSessionCookieName,
-				typedConf.SessionValType,
-				typedConf.Limits,
-			)
+			var cncGuard guard.ServiceGuard
+			switch typedConf.SessionValType {
+			case session.SessionTypeNone:
+				cncGuard = &null.Guard{}
+				log.Warn().
+					Msgf("service %d/kontext is running in 'null' session mode - this is mostly for testing", sid)
+			case session.SessionTypeCNC:
+				cncGuard = cncauth.New(
+					ctx,
+					globalConf.CNCAuth.SessionCookieName,
+					typedConf.FrontendSessionCookieName,
+					typedConf.SessionValType,
+					typedConf.Limits,
+				)
+			default:
+				return fmt.Errorf(
+					"failed to initialize service %d/kontext: service does not support session type %s",
+					sid, typedConf.SessionValType,
+				)
+			}
 
 			var kontextReqCounter chan<- guard.RequestInfo
 			if len(typedConf.Limits) > 0 {
@@ -267,7 +281,7 @@ func InitServices(
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
 				},
-				kontextGuard,
+				cncGuard,
 				kontextReqCounter,
 			)
 			if err != nil {

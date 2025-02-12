@@ -38,5 +38,11 @@ func (conf *Conf) Validate(name string) error {
 	} else if conf.IdleConnTimeoutSecs < 0 {
 		return fmt.Errorf("%s: invalid idleConnTimeoutSecs value: %d", name, conf.IdleConnTimeoutSecs)
 	}
+	if conf.BackendURL == "" {
+		return fmt.Errorf("%s: missing backendUrl", name)
+	}
+	if conf.FrontendURL == "" {
+		return fmt.Errorf("%s: missing frontendUrl", name)
+	}
 	return nil
 }

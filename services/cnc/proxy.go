@@ -42,12 +42,13 @@ func (resp loginResponse) isInvalidCredentials() bool {
 }
 
 type CoreProxy struct {
-	globalCtx *globctx.Context
-	conf      *ProxyConf
-	rConf     *EnvironConf
-	guard     guard.ServiceGuard
-	apiProxy  *proxy.APIProxy
-	tDBWriter reporting.ReportingWriter
+	globalCtx    *globctx.Context
+	conf         *ProxyConf
+	rConf        *EnvironConf
+	guard        guard.ServiceGuard
+	apiProxy     *proxy.APIProxy
+	tDBWriter    reporting.ReportingWriter
+	frontendHost string
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
@@ -306,6 +307,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	passedHeaders := ctx.Request.Header
 
+	if ctx.Request.Header.Get("host") == "" {
+		ctx.Request.Header.Set("host", kp.frontendHost)
+	}
+
 	if kp.rConf.CNCAuthCookie != kp.conf.FrontendSessionCookieName {
 		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
 
@@ -440,10 +445,15 @@ func NewCoreProxy(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}
+	fu, err := url.Parse(conf.FrontendURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
+	}
 	return &CoreProxy{
 		globalCtx:         globalCtx,
 		conf:              conf,
 		rConf:             gConf,
+		frontendHost:      fu.Host,
 		guard:             grd,
 		apiProxy:          proxy,
 		reqCounter:        reqCounter,

@@ -457,6 +457,7 @@ func InitServices(
 				sid,
 				client,
 				analyzer.ExposeAsCounter(),
+				ctx.Cache,
 				analyzer,
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{
@@ -511,6 +512,7 @@ func InitServices(
 				sid,
 				client,
 				grd.ExposeAsCounter(),
+				ctx.Cache,
 				grd,
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{
@@ -564,6 +566,7 @@ func InitServices(
 				sid,
 				client,
 				grd.ExposeAsCounter(),
+				ctx.Cache,
 				grd,
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{

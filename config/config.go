@@ -10,8 +10,8 @@ import (
 	"apiguard/botwatch"
 	"apiguard/cnc"
 	"apiguard/monitoring"
+	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/reqcache"
 	"apiguard/session"
 	"apiguard/telemetry"
 	"encoding/json"
@@ -109,7 +109,7 @@ type Configuration struct {
 	Botwatch          botwatch.Conf            `json:"botwatch"`
 	Telemetry         *telemetry.Conf          `json:"telemetry"`
 	Services          []GeneralServiceConf     `json:"services"`
-	Cache             reqcache.Conf            `json:"cache"`
+	Cache             proxy.CacheConf          `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
 	Logging           logging.LoggingConf      `json:"logging"`
 	Monitoring        *monitoring.LimitingConf `json:"monitoring"`

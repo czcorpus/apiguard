@@ -26,8 +26,8 @@ import (
 	"apiguard/globctx"
 	"apiguard/guard/token"
 	"apiguard/proxy"
+	"apiguard/proxy/cache"
 	"apiguard/reporting"
-	"apiguard/reqcache"
 	"apiguard/services"
 	"apiguard/telemetry"
 
@@ -119,25 +119,27 @@ func createGlobalCtx(
 	tDBWriter.AddTableWriter(reporting.ProxyMonitoringTable)
 	tDBWriter.AddTableWriter(reporting.TelemetryMonitoringTable)
 
-	var cache proxy.Cache
+	var cacheBackend proxy.Cache
 	if conf.Cache.FileRootPath != "" {
-		cache = reqcache.NewFileReqCache(&conf.Cache)
+		cacheBackend = cache.NewFileCache(&conf.Cache)
 		log.Info().Msgf("using file request cache (path: %s)", conf.Cache.FileRootPath)
+		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else if conf.Cache.RedisAddr != "" {
-		cache = reqcache.NewRedisReqCache(&conf.Cache)
+		cacheBackend = cache.NewRedisCache(&conf.Cache)
 		log.Info().Msgf("using redis request cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
+		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else {
-		cache = reqcache.NewNullCache()
-		log.Info().Msg("using NULL cache (path not specified)")
+		cacheBackend = cache.NewNullCache()
+		log.Warn().Msg("using NULL cache (neither fs path nor Redis props are specified)")
 	}
 
 	ans.TimezoneLocation = conf.TimezoneLocation()
 	ans.ReportingWriter = tDBWriter
 	ans.BackendLogger = globctx.NewBackendLogger(tDBWriter)
 	ans.CNCDB = openCNCDatabase(&conf.CNCDB)
-	ans.Cache = cache
+	ans.Cache = cacheBackend
 	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
 
 	// delay stats writer and telemetry analyzer

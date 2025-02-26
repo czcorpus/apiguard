@@ -12,7 +12,6 @@ import (
 	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/reqcache"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -114,7 +113,7 @@ func (aa *KLAActions) Query(ctx *gin.Context) {
 
 func (aa *KLAActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := aa.globalCtx.Cache.Get(req, nil)
-	if err == reqcache.ErrCacheMiss {
+	if err == proxy.ErrCacheMiss {
 		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
 		err = aa.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {

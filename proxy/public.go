@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -57,6 +58,7 @@ type PublicAPIProxy struct {
 	userIDHeaderName    string
 	readTimeoutSecs     int
 	client              *http.Client
+	cache               Cache
 	basicProxy          *APIProxy
 	clientCounter       chan<- common.ClientID
 	guard               guard.ServiceGuard
@@ -181,15 +183,45 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	if prox.userIDHeaderName != "" && humanID.IsValid() {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
-	resp := prox.basicProxy.Request(
-		// TODO use some path builder here
-		internalPath,
-		ctx.Request.URL.Query(),
-		ctx.Request.Method,
-		ctx.Request.Header,
-		ctx.Request.Body,
-	)
-	prox.responseInterceptor(resp)
+
+	resp, err := prox.cache.Get(ctx.Request, nil)
+	if err != nil {
+		if err != ErrCacheMiss {
+			log.Error().
+				Err(err).
+				Str("serviceName", prox.serviceName).
+				Msg("unexpected caching error in PublicAPIProxy - this should be resolved")
+		}
+		resp = prox.basicProxy.Request(
+			// TODO use some path builder here
+			internalPath,
+			ctx.Request.URL.Query(),
+			ctx.Request.Method,
+			ctx.Request.Header,
+			ctx.Request.Body,
+		)
+		if resp.GetError() == nil {
+			if err := prox.cache.Set(ctx.Request, resp, nil); err != nil {
+				log.Error().
+					Err(err).
+					Str("serviceName", prox.serviceName).
+					Msg("PublicAPIProxy failed to cache backend response")
+			}
+		}
+		logging.AddLogEvent(ctx, "isCached", false)
+
+	} else {
+		logging.AddLogEvent(ctx, "isCached", true)
+	}
+	pr, ok := resp.(*ProxiedResponse)
+	if ok {
+		prox.responseInterceptor(pr)
+
+	} else {
+		log.Debug().
+			Str("req", ctx.Request.URL.String()).
+			Msg("cannot apply public proxy interceptor - not *ProxiedResponse type")
+	}
 	for k, v := range resp.GetHeaders() {
 		ctx.Writer.Header().Set(k, v[0])
 	}
@@ -206,6 +238,7 @@ func NewPublicAPIProxy(
 	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
+	cache Cache,
 	guard guard.ServiceGuard,
 	db *sql.DB,
 	opts PublicAPIProxyOpts,
@@ -221,6 +254,7 @@ func NewPublicAPIProxy(
 		client:              client,
 		basicProxy:          basicProxy,
 		clientCounter:       clientCounter,
+		cache:               cache,
 		guard:               guard,
 		db:                  db,
 		responseInterceptor: respInt,

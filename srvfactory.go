@@ -567,10 +567,11 @@ func InitServices(
 				grd,
 				ctx.CNCDB,
 				proxy.PublicAPIProxyOpts{
-					ServiceName:     "hex",
-					BackendURL:      backendURL,
-					FrontendURL:     frontendURL,
-					ReadTimeoutSecs: globalConf.ServerReadTimeoutSecs,
+					ServiceName:         "hex",
+					BackendURL:          backendURL,
+					FrontendURL:         frontendURL,
+					ReadTimeoutSecs:     globalConf.ServerReadTimeoutSecs,
+					ResponseInterceptor: hex.Interceptor,
 				},
 			)
 			apiRoutes.Any(

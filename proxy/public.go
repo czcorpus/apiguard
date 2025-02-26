@@ -35,12 +35,13 @@ var (
 )
 
 type PublicAPIProxyOpts struct {
-	ServiceName      string
-	BackendURL       *url.URL
-	FrontendURL      *url.URL
-	AuthCookieName   string
-	UserIDHeaderName string
-	ReadTimeoutSecs  int
+	ServiceName         string
+	BackendURL          *url.URL
+	FrontendURL         *url.URL
+	AuthCookieName      string
+	UserIDHeaderName    string
+	ReadTimeoutSecs     int
+	ResponseInterceptor func(*ProxiedResponse)
 }
 
 // PublicAPIProxy is a service proxy which - in general - does not
@@ -48,18 +49,19 @@ type PublicAPIProxyOpts struct {
 // distinguishes between logged-in users and anonymous ones. And
 // it may throttle requests with some favouring of logged-in users.
 type PublicAPIProxy struct {
-	serviceName      string
-	servicePath      string
-	BackendURL       *url.URL
-	FrontendURL      *url.URL
-	authCookieName   string
-	userIDHeaderName string
-	readTimeoutSecs  int
-	client           *http.Client
-	basicProxy       *APIProxy
-	clientCounter    chan<- common.ClientID
-	guard            guard.ServiceGuard
-	db               *sql.DB
+	serviceName         string
+	servicePath         string
+	BackendURL          *url.URL
+	FrontendURL         *url.URL
+	authCookieName      string
+	userIDHeaderName    string
+	readTimeoutSecs     int
+	client              *http.Client
+	basicProxy          *APIProxy
+	clientCounter       chan<- common.ClientID
+	guard               guard.ServiceGuard
+	db                  *sql.DB
+	responseInterceptor func(resp *ProxiedResponse)
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -187,7 +189,7 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 		ctx.Request.Header,
 		ctx.Request.Body,
 	)
-
+	prox.responseInterceptor(resp)
 	for k, v := range resp.GetHeaders() {
 		ctx.Writer.Header().Set(k, v[0])
 	}
@@ -210,13 +212,18 @@ func NewPublicAPIProxy(
 
 ) *PublicAPIProxy {
 
-	p := &PublicAPIProxy{
+	respInt := opts.ResponseInterceptor
+	if respInt == nil {
+		respInt = func(pr *ProxiedResponse) {}
+	}
 
-		client:        client,
-		basicProxy:    basicProxy,
-		clientCounter: clientCounter,
-		guard:         guard,
-		db:            db,
+	p := &PublicAPIProxy{
+		client:              client,
+		basicProxy:          basicProxy,
+		clientCounter:       clientCounter,
+		guard:               guard,
+		db:                  db,
+		responseInterceptor: respInt,
 	}
 
 	if opts.AuthCookieName == "" {

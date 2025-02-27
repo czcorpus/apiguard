@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package reqcache
+package cache
 
 import (
 	"apiguard/proxy"
@@ -13,27 +13,33 @@ import (
 	"encoding/gob"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-redis/redis/v8"
+	"github.com/rs/zerolog/log"
 )
 
-type RedisReqCache struct {
-	conf         *Conf
+const (
+	defaultRedisPort = 6379
+)
+
+type Redis struct {
+	conf         *proxy.CacheConf
 	redisClient  *redis.Client
 	redisContext context.Context
 }
 
-func (rrc *RedisReqCache) createCacheID(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
-	cacheID := generateCacheId(req, resp, respectCookies)
+func (rrc *Redis) createCacheID(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
+	cacheID := proxy.GenerateCacheId(req, resp, respectCookies)
 	return fmt.Sprintf("apiguard:cache:%x", cacheID)
 }
 
-func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
+func (rrc *Redis) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
 	cacheID := rrc.createCacheID(req, nil, respectCookies)
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
-		return nil, ErrCacheMiss
+		return nil, proxy.ErrCacheMiss
 	} else if err != nil {
 		return nil, err
 	}
@@ -51,7 +57,7 @@ func (rrc *RedisReqCache) Get(req *http.Request, respectCookies []string) (proxy
 	return ans, err
 }
 
-func (rrc *RedisReqCache) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
+func (rrc *Redis) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
 		cacheID := rrc.createCacheID(req, resp, respectCookies)
@@ -69,11 +75,17 @@ func (rrc *RedisReqCache) Set(req *http.Request, resp proxy.BackendResponse, res
 	return nil
 }
 
-func NewRedisReqCache(conf *Conf) *RedisReqCache {
-	return &RedisReqCache{
+func NewRedisCache(conf *proxy.CacheConf) *Redis {
+	addr := conf.RedisAddr
+	addrElms := strings.Split(":", addr)
+	if len(addrElms) == 1 {
+		addr = fmt.Sprintf("%s:%d", addr, defaultRedisPort)
+		log.Warn().Msgf("Caching: Redis port not specified, using %d", defaultRedisPort)
+	}
+	return &Redis{
 		conf: conf,
 		redisClient: redis.NewClient(&redis.Options{
-			Addr: conf.RedisAddr,
+			Addr: addr,
 			DB:   conf.RedisDB,
 		}),
 		redisContext: context.Background(),

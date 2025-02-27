@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package reqcache
+package cache
 
 import (
 	"apiguard/proxy"
@@ -18,24 +18,24 @@ import (
 	"github.com/czcorpus/cnc-gokit/fs"
 )
 
-type FileReqCache struct {
-	conf *Conf
+type File struct {
+	conf *proxy.CacheConf
 }
 
-func (frc *FileReqCache) createItemPath(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
-	cacheID := generateCacheId(req, resp, respectCookies)
+func (frc *File) createItemPath(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
+	cacheID := proxy.GenerateCacheId(req, resp, respectCookies)
 	bs := fmt.Sprintf("%x.gob", cacheID)
 	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
 }
 
-func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
+func (rc *File) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
 	filePath := rc.createItemPath(req, nil, respectCookies)
 	isFile, err := fs.IsFile(filePath)
 	if err != nil {
 		return nil, err
 	}
 	if !isFile {
-		return nil, ErrCacheMiss
+		return nil, proxy.ErrCacheMiss
 	}
 	mtime, err := fs.GetFileMtime(filePath)
 	if err != nil {
@@ -46,7 +46,7 @@ func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (proxy.B
 		if err != nil {
 			return nil, err
 		}
-		return nil, ErrCacheMiss
+		return nil, proxy.ErrCacheMiss
 	}
 	newTime := time.Now()
 	err = os.Chtimes(filePath, newTime, newTime)
@@ -66,7 +66,7 @@ func (rc *FileReqCache) Get(req *http.Request, respectCookies []string) (proxy.B
 	return ans, err
 }
 
-func (frc *FileReqCache) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
+func (frc *File) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
 	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
 		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
 		targetPath := frc.createItemPath(req, resp, respectCookies)
@@ -81,8 +81,8 @@ func (frc *FileReqCache) Set(req *http.Request, resp proxy.BackendResponse, resp
 	return nil
 }
 
-func NewFileReqCache(conf *Conf) *FileReqCache {
-	return &FileReqCache{
+func NewFileCache(conf *proxy.CacheConf) *File {
+	return &File{
 		conf: conf,
 	}
 }

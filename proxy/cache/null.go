@@ -4,7 +4,7 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package reqcache
+package cache
 
 import (
 	"apiguard/proxy"
@@ -14,7 +14,7 @@ import (
 type NullCache struct{}
 
 func (rc *NullCache) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
-	return nil, ErrCacheMiss
+	return nil, proxy.ErrCacheMiss
 }
 
 func (rc *NullCache) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {

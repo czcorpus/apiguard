@@ -14,7 +14,6 @@ import (
 	"apiguard/guard/tlmtr"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/reqcache"
 	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"crypto/tls"
@@ -70,7 +69,7 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 
 func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
 	resp, err := lga.globalCtx.Cache.Get(req, nil)
-	if err == reqcache.ErrCacheMiss {
+	if err == proxy.ErrCacheMiss {
 		resp := proxy.GetRequest(url, lga.conf.ClientUserAgent)
 		err = lga.globalCtx.Cache.Set(req, resp, nil)
 		if err != nil {

@@ -13,7 +13,6 @@ import (
 	"apiguard/guard/cncauth"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/reqcache"
 	"apiguard/services/backend"
 	"fmt"
 	"net/http"
@@ -177,7 +176,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 	cacheApplCookies := []string{tp.conf.FrontendSessionCookieName, tp.cncAuthCookie}
 	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
-	if err == reqcache.ErrCacheMiss {
+	if err == proxy.ErrCacheMiss {
 		path := req.URL.Path[len(tp.servicePath):]
 		resp = tp.apiProxy.Request(
 			path,

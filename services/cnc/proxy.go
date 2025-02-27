@@ -12,7 +12,6 @@ import (
 	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/reqcache"
 	"apiguard/services/backend"
 	"apiguard/session"
 	"crypto/tls"
@@ -412,7 +411,7 @@ func (kp *CoreProxy) makeRequest(
 	kp.debugLogRequest(req)
 	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName}
 	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
-	if err == reqcache.ErrCacheMiss {
+	if err == proxy.ErrCacheMiss {
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),

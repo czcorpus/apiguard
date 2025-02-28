@@ -9,6 +9,7 @@ package hex
 import (
 	"apiguard/proxy"
 	"apiguard/services/cnc"
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -31,7 +32,6 @@ func Interceptor(pr *proxy.ProxiedResponse) {
 	// index.php?msg=Nenalezeny žádné výsledky pro dotaz 'rouhat'
 	// ... to prevent infinite redirect loop and make sure something
 	// valid is returned.
-
 	location := pr.Headers.Get("location")
 	if location != "" {
 		locUrl, err := url.Parse(location)
@@ -52,6 +52,12 @@ func Interceptor(pr *proxy.ProxiedResponse) {
 			pr.Headers.Del("content-encoding")
 			pr.Headers.Set("content-length", fmt.Sprintf("%d", len(fakePage)))
 			pr.Body = fakePage
+		}
+
+	} else {
+		srch := bytes.Index(pr.Body, []byte{'v', 'a', 'r', ' ', 'h', 'e', 'x'})
+		if srch > 0 {
+			pr.Body = pr.Body[srch-5:]
 		}
 	}
 }

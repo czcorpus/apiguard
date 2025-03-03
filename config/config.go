@@ -25,15 +25,17 @@ import (
 )
 
 const (
-	DfltServerReadTimeoutSecs  = 10
-	DfltServerWriteTimeoutSecs = 30
-	DftlServerPort             = 8080
-	DfltServerHost             = "localhost"
-	DfltBanSecs                = 3600
-	DfltTimeZone               = "Europe/Prague"
-	DfltProxyReqTimeoutSecs    = 60
-	DfltIdleConnTimeoutSecs    = 10
-	DfltSessionValType         = session.SessionTypeCNC
+	DfltServerReadTimeoutSecs                = 10
+	DfltServerWriteTimeoutSecs               = 30
+	DftlServerPort                           = 8080
+	DfltServerHost                           = "localhost"
+	DfltBanSecs                              = 3600
+	DfltTimeZone                             = "Europe/Prague"
+	DfltProxyReqTimeoutSecs                  = 60
+	DfltIdleConnTimeoutSecs                  = 10
+	DfltSessionValType                       = session.SessionTypeCNC
+	OperationModeProxy         OperationMode = "proxy"
+	OperationModeStreaming     OperationMode = "streaming"
 )
 
 type GeneralServiceConf struct {
@@ -43,6 +45,15 @@ type GeneralServiceConf struct {
 
 type CNCAuthConf struct {
 	SessionCookieName string `json:"sessionCookieName"`
+}
+
+type OperationMode string
+
+func (om OperationMode) Validate() error {
+	if om != OperationModeProxy && om != OperationModeStreaming {
+		return fmt.Errorf("unknown operation mode %s (supported: proxy, streaming)", om)
+	}
+	return nil
 }
 
 /*
@@ -96,12 +107,13 @@ func (services *servicesSection) validate() error {
 
 type Configuration struct {
 	apiAllowedClientsCache []net.IPNet
-	ServerHost             string `json:"serverHost"`
-	ServerPort             int    `json:"serverPort"`
-	ServerReadTimeoutSecs  int    `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int    `json:"serverWriteTimeoutSecs"`
-	TimeZone               string `json:"timeZone"`
-	PublicRoutesURL        string `json:"publicRoutesUrl"`
+	ServerHost             string        `json:"serverHost"`
+	ServerPort             int           `json:"serverPort"`
+	ServerReadTimeoutSecs  int           `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int           `json:"serverWriteTimeoutSecs"`
+	TimeZone               string        `json:"timeZone"`
+	PublicRoutesURL        string        `json:"publicRoutesUrl"`
+	OperationMode          OperationMode `json:"operationMode"`
 
 	// APIAllowedClients is a list of IP/CIDR addresses allowed to access the API.
 	// Mostly, we should stick here with our internal network.
@@ -174,6 +186,9 @@ func (c *Configuration) Validate() error {
 		return err
 	}
 	if err := c.Reporting.ValidateAndDefaults(); err != nil {
+		return err
+	}
+	if err := c.OperationMode.Validate(); err != nil {
 		return err
 	}
 	return nil

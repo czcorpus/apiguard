@@ -9,11 +9,13 @@ package main
 import (
 	"apiguard/common"
 	"apiguard/config"
+	"apiguard/globctx"
 	"apiguard/guard"
 	"apiguard/monitoring"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/services/tstorage"
+	"apiguard/wagstream"
 	"context"
 	"fmt"
 	"net"
@@ -37,25 +39,12 @@ const (
 	authTokenEntry    = "personal_access_token"
 )
 
-func runService(conf *config.Configuration) {
-	syscallChan := make(chan os.Signal, 1)
-	signal.Notify(syscallChan, syscall.SIGHUP)
-
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
-	tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-	globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
-
-	reloadChan := make(chan bool)
-	go func() {
-		for evt := range syscallChan {
-			log.Warn().Str("signalName", evt.String()).Msg("received OS signal")
-			if evt == syscall.SIGHUP {
-				reloadChan <- true
-			}
-		}
-		close(reloadChan)
-	}()
+func initProxyEngine(
+	conf *config.Configuration,
+	globalCtx *globctx.Context,
+	alarm *monitoring.AlarmTicker,
+	skipIPFilter bool,
+) http.Handler {
 
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -66,7 +55,7 @@ func runService(conf *config.Configuration) {
 	apiRoutes := engine.Group("/")
 	apiRoutes.Use(uniresp.AlwaysJSONContentType())
 	apiRoutes.Use(func(ctx *gin.Context) {
-		if !conf.IPAllowedForAPI(net.ParseIP(ctx.ClientIP())) {
+		if !conf.IPAllowedForAPI(net.ParseIP(ctx.ClientIP())) && !skipIPFilter {
 			ctx.AbortWithStatusJSON(
 				http.StatusUnauthorized,
 				map[string]string{"status": http.StatusText(http.StatusUnauthorized)},
@@ -81,16 +70,6 @@ func runService(conf *config.Configuration) {
 		c.Writer.Header().Set("Content-Type", "text/html")
 		c.Next()
 	})
-
-	// alarm
-	alarm := monitoring.NewAlarmTicker(
-		globalCtx,
-		conf.TimezoneLocation(),
-		conf.Mail,
-		conf.PublicRoutesURL,
-		conf.Monitoring,
-	)
-	go alarm.Run(reloadChan)
 
 	if !conf.IgnoreStoredState {
 		err := monitoring.LoadState(alarm)
@@ -164,7 +143,7 @@ func runService(conf *config.Configuration) {
 		alarm,
 	); err != nil {
 		log.Fatal().Err(err).Msg("failed to start APIGuard")
-		return
+		return nil
 	}
 
 	// administration/monitoring actions
@@ -225,8 +204,68 @@ func runService(conf *config.Configuration) {
 		}
 	})
 
-	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
+	return engine
+}
 
+func initWagStreamingEngine(conf *config.Configuration, actionHandler *wagstream.Actions) http.Handler {
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	engine.Use(logging.GinMiddleware())
+	engine.NoMethod(uniresp.NoMethodHandler)
+	engine.NoRoute(uniresp.NotFoundHandler)
+
+	engine.POST("/wstream", actionHandler.Open)
+	return engine
+}
+
+func runService(conf *config.Configuration) {
+	syscallChan := make(chan os.Signal, 1)
+	signal.Notify(syscallChan, syscall.SIGHUP)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
+	globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
+	reloadChan := make(chan bool)
+
+	// alarm
+	alarm := monitoring.NewAlarmTicker(
+		globalCtx,
+		conf.TimezoneLocation(),
+		conf.Mail,
+		conf.PublicRoutesURL,
+		conf.Monitoring,
+	)
+	go alarm.Run(reloadChan)
+
+	go func() {
+		for evt := range syscallChan {
+			log.Warn().Str("signalName", evt.String()).Msg("received OS signal")
+			if evt == syscall.SIGHUP {
+				reloadChan <- true
+			}
+		}
+		close(reloadChan)
+	}()
+
+	var engine http.Handler
+
+	switch conf.OperationMode {
+	case config.OperationModeProxy:
+		engine = initProxyEngine(conf, globalCtx, alarm, false)
+		log.Info().Msg("running in the PROXY mode")
+	case config.OperationModeStreaming:
+		apiEngine := initProxyEngine(conf, globalCtx, alarm, true)
+		actionsHandler := wagstream.NewActions(apiEngine)
+		engine = initWagStreamingEngine(conf, actionsHandler)
+		log.Info().Msg("running in the STREAMING mode")
+	default:
+		engine = nil
+		log.Fatal().Err(conf.OperationMode.Validate()).Msg("unsupported operation mode")
+		return
+	}
+
+	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 	srv := &http.Server{
 		Handler:      engine,
 		Addr:         fmt.Sprintf("%s:%d", conf.ServerHost, conf.ServerPort),

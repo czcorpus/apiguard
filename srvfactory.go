@@ -271,7 +271,7 @@ func InitServices(
 			}
 			kontextActions, err := kontext.NewKontextProxy(
 				ctx,
-				&typedConf.ProxyConf,
+				&typedConf,
 				&cnc.EnvironConf{
 					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
 					AuthTokenEntry:    authTokenEntry,
@@ -280,6 +280,7 @@ func InitServices(
 					ServiceName:       "kontext",
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
+					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
 				},
 				cncGuard,
 				kontextReqCounter,
@@ -296,6 +297,9 @@ func InitServices(
 
 					} else if ctx.Param("path") == "/preflight" {
 						kontextActions.Preflight(ctx)
+
+					} else if ctx.Param("path") == "/query_submit" {
+						kontextActions.QuerySubmitAndView(ctx)
 
 					} else {
 						kontextActions.AnyPath(ctx)
@@ -355,6 +359,7 @@ func InitServices(
 					ServiceName:       "mquery",
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
+					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
 				},
 				grd,
 				mqueryReqCounter,

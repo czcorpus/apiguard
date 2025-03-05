@@ -12,15 +12,10 @@ import (
 	"apiguard/guard"
 	"apiguard/proxy"
 	"apiguard/reporting"
-	"apiguard/services/backend"
 	"apiguard/session"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
-	"path"
 	"strings"
 	"time"
 
@@ -28,17 +23,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
-
-type loginResponse struct {
-	code    int
-	message string
-	cookies []*http.Cookie
-	err     error
-}
-
-func (resp loginResponse) isInvalidCredentials() bool {
-	return resp.message == "Invalid credentials"
-}
 
 type CoreProxy struct {
 	globalCtx    *globctx.Context
@@ -55,6 +39,18 @@ type CoreProxy struct {
 	reqCounter chan<- guard.RequestInfo
 
 	sessionValFactory func() session.HTTPSession
+}
+
+func (kp *CoreProxy) GlobalCtx() *globctx.Context {
+	return kp.globalCtx
+}
+
+func (kp *CoreProxy) Guard() guard.ServiceGuard {
+	return kp.guard
+}
+
+func (kp *CoreProxy) EnvironConf() *EnvironConf {
+	return kp.rConf
 }
 
 // Preflight is used by APIGuard client (e.g. WaG) to find out whether
@@ -100,192 +96,21 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{})
 }
 
-func (kp *CoreProxy) reqUsesMappedSession(req *http.Request) bool {
-	if kp.conf.FrontendSessionCookieName == "" {
-		return false
-	}
-	_, err := req.Cookie(kp.conf.FrontendSessionCookieName)
-	return err == nil
-}
-
-// loginFromCtx performs an HTTP request with
-// CNC login based on current ctx (where we're
-// interested mainly in user's request properties).
-func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
-	postData := url.Values{}
-	postData.Set(kp.rConf.AuthTokenEntry, ctx.Request.FormValue(kp.rConf.AuthTokenEntry))
-	req2, err := http.NewRequest(
-		http.MethodPost,
-		kp.rConf.CNCPortalLoginURL,
-		strings.NewReader(postData.Encode()),
-	)
-	if err != nil {
-		return loginResponse{
-			code: http.StatusInternalServerError,
-			err:  fmt.Errorf("failed to perform login action: %w", err),
-		}
-	}
-	req2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: true, // only for internal network communication
-		},
-	}
-	client := &http.Client{Transport: transport}
-
-	resp, err := client.Do(req2)
-	if err != nil {
-		return loginResponse{
-			code: resp.StatusCode,
-			err:  fmt.Errorf("failed to perform login action: %w", err),
-		}
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return loginResponse{
-			code: http.StatusInternalServerError,
-			err:  fmt.Errorf("failed to perform login action: %w", err),
-		}
-	}
-	defer resp.Body.Close()
-	respMsg := make([]string, 0, 1)
-	err = json.Unmarshal(body, &respMsg)
-	if err != nil {
-		return loginResponse{
-			code: http.StatusInternalServerError,
-			err:  fmt.Errorf("failed to perform login action: %w", err),
-		}
-	}
-	return loginResponse{
-		code:    http.StatusOK,
-		message: respMsg[0],
-		cookies: resp.Cookies(),
-	}
-}
-
-// applyLoginRespCookies applies respose cookies as obtained
-// from a login request. The method does not care whether the
-// response represents a successful login or not.
-// The method also tries to find matching user ID and sets
-func (kp *CoreProxy) applyLoginRespCookies(
-	ctx *gin.Context,
-	resp loginResponse,
-) (userID common.UserID) {
-	for _, cookie := range resp.cookies {
-		cCopy := *cookie
-		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.FrontendSessionCookieName != "" {
-			var err error
-			sessionID := kp.sessionValFactory().UpdatedFrom(cCopy.Value)
-			userID, err = guard.FindUserBySession(kp.globalCtx.CNCDB, sessionID)
-			if err != nil {
-				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
-			}
-			cCopy.Name = kp.conf.FrontendSessionCookieName
-			log.Debug().
-				Str("backendCookie", kp.rConf.CNCAuthCookie).
-				Str("frontendCookie", kp.conf.FrontendSessionCookieName).
-				Str("value", cCopy.Value).
-				Msg("login action - mapping back internal cookie")
-		}
-		http.SetCookie(ctx.Writer, &cCopy)
-	}
-	return
-}
-
-// Login is a custom Proxy for CNC portals' central login action.
-// We use it in situations where we need a "hidden" API login using
-// a special user account for unauthorized users. Without additional
-// action, such CNC login would still return standard cookies and made
-// hidden user visible. So our proxy action will rename a respective
-// cookie and will allow a custom web application (e.g. WaG)
-// to use this special cookie.
-func (kp *CoreProxy) Login(ctx *gin.Context) {
-	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	userId := common.InvalidUserID
-
-	defer func(currUserID *common.UserID) {
-		kp.globalCtx.BackendLogger.Log(
-			ctx.Request,
-			kp.rConf.ServiceKey,
-			time.Since(t0),
-			false,
-			*currUserID,
-			true,
-			reporting.BackendActionTypeLogin,
-		)
-	}(&userId)
-
-	resp := kp.loginFromCtx(ctx)
-	if resp.err != nil {
-		log.Error().Err(resp.err).Msgf("failed to perform login")
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionErrorFrom(resp.err), resp.code)
-		return
-	}
-
-	if resp.isInvalidCredentials() {
-		log.Error().Err(fmt.Errorf("invalid credentials")).Msgf("failed to perform login")
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, resp.message, http.StatusUnauthorized)
-		return
-	}
-
-	userId = kp.applyLoginRespCookies(ctx, resp)
-	log.Debug().Str("userId", userId.String()).Msg("user authenticated via CNC auth")
-
-	uniresp.WriteJSONResponse(ctx.Writer, resp.message)
-}
-
 // AnyPath is the main handler for KonText API actions.
 func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	var userID, humanID common.UserID
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
-	defer func(currHumanID *common.UserID, indirect *bool, created time.Time) {
-		if kp.reqCounter != nil {
-			kp.reqCounter <- guard.RequestInfo{
-				Created:     created,
-				Service:     kp.rConf.ServiceKey,
-				NumRequests: 1,
-				UserID:      *currHumanID,
-				IP:          ctx.ClientIP(),
-			}
-		}
-		kp.globalCtx.BackendLogger.Log(
-			ctx.Request,
-			kp.rConf.ServiceKey,
-			time.Since(t0),
-			cached,
-			*currHumanID,
-			*indirect,
-			reporting.BackendActionTypeQuery,
-		)
-	}(&humanID, &indirectAPICall, t0)
+	defer kp.LogRequest(ctx, &humanID, &indirectAPICall, &cached, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, kp.rConf.ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")
 		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
 		return
 	}
-	reqProps := kp.guard.EvaluateRequest(ctx.Request)
-	log.Debug().
-		Str("reqPath", ctx.Request.URL.Path).
-		Any("reqProps", reqProps).
-		Msg("evaluated user * request")
-	humanID = reqProps.ClientID
-	if reqProps.Error != nil {
-		// TODO
-		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
-		http.Error(
-			ctx.Writer,
-			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
-			reqProps.ProposedResponse,
-		)
-		return
-
-	} else if reqProps.ForbidsAccess() {
-		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
+	reqProps, ok := kp.AuthorizeRequestOrRespondErr(ctx)
+	if !ok {
 		return
 	}
 
@@ -295,6 +120,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		http.Error(ctx.Writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
+	if humanID == common.InvalidUserID {
+		humanID = reqProps.ClientID
+	}
+
 	clientID := common.ClientID{
 		IP: ctx.RemoteIP(),
 		ID: humanID,
@@ -304,59 +133,20 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 
-	passedHeaders := ctx.Request.Header
-
-	if ctx.Request.Header.Get("host") == "" {
-		ctx.Request.Header.Set("host", kp.frontendHost)
-	}
-
-	if kp.rConf.CNCAuthCookie != kp.conf.FrontendSessionCookieName {
-		passedHeaders[backend.HeaderAPIUserID] = []string{humanID.String()}
-
-	} else {
-		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
-	}
-
-	if passedHeaders.Get(backend.HeaderIndirectCall) != "" {
-		indirectAPICall = true
-	}
-
-	if kp.conf.TrueUserIDHeader != "" {
-		passedHeaders[kp.conf.TrueUserIDHeader] = []string{userID.String()}
-	}
-
-	if kp.conf.UseHeaderXApiKey {
-		if kp.reqUsesMappedSession(ctx.Request) {
-			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxy.GetCookieValue(ctx.Request, kp.conf.FrontendSessionCookieName),
-			}
-
-		} else {
-			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxy.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
-			}
-		}
-
-	} else if kp.reqUsesMappedSession(ctx.Request) {
-
-		err := backend.MapFrontendCookieToBackend(
-			ctx.Request,
-			kp.conf.FrontendSessionCookieName,
-			kp.rConf.CNCAuthCookie,
+	if err := kp.ProcessReqHeaders(
+		ctx, humanID, userID, &indirectAPICall,
+	); err != nil {
+		log.Error().Err(reqProps.Error).Msgf("failed to proxy request - cookie mapping")
+		http.Error(
+			ctx.Writer,
+			err.Error(),
+			http.StatusInternalServerError,
 		)
-		if err != nil {
-			log.Error().Err(reqProps.Error).Msgf("failed to proxy request - cookie mapping")
-			http.Error(
-				ctx.Writer,
-				err.Error(),
-				http.StatusInternalServerError,
-			)
-			return
-		}
+		return
 	}
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	serviceResp := kp.makeRequest(ctx.Request, reqProps)
+	serviceResp := kp.MakeRequest(ctx.Request, reqProps)
 	kp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
@@ -402,35 +192,6 @@ func (kp *CoreProxy) debugLogRequest(req *http.Request) {
 		}
 	}
 	evt.Msg("about to proxy received request")
-}
-
-func (kp *CoreProxy) makeRequest(
-	req *http.Request,
-	reqProps guard.ReqEvaluation,
-) proxy.BackendResponse {
-	kp.debugLogRequest(req)
-	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName}
-	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
-	if err == proxy.ErrCacheMiss {
-		resp = kp.apiProxy.Request(
-			// TODO use some path builder here
-			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
-			req.URL.Query(),
-			req.Method,
-			req.Header,
-			req.Body,
-		)
-		kp.debugLogResponse(req, resp, err)
-		err = kp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
-		if err != nil {
-			resp = &proxy.ProxiedResponse{Err: err}
-		}
-		return resp
-	}
-	if err != nil {
-		return &proxy.ProxiedResponse{Err: err}
-	}
-	return resp
 }
 
 func NewCoreProxy(

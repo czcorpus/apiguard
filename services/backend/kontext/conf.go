@@ -10,12 +10,14 @@ import (
 	"apiguard/config"
 	"apiguard/services/cnc"
 	"fmt"
+	"net/url"
 
 	"github.com/rs/zerolog/log"
 )
 
 type Conf struct {
 	cnc.ProxyConf
+	UseSimplifiedConcReq bool `json:"useSimplifiedConcReq"`
 }
 
 func (conf *Conf) Validate(name string) error {
@@ -45,4 +47,73 @@ func (conf *Conf) Validate(name string) error {
 		return fmt.Errorf("%s: missing frontendUrl", name)
 	}
 	return nil
+}
+
+type querySubmitArgs struct {
+	Queries      []any    `json:"queries"`
+	Maincorp     string   `json:"maincorp"`
+	Usesubcorp   string   `json:"usesubcorp"`
+	Viewmode     string   `json:"viewmode"`
+	Pagesize     int      `json:"pagesize"`
+	Shuffle      int      `json:"shuffle"`
+	Attrs        []string `json:"attrs"`
+	CtxAttrs     []string `json:"ctxattrs"`
+	AttrVmode    string   `json:"attr_vmode"`
+	BaseViewattr string   `json:"base_viewattr"`
+	Structs      []string `json:"structs"`
+	Refs         []string `json:"refs"`
+	Fromp        int      `json:"fromp"`
+	TextTypes    any      `json:"textTypes"`
+	Context      any      `json:"context"`
+	KWICLeftCtx  int      `json:"kwicleftctx"`
+	KWICRightCtx int      `json:"kwicrightctx"`
+	Type         string   `json:"concQueryArgs"`
+}
+
+type viewActionArgs struct {
+	Corpname     string `json:"corpname"`
+	Usesubcorp   string `json:"usesubcorp"`
+	Maincorp     string `json:"maincorp"`
+	Q            string `json:"q"`
+	KWICLeftCtx  string `json:"kwicleftctx"`
+	KWICRightCtx string `json:"kwicrightctx"`
+	Pagesize     string `json:"pagesize"`
+	Fromp        string `json:"fromp"`
+	AttrVmode    string `json:"attr_vmode"`
+	Attr         string `json:"attrs"`
+	Viewmode     string `json:"viewmode"`
+	Shuffle      string `json:"shuffle"`
+	Refs         string `json:"refs"`
+	Format       string `json:"format"`
+}
+
+type querySubmitResponse struct {
+	Q                   []string `json:"Q"`
+	ConcPersistenceOpID string   `json:"conc_persistence_op_id"`
+	NumLinesInGroups    int      `json:"num_lines_in_groups"`
+	LinesGroupsNumbers  []int    `json:"lines_groups_numbers"`
+	QueryOverview       []any    `json:"query_overview"`
+	Finished            bool     `json:"finished"`
+	Size                int      `json:"size"`
+	Messages            []any    `json:"messages"`
+}
+
+func (va *viewActionArgs) ToURLQuery() string {
+	u := url.URL{}
+	q := u.Query()
+	q.Add("corpname", va.Corpname)
+	q.Add("usesubcorp", va.Usesubcorp)
+	q.Add("maincorp", va.Maincorp)
+	q.Add("q", va.Q)
+	q.Add("kwicleftctx", va.KWICLeftCtx)
+	q.Add("kwicrightctx", va.KWICRightCtx)
+	q.Add("pagesize", va.Pagesize)
+	q.Add("fromp", va.Fromp)
+	q.Add("attr_vmode", va.AttrVmode)
+	q.Add("attrs", va.Attr)
+	q.Add("viewmode", va.Viewmode)
+	q.Add("shuffle", va.Shuffle)
+	q.Add("refs", va.Refs)
+	q.Add("format", va.Format)
+	return q.Encode()
 }

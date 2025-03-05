@@ -98,4 +98,5 @@ type EnvironConf struct {
 	ServiceKey string
 
 	CNCPortalLoginURL string
+	IsStreamingMode   bool
 }

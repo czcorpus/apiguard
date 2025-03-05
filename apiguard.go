@@ -60,6 +60,7 @@ type CmdOptions struct {
 	MaxAgeDays        int
 	BanDurationStr    string
 	IgnoreStoredState bool
+	StreamingMode     bool
 }
 
 func (opts CmdOptions) BanDuration() (time.Duration, error) {
@@ -166,6 +167,7 @@ func main() {
 	cmdOpts := new(CmdOptions)
 	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on")
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on")
+	flag.BoolVar(&cmdOpts.StreamingMode, "streaming-mode", false, "If used, APIGuard will run in the streaming mode no matter what is defined in its config JSON")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "read-timeout", 0, "Server read timeout in seconds")
 	flag.IntVar(&cmdOpts.ReadTimeoutSecs, "write-timeout", 0, "Server write timeout in seconds")
 	flag.StringVar(&cmdOpts.LogPath, "log-path", "", "A file to log to (if empty then stderr is used)")

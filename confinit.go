@@ -145,5 +145,11 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) er
 		log.Warn().Msg("Based on a request, stored alarm/counter state will not be loaded")
 		origConf.IgnoreStoredState = cmdConf.IgnoreStoredState
 	}
+
+	if cmdConf.StreamingMode {
+		log.Warn().Msg("Forcing the 'streaming' mode based on command line argument")
+		origConf.OperationMode = config.OperationModeStreaming
+	}
+
 	return nil
 }

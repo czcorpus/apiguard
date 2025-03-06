@@ -214,7 +214,8 @@ func initWagStreamingEngine(conf *config.Configuration, actionHandler *wagstream
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	engine.POST("/wstream", actionHandler.Open)
+	engine.PUT("/wstream", actionHandler.Create)
+	engine.GET("/wstream/:id", actionHandler.Open)
 	return engine
 }
 
@@ -256,7 +257,7 @@ func runService(conf *config.Configuration) {
 		log.Info().Msg("running in the PROXY mode")
 	case config.OperationModeStreaming:
 		apiEngine := initProxyEngine(conf, globalCtx, alarm, true)
-		actionsHandler := wagstream.NewActions(apiEngine)
+		actionsHandler := wagstream.NewActions(ctx, apiEngine)
 		engine = initWagStreamingEngine(conf, actionsHandler)
 		log.Info().Msg("running in the STREAMING mode")
 	default:

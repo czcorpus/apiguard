@@ -45,6 +45,7 @@ func (kp *KonTextProxy) createConcViewURL(
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create submit URL: %w", err)
 	}
+	rawUrl2 = fmt.Sprintf("%s://%s", url1.Scheme, rawUrl2)
 	url2, err := url.Parse(rawUrl2)
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create submit URL: %w", err)
@@ -77,7 +78,7 @@ func (kp *KonTextProxy) createConcViewURL(
 // be forced to perform the subsequent actions out of the data stream).
 func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 
-	if kp.conf.UseSimplifiedConcReq && kp.EnvironConf().IsStreamingMode {
+	if !kp.conf.UseSimplifiedConcReq && !kp.EnvironConf().IsStreamingMode {
 		kp.AnyPath(ctx)
 		return
 	}
@@ -175,7 +176,7 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 		)
 		return
 	}
-
+	// now we create the 2nd request - /view
 	req2URL, err := kp.createConcViewURL(ctx, submitArgs, resp1.ConcPersistenceOpID)
 	if err != nil {
 		http.Error(

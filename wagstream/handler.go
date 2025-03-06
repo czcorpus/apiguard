@@ -8,10 +8,12 @@ package wagstream
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -19,6 +21,7 @@ import (
 
 type Actions struct {
 	apiRoutes http.Handler
+	streams   *streams
 }
 
 // EventSourceBlock represents a single data source response
@@ -41,12 +44,7 @@ type EventSourceBlock struct {
 	Status int
 }
 
-// Open handles the "open wstream" request which is basically a list
-// of requests to individual APIs configured in APIGuard. It creates
-// an EventSource stream and returns data as they arrive from those
-// APIs.
-func (actions *Actions) Open(ctx *gin.Context) {
-
+func (actions *Actions) Create(ctx *gin.Context) {
 	var args StreamRequestJSON
 
 	if err := ctx.BindJSON(&args); err != nil {
@@ -54,10 +52,26 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		return
 	}
 	args.ApplyDefaults()
+	id := actions.streams.Add(&args)
+	ctx.Status(http.StatusCreated)
+	uniresp.WriteJSONResponse(ctx.Writer, map[string]string{"id": id})
+}
+
+// Open handles the "open wstream" request which is basically a list
+// of requests to individual APIs configured in APIGuard. It creates
+// an EventSource stream and returns data as they arrive from those
+// APIs.
+func (actions *Actions) Open(ctx *gin.Context) {
+	streamID := ctx.Param("id")
+	args := actions.streams.Get(streamID)
+	if args == nil {
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("stream %s not found", streamID), http.StatusNotFound)
+		return
+	}
 
 	responseCh := make(chan EventSourceBlock)
 	var wg sync.WaitGroup
-
 	for _, reqData := range args.Requests {
 		wg.Add(1)
 		go func(rd request) {
@@ -65,11 +79,12 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			var bodyReader io.Reader
 			if len(reqData.Body) > 0 {
 				bodyBuff := new(bytes.Buffer)
-				bodyBuff.Write(reqData.Body)
+				bodyBuff.Write([]byte(reqData.Body))
 				bodyReader = bodyBuff
 			}
 			req, _ := http.NewRequest(reqData.Method, reqData.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
+			req.Header.Add("content-type", reqData.ContentType)
 			actions.apiRoutes.ServeHTTP(apiWriter, req)
 			var data []byte
 			if reqData.Base64EncodeResult {
@@ -84,7 +99,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				Status: apiWriter.StatusCode(),
 			}
 			wg.Done()
-		}(reqData)
+		}(*reqData)
 
 	}
 
@@ -105,8 +120,21 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	})
 }
 
-func NewActions(apiRoutes http.Handler) *Actions {
-	return &Actions{
+func NewActions(ctx context.Context, apiRoutes http.Handler) *Actions {
+	a := &Actions{
 		apiRoutes: apiRoutes,
+		streams:   newStreams(),
 	}
+	tc := time.NewTicker(5 * time.Minute)
+	go func() {
+		for {
+			select {
+			case <-tc.C:
+				a.streams.cleanup()
+			case <-ctx.Done():
+				tc.Stop()
+			}
+		}
+	}()
+	return a
 }

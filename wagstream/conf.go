@@ -24,7 +24,7 @@ type request struct {
 	Method string `json:"method"`
 
 	// Body (optional) is an HTTP request body
-	Body []byte `json:"body"`
+	Body string `json:"body"`
 
 	// ContentType specifies data type of request's body and
 	// is passed to a respective API
@@ -40,16 +40,16 @@ type request struct {
 // StreamRequestJSON represents an HTTP body of a request
 // to APIGuard's data streaming API proxy.
 type StreamRequestJSON struct {
-	Requests []request `json:"requests"`
+	Requests []*request `json:"requests"`
 }
 
-func (srj StreamRequestJSON) ApplyDefaults() {
+func (srj *StreamRequestJSON) ApplyDefaults() {
 	for _, v := range srj.Requests {
 		if v.Method == "" {
-			(&v).Method = "GET"
+			v.Method = "GET"
 		}
 		if v.ContentType == "" {
-			(&v).ContentType = "application/json"
+			v.ContentType = "application/json"
 		}
 	}
 }

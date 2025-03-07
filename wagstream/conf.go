@@ -9,6 +9,7 @@ package wagstream
 // request is a single API request which we pack into
 // an HTTP stream request.
 type request struct {
+	TileID int `json:"tileId"`
 
 	// URL is an APIGuard service URL we want to query
 	// and read the result from data stream. I.e. this

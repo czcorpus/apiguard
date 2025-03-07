@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 )
@@ -27,6 +28,7 @@ type Actions struct {
 // EventSourceBlock represents a single data source response
 // as passed by APIGuard's data stream.
 type EventSourceBlock struct {
+	TileID int
 
 	// Source is a unique identifier specifying requested data. Naturally,
 	// original APIGuard URL which would be used in the "proxy" mode,
@@ -42,6 +44,21 @@ type EventSourceBlock struct {
 	// Status contains the original HTTP status code as obtained
 	// from an API
 	Status int
+}
+
+type streamingError struct {
+	Error string `json:"error"`
+}
+
+func (actions *Actions) writeStreamingError(ctx *gin.Context, err error) {
+	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
+	if err2 != nil {
+		ctx.String(http.StatusInternalServerError, "Internal Server Error")
+		return
+	}
+	// We use status 200 here deliberately as we don't want to trigger
+	// the error handler.
+	ctx.String(http.StatusOK, fmt.Sprintf("data: %s\n\n", messageJSON))
 }
 
 func (actions *Actions) Create(ctx *gin.Context) {
@@ -77,24 +94,25 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		go func(rd request) {
 			apiWriter := NewAPIWriter()
 			var bodyReader io.Reader
-			if len(reqData.Body) > 0 {
+			if len(rd.Body) > 0 {
 				bodyBuff := new(bytes.Buffer)
-				bodyBuff.Write([]byte(reqData.Body))
+				bodyBuff.Write([]byte(rd.Body))
 				bodyReader = bodyBuff
 			}
-			req, _ := http.NewRequest(reqData.Method, reqData.URL, bodyReader)
+			req, _ := http.NewRequest(rd.Method, rd.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
-			req.Header.Add("content-type", reqData.ContentType)
+			req.Header.Add("content-type", rd.ContentType)
 			actions.apiRoutes.ServeHTTP(apiWriter, req)
 			var data []byte
-			if reqData.Base64EncodeResult {
+			if rd.Base64EncodeResult {
 				data = apiWriter.GetAsBase64()
 
 			} else {
 				data = apiWriter.GetRawBytes()
 			}
 			responseCh <- EventSourceBlock{
-				Source: reqData.URL,
+				TileID: rd.TileID,
+				Source: rd.URL,
 				Data:   data,
 				Status: apiWriter.StatusCode(),
 			}
@@ -108,16 +126,35 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		close(responseCh)
 	}()
 
-	ctx.Stream(func(w io.Writer) bool {
-		response, ok := <-responseCh
-		if !ok {
-			return false
+	ctx.Writer.Header().Set("Cache-Control", "no-cache")
+	ctx.Writer.Header().Set("Connection", "keep-alive")
+	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
+	for {
+		select {
+		case response, ok := <-responseCh:
+			if !ok {
+				ctx.String(
+					http.StatusOK,
+					"event: close\ndata: \n\n",
+				)
+				ctx.Writer.Flush()
+				return
+			}
+			eventData := string(response.Data)
+			ctx.String(
+				http.StatusOK,
+				fmt.Sprintf(
+					"event: DataTile-%d\ndata: %s\n\n", response.TileID, eventData),
+			)
+		case <-ctx.Done():
+			ctx.String(
+				http.StatusOK,
+				"event: close\ndata: \n\n",
+			)
+			ctx.Writer.Flush()
+			return
 		}
-		eventName := response.Source
-		eventData := string(response.Data)
-		fmt.Fprintf(w, "event: %s\nstatus: %d\ndata: %s\n\n", eventName, response.Status, eventData)
-		return true
-	})
+	}
 }
 
 func NewActions(ctx context.Context, apiRoutes http.Handler) *Actions {

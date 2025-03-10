@@ -20,14 +20,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+const (
+	esAPIWriterChanBufferSize = 40
+)
+
 type Actions struct {
 	apiRoutes http.Handler
 	streams   *streams
 }
 
-// EventSourceBlock represents a single data source response
+// EventSourceData represents a single data source response
 // as passed by APIGuard's data stream.
-type EventSourceBlock struct {
+type EventSourceData struct {
 	TileID int
 
 	// Source is a unique identifier specifying requested data. Naturally,
@@ -87,12 +91,11 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		return
 	}
 
-	responseCh := make(chan EventSourceBlock)
+	responseCh := make(chan any, len(args.Requests)*2)
 	var wg sync.WaitGroup
 	for _, reqData := range args.Requests {
 		wg.Add(1)
 		go func(rd request) {
-			apiWriter := NewAPIWriter()
 			var bodyReader io.Reader
 			if len(rd.Body) > 0 {
 				bodyBuff := new(bytes.Buffer)
@@ -102,19 +105,37 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			req, _ := http.NewRequest(rd.Method, rd.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
 			req.Header.Add("content-type", rd.ContentType)
-			actions.apiRoutes.ServeHTTP(apiWriter, req)
-			var data []byte
-			if rd.Base64EncodeResult {
-				data = apiWriter.GetAsBase64()
+
+			if rd.IsEventSource {
+				apiWriter := NewESAPIWriter(esAPIWriterChanBufferSize)
+				actions.apiRoutes.ServeHTTP(apiWriter, req)
+				// Important note:
+				// Here we rely on the fact that a respective
+				// route handler will call ctx.Writer.Flush()
+				// (see the handler and our custom AfterHandlerCallback)
+				// Without that, the channel won't get closed which
+				// would cause the main data stream to never finish!
+				for resp := range apiWriter.Responses() {
+					responseCh <- resp
+				}
 
 			} else {
-				data = apiWriter.GetRawBytes()
-			}
-			responseCh <- EventSourceBlock{
-				TileID: rd.TileID,
-				Source: rd.URL,
-				Data:   data,
-				Status: apiWriter.StatusCode(),
+				apiWriter := NewAPIWriter()
+
+				actions.apiRoutes.ServeHTTP(apiWriter, req)
+				var data []byte
+				if rd.Base64EncodeResult {
+					data = apiWriter.GetAsBase64()
+
+				} else {
+					data = apiWriter.GetRawBytes()
+				}
+				responseCh <- &EventSourceData{
+					TileID: rd.TileID,
+					Source: rd.URL,
+					Data:   data,
+					Status: apiWriter.StatusCode(),
+				}
 			}
 			wg.Done()
 		}(*reqData)
@@ -140,12 +161,23 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				ctx.Writer.Flush()
 				return
 			}
-			eventData := string(response.Data)
-			ctx.String(
-				http.StatusOK,
-				fmt.Sprintf(
-					"event: DataTile-%d\ndata: %s\n\n", response.TileID, eventData),
-			)
+			switch tResponse := response.(type) {
+			case *EventSourceData:
+				eventData := string(tResponse.Data)
+				ctx.String(
+					http.StatusOK,
+					fmt.Sprintf(
+						"event: DataTile-%d\ndata: %s\n\n", tResponse.TileID, eventData),
+				)
+			case []byte:
+				ctx.Writer.WriteHeader(http.StatusOK)
+				_, err := ctx.Writer.Write(tResponse)
+				if err != nil {
+					actions.writeStreamingError(ctx, err)
+					ctx.Writer.Flush()
+					return
+				}
+			}
 		case <-ctx.Done():
 			ctx.String(
 				http.StatusOK,

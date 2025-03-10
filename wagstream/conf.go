@@ -36,6 +36,12 @@ type request struct {
 	// be in conflict with the EventSource data formatting (e.g. if a data
 	// source returns HTML data).
 	Base64EncodeResult bool `json:"base64EncodeResult"`
+
+	// IsEventSource allows us to integrate API which itself provides
+	// its data as an EventSource stream. In such case, the API must
+	// be able to configure a proper `event` entry so the reader can
+	// identify which data chunks belongs to the required response.
+	IsEventSource bool `json:"isEventSource"`
 }
 
 // StreamRequestJSON represents an HTTP body of a request

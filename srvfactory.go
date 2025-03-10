@@ -43,6 +43,15 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func AfterHandlerCallback(callback func(c *gin.Context)) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Code executed before the handler (if needed)
+		c.Next() // Process the request by calling subsequent handlers
+		// Code executed after the handler finishes
+		callback(c)
+	}
+}
+
 func InitServices(
 	ctx *globctx.Context,
 	apiRoutes *gin.RouterGroup,
@@ -370,6 +379,11 @@ func InitServices(
 
 			apiRoutes.Any(
 				fmt.Sprintf("/service/%d/mquery/*path", sid),
+				AfterHandlerCallback(func(ctx *gin.Context) {
+					ctx.Writer.Flush() // this is important for data streaming mode
+					// when we use custom writer and this call closes channel which
+					// signals that a sub-stream is finished
+				}),
 				func(ctx *gin.Context) {
 					if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
 						mqueryActions.Login(ctx)

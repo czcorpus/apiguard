@@ -1,10 +1,10 @@
-// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
-// Copyright 2022 Charles University - Faculty of Arts,
+// Copyright 2025 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2025 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2025 Charles University - Faculty of Arts,
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package mquery
+package frodo
 
 import (
 	"apiguard/guard"

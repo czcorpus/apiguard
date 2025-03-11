@@ -19,6 +19,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
+	"apiguard/services/backend/frodo"
 	"apiguard/services/backend/gunstick"
 	"apiguard/services/backend/hex"
 	"apiguard/services/backend/kla"
@@ -397,6 +398,82 @@ func InitServices(
 				},
 			)
 			log.Info().Int("sid", sid).Msg("Proxy for MQuery enabled")
+
+		// Frodo proxy
+		case "frodo":
+			var typedConf frodo.Conf
+			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
+				return fmt.Errorf("failed to initialize service %d (frodo): %w", sid, err)
+			}
+			// we don't want to bother admins with none session type, so we set it here
+			typedConf.SessionValType = session.SessionTypeNone
+			if err := typedConf.Validate("frodo"); err != nil {
+				return fmt.Errorf("failed to initialize service %d (frodo): %w", sid, err)
+			}
+			var frodoReqCounter chan<- guard.RequestInfo
+			if len(typedConf.Limits) > 0 {
+				frodoReqCounter = alarm.Register(
+					fmt.Sprintf("%d/frodo", sid),
+					typedConf.Alarm,
+					typedConf.Limits,
+				)
+			}
+			var grd guard.ServiceGuard
+			switch typedConf.GuardType {
+			case guard.GuardTypeToken:
+				grd = token.NewGuard(
+					ctx,
+					fmt.Sprintf("/service/%d/frodo", sid),
+					typedConf.TokenHeaderName,
+					typedConf.Limits,
+					typedConf.Tokens,
+					[]string{"/openapi"},
+				)
+			case guard.GuardTypeDflt:
+				grd = dflt.New(
+					ctx,
+					globalConf.CNCAuth.SessionCookieName,
+					typedConf.SessionValType,
+					typedConf.Limits,
+				)
+			default:
+				return fmt.Errorf("frodo proxy does not support guard type `%s`", typedConf.GuardType)
+			}
+
+			frodoActions, err := frodo.NewFrodoProxy(
+				ctx,
+				&typedConf.ProxyConf,
+				&cnc.EnvironConf{
+					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
+					AuthTokenEntry:    authTokenEntry,
+					ServicePath:       fmt.Sprintf("/service/%d/frodo", sid),
+					ServiceName:       "frodo",
+					CNCPortalLoginURL: cncPortalLoginURL,
+					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
+					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
+				},
+				grd,
+				frodoReqCounter,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to initialize service %d (frodo): %w", sid, err)
+			}
+
+			apiRoutes.Any(
+				fmt.Sprintf("/service/%d/frodo/*path", sid),
+				func(ctx *gin.Context) {
+					if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+						frodoActions.Login(ctx)
+
+					} else if ctx.Param("path") == "/preflight" {
+						frodoActions.Preflight(ctx)
+
+					} else {
+						frodoActions.AnyPath(ctx)
+					}
+				},
+			)
+			log.Info().Int("sid", sid).Msg("Proxy for Frodo enabled")
 
 		// Treq (API) proxy
 		case "treq":

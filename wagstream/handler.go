@@ -106,7 +106,15 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			req.RemoteAddr = ctx.RemoteIP()
 			req.Header.Add("content-type", rd.ContentType)
 
-			if rd.IsEventSource {
+			if rd.URL == "" { // this for situations where WaG needs an empty response
+				responseCh <- &EventSourceData{
+					TileID: rd.TileID,
+					Source: rd.URL,
+					Data:   []byte("null"),
+					Status: http.StatusOK,
+				}
+
+			} else if rd.IsEventSource {
 				apiWriter := NewESAPIWriter(esAPIWriterChanBufferSize)
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
 				// Important note:

@@ -2,7 +2,8 @@ create table apiguard_proxy_monitoring (
   "time" timestamp with time zone NOT NULL,
   service TEXT,
   proc_time float,
-  status int
+  status int,
+  is_cached boolean NOT NULL DEFAULT false,
 );
 select create_hypertable('apiguard_proxy_monitoring', 'time');
 

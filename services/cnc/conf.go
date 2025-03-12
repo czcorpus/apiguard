@@ -59,6 +59,10 @@ type ProxyConf struct {
 	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
 
 	SessionValType session.SessionType `json:"sessionValType"`
+
+	// CachingPerSession allows for more granular caching (per session)
+	// In case of WaG and similar situations, this should be false
+	CachingPerSession bool `json:"cachingPerSession"`
 }
 
 func (c *ProxyConf) Validate(context string) error {
@@ -89,7 +93,6 @@ type EnvironConf struct {
 	CNCAuthCookie   string
 	AuthTokenEntry  string
 	ReadTimeoutSecs int
-	ServiceName     string
 	ServicePath     string
 
 	// ServiceKey is a unique id of service considering

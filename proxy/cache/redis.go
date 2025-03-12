@@ -30,13 +30,17 @@ type Redis struct {
 	redisContext context.Context
 }
 
-func (rrc *Redis) createCacheID(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
-	cacheID := proxy.GenerateCacheId(req, resp, respectCookies)
+func (rrc *Redis) createCacheID(req *http.Request, resp proxy.BackendResponse, opts *proxy.CacheEntryOptions) string {
+	cacheID := proxy.GenerateCacheId(req, resp, opts)
 	return fmt.Sprintf("apiguard:cache:%x", cacheID)
 }
 
-func (rrc *Redis) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
-	cacheID := rrc.createCacheID(req, nil, respectCookies)
+func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.BackendResponse, error) {
+	optsFin := new(proxy.CacheEntryOptions)
+	for _, fn := range opts {
+		fn(optsFin)
+	}
+	cacheID := rrc.createCacheID(req, nil, optsFin)
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
 		return nil, proxy.ErrCacheMiss
@@ -57,10 +61,13 @@ func (rrc *Redis) Get(req *http.Request, respectCookies []string) (proxy.Backend
 	return ans, err
 }
 
-func (rrc *Redis) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
-	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
-		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
-		cacheID := rrc.createCacheID(req, resp, respectCookies)
+func (rrc *Redis) Set(req *http.Request, resp proxy.BackendResponse, opts ...func(*proxy.CacheEntryOptions)) error {
+	optsFin := new(proxy.CacheEntryOptions)
+	for _, fn := range opts {
+		fn(optsFin)
+	}
+	if proxy.IsCacheableProxying(req, resp, optsFin) {
+		cacheID := rrc.createCacheID(req, resp, optsFin)
 		var buffer bytes.Buffer
 		encoder := gob.NewEncoder(&buffer)
 		err := encoder.Encode(&resp)

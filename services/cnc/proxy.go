@@ -147,13 +147,14 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.MakeRequest(ctx.Request, reqProps)
+	cached = serviceResp.IsCached()
 	kp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  kp.rConf.ServiceKey,
+		IsCached: cached,
 	})
-	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 		http.Error(

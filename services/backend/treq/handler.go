@@ -149,13 +149,14 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
+	cached = serviceResp.IsCached()
 	tp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(tp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  tp.serviceKey,
+		IsCached: cached,
 	})
-	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 		http.Error(
@@ -175,7 +176,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 	cacheApplCookies := []string{tp.conf.FrontendSessionCookieName, tp.cncAuthCookie}
-	resp, err := tp.globalCtx.Cache.Get(req, cacheApplCookies)
+	resp, err := tp.globalCtx.Cache.Get(req, proxy.CachingWithCookies(cacheApplCookies))
 	if err == proxy.ErrCacheMiss {
 		path := req.URL.Path[len(tp.servicePath):]
 		resp = tp.apiProxy.Request(
@@ -185,7 +186,7 @@ func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 			req.Header,
 			req.Body,
 		)
-		err := tp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
+		err := tp.globalCtx.Cache.Set(req, resp, proxy.CachingWithCookies(cacheApplCookies))
 		if err != nil {
 			return &proxy.ProxiedResponse{Err: err}
 		}

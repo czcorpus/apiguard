@@ -134,8 +134,14 @@ func (kp *CoreProxy) MakeRequest(
 	reqProps guard.ReqEvaluation,
 ) proxy.BackendResponse {
 	kp.debugLogRequest(req)
-	cacheApplCookies := []string{kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName}
-	resp, err := kp.globalCtx.Cache.Get(req, cacheApplCookies)
+	cacheApplCookies := make([]string, 0, 2)
+	if kp.conf.CachingPerSession {
+		cacheApplCookies = append(cacheApplCookies, kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName)
+	}
+	resp, err := kp.globalCtx.Cache.Get(
+		req,
+		proxy.CachingWithCookies(cacheApplCookies),
+	)
 	if err == proxy.ErrCacheMiss {
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
@@ -146,7 +152,68 @@ func (kp *CoreProxy) MakeRequest(
 			req.Body,
 		)
 		kp.debugLogResponse(req, resp, err)
-		err = kp.globalCtx.Cache.Set(req, resp, cacheApplCookies)
+		err = kp.globalCtx.Cache.Set(
+			req,
+			resp,
+			proxy.CachingWithCookies(cacheApplCookies),
+		)
+		if err != nil {
+			resp = &proxy.ProxiedResponse{Err: err}
+		}
+		return resp
+	}
+	if err != nil {
+		return &proxy.ProxiedResponse{Err: err}
+	}
+	return resp
+}
+
+// MakeCacheablePOSTRequest performs a HTTP request which is expected
+// to be POST but the method will cache the result. It requires explicit
+// passing of request body data leaving their extraction up to the consumer.
+// This should prevent unwanted reading of a body from `req` which would
+// lead to an empty body during backend requesting (typically, once inner
+// io.Reader is read, there is no way one can read the body again so we must
+// preserve it in requests in the original state and make copies of it only
+// in special occasions as it affects performance.
+//
+// In case the request is not POST, the method panics.
+func (kp *CoreProxy) MakeCacheablePOSTRequest(
+	req *http.Request,
+	reqProps guard.ReqEvaluation,
+	reqBody []byte,
+) proxy.BackendResponse {
+	if req.Method != http.MethodPost {
+		panic("assertion in MakeCacheablePOSTRequest error: req is not POST")
+	}
+	kp.debugLogRequest(req)
+	cacheApplCookies := make([]string, 0, 2)
+	if kp.conf.CachingPerSession {
+		cacheApplCookies = append(cacheApplCookies, kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName)
+	}
+	resp, err := kp.globalCtx.Cache.Get(
+		req,
+		proxy.CachingWithCookies(cacheApplCookies),
+		proxy.CachingWithReqBody(reqBody),
+		proxy.CachingWithCacheablePOST(),
+	)
+	if err == proxy.ErrCacheMiss {
+		resp = kp.apiProxy.Request(
+			// TODO use some path builder here
+			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
+			req.URL.Query(),
+			req.Method,
+			req.Header,
+			req.Body,
+		)
+		kp.debugLogResponse(req, resp, err)
+		err = kp.globalCtx.Cache.Set(
+			req,
+			resp,
+			proxy.CachingWithCookies(cacheApplCookies),
+			proxy.CachingWithReqBody(reqBody),
+			proxy.CachingWithCacheablePOST(),
+		)
 		if err != nil {
 			resp = &proxy.ProxiedResponse{Err: err}
 		}

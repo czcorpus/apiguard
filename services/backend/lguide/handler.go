@@ -68,10 +68,10 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 }
 
 func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := lga.globalCtx.Cache.Get(req, nil)
+	resp, err := lga.globalCtx.Cache.Get(req)
 	if err == proxy.ErrCacheMiss {
 		resp := proxy.GetRequest(url, lga.conf.ClientUserAgent)
-		err = lga.globalCtx.Cache.Set(req, resp, nil)
+		err = lga.globalCtx.Cache.Set(req, resp)
 		if err != nil {
 			return &proxy.SimpleResponse{Err: err}
 		}

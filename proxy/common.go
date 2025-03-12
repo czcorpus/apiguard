@@ -45,9 +45,33 @@ type BackendResponse interface {
 	GetError() error
 }
 
+type CacheEntryOptions struct {
+	respectCookies []string
+	requestBody    []byte
+	cacheablePOST  bool
+}
+
+func CachingWithCookies(cookies []string) func(*CacheEntryOptions) {
+	return func(opts *CacheEntryOptions) {
+		opts.respectCookies = cookies
+	}
+}
+
+func CachingWithReqBody(body []byte) func(*CacheEntryOptions) {
+	return func(opts *CacheEntryOptions) {
+		opts.requestBody = body
+	}
+}
+
+func CachingWithCacheablePOST() func(*CacheEntryOptions) {
+	return func(opts *CacheEntryOptions) {
+		opts.cacheablePOST = true
+	}
+}
+
 type Cache interface {
-	Get(req *http.Request, respectCookies []string) (BackendResponse, error)
-	Set(req *http.Request, resp BackendResponse, respectCookies []string) error
+	Get(req *http.Request, opts ...func(*CacheEntryOptions)) (BackendResponse, error)
+	Set(req *http.Request, resp BackendResponse, opts ...func(*CacheEntryOptions)) error
 }
 
 type GlobalContext struct {

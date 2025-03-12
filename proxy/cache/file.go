@@ -22,14 +22,18 @@ type File struct {
 	conf *proxy.CacheConf
 }
 
-func (frc *File) createItemPath(req *http.Request, resp proxy.BackendResponse, respectCookies []string) string {
-	cacheID := proxy.GenerateCacheId(req, resp, respectCookies)
+func (frc *File) createItemPath(req *http.Request, resp proxy.BackendResponse, opts *proxy.CacheEntryOptions) string {
+	cacheID := proxy.GenerateCacheId(req, resp, opts)
 	bs := fmt.Sprintf("%x.gob", cacheID)
 	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
 }
 
-func (rc *File) Get(req *http.Request, respectCookies []string) (proxy.BackendResponse, error) {
-	filePath := rc.createItemPath(req, nil, respectCookies)
+func (rc *File) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.BackendResponse, error) {
+	optsFin := new(proxy.CacheEntryOptions)
+	for _, fn := range opts {
+		fn(optsFin)
+	}
+	filePath := rc.createItemPath(req, nil, optsFin)
 	isFile, err := fs.IsFile(filePath)
 	if err != nil {
 		return nil, err
@@ -66,10 +70,13 @@ func (rc *File) Get(req *http.Request, respectCookies []string) (proxy.BackendRe
 	return ans, err
 }
 
-func (frc *File) Set(req *http.Request, resp proxy.BackendResponse, respectCookies []string) error {
-	if resp.GetStatusCode() == http.StatusOK && resp.GetError() == nil &&
-		req.Method == http.MethodGet && req.Header.Get("Cache-Control") != "no-cache" {
-		targetPath := frc.createItemPath(req, resp, respectCookies)
+func (frc *File) Set(req *http.Request, resp proxy.BackendResponse, opts ...func(*proxy.CacheEntryOptions)) error {
+	optsFin := new(proxy.CacheEntryOptions)
+	for _, fn := range opts {
+		fn(optsFin)
+	}
+	if proxy.IsCacheableProxying(req, resp, optsFin) {
+		targetPath := frc.createItemPath(req, resp, optsFin)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		fw, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {

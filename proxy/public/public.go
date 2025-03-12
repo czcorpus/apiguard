@@ -3,11 +3,14 @@
 //                Institute of the Czech National Corpus
 // All rights reserved.
 
-package proxy
+package public
 
 import (
 	"apiguard/common"
+	"apiguard/globctx"
 	"apiguard/guard"
+	"apiguard/proxy"
+	"apiguard/reporting"
 	"apiguard/session"
 	"database/sql"
 	"fmt"
@@ -23,7 +26,6 @@ import (
 )
 
 const (
-	DfltServiceName        = "public_proxy_service"
 	DfltAuthCookieName     = "cnc_toolbar_sid"
 	DfltUserIDHeaderName   = "X-Api-User"
 	DfltTrueUserHeaderName = "X-True-User"
@@ -36,34 +38,43 @@ var (
 )
 
 type PublicAPIProxyOpts struct {
-	ServiceName         string
+
+	// ServicePath is a service path as understood by internal router
+	// e.g. /service/3/gunstick
+	ServicePath string
+
+	// ServiceKey is a unique service id - e.g. 3/gunstick
+	ServiceKey string
+
 	BackendURL          *url.URL
 	FrontendURL         *url.URL
 	AuthCookieName      string
 	UserIDHeaderName    string
 	ReadTimeoutSecs     int
-	ResponseInterceptor func(*ProxiedResponse)
+	ResponseInterceptor func(*proxy.ProxiedResponse)
 }
 
-// PublicAPIProxy is a service proxy which - in general - does not
+// APIProxy is a service proxy which - in general - does not
 // forbid any user from accessing protected API. But it still
 // distinguishes between logged-in users and anonymous ones. And
 // it may throttle requests with some favouring of logged-in users.
-type PublicAPIProxy struct {
-	serviceName         string
+type APIProxy struct {
 	servicePath         string
+	serviceKey          string
 	BackendURL          *url.URL
 	FrontendURL         *url.URL
 	authCookieName      string
 	userIDHeaderName    string
 	readTimeoutSecs     int
 	client              *http.Client
-	cache               Cache
-	basicProxy          *APIProxy
+	cache               proxy.Cache
+	basicProxy          *proxy.APIProxy
 	clientCounter       chan<- common.ClientID
 	guard               guard.ServiceGuard
 	db                  *sql.DB
-	responseInterceptor func(resp *ProxiedResponse)
+	tzLocation          *time.Location
+	responseInterceptor func(resp *proxy.ProxiedResponse)
+	tDBWriter           reporting.ReportingWriter
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -74,7 +85,7 @@ func mustParseURL(rawUrl string) *url.URL {
 	return u
 }
 
-func (prox *PublicAPIProxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
+func (prox *APIProxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
 	cookie, err := req.Cookie(prox.authCookieName)
 	if err == http.ErrNoCookie {
 		return nil
@@ -82,12 +93,12 @@ func (prox *PublicAPIProxy) getUserCNCSessionCookie(req *http.Request) *http.Coo
 	return cookie
 }
 
-func (prox *PublicAPIProxy) getUserCNCSessionID(req *http.Request) session.HTTPSession {
-	v := GetCookieValue(req, prox.authCookieName)
+func (prox *APIProxy) getUserCNCSessionID(req *http.Request) session.HTTPSession {
+	v := proxy.GetCookieValue(req, prox.authCookieName)
 	return session.CNCSessionValue{}.UpdatedFrom(v)
 }
 
-func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {
+func (prox *APIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {
 	respDelay, err := prox.guard.CalcDelay(ctx.Request, clientID)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
@@ -111,7 +122,7 @@ func (prox *PublicAPIProxy) RestrictResponseTime(ctx *gin.Context, clientID comm
 	return nil
 }
 
-func (prox *PublicAPIProxy) determineTrueUserID(
+func (prox *APIProxy) determineTrueUserID(
 	req *http.Request,
 ) (common.UserID, error) {
 
@@ -127,9 +138,10 @@ func (prox *PublicAPIProxy) determineTrueUserID(
 	return userID, nil
 }
 
-func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
+func (prox *APIProxy) AnyPath(ctx *gin.Context) {
 	var humanID common.UserID
 	path := ctx.Request.URL.Path
+	rt0 := time.Now().In(prox.tzLocation)
 
 	defer func(userID *common.UserID) {
 		log.Debug().
@@ -184,12 +196,12 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
 
-	resp, err := prox.cache.Get(ctx.Request, nil)
+	resp, err := prox.cache.Get(ctx.Request)
 	if err != nil {
-		if err != ErrCacheMiss {
+		if err != proxy.ErrCacheMiss {
 			log.Error().
 				Err(err).
-				Str("serviceName", prox.serviceName).
+				Str("serviceKey", prox.serviceKey).
 				Msg("unexpected caching error in PublicAPIProxy - this should be resolved")
 		}
 		resp = prox.basicProxy.Request(
@@ -201,10 +213,10 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 			ctx.Request.Body,
 		)
 		if resp.GetError() == nil {
-			if err := prox.cache.Set(ctx.Request, resp, nil); err != nil {
+			if err := prox.cache.Set(ctx.Request, resp); err != nil {
 				log.Error().
 					Err(err).
-					Str("serviceName", prox.serviceName).
+					Str("serviceKey", prox.serviceKey).
 					Msg("PublicAPIProxy failed to cache backend response")
 			}
 		}
@@ -213,7 +225,14 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	} else {
 		logging.AddLogEvent(ctx, "isCached", true)
 	}
-	pr, ok := resp.(*ProxiedResponse)
+	prox.tDBWriter.Write(&reporting.ProxyProcReport{
+		DateTime: time.Now().In(prox.tzLocation),
+		ProcTime: time.Since(rt0).Seconds(),
+		Status:   resp.GetStatusCode(),
+		Service:  prox.serviceKey,
+		IsCached: resp.IsCached(),
+	})
+	pr, ok := resp.(*proxy.ProxiedResponse)
 	if ok {
 		prox.responseInterceptor(pr)
 
@@ -229,35 +248,36 @@ func (prox *PublicAPIProxy) AnyPath(ctx *gin.Context) {
 	ctx.Writer.Write(resp.GetBody())
 }
 
-// NewPublicAPIProxy
+// NewAPIProxy
 // note: all the options in `opts` are indeed optional but most of the time,
 // reasonable custom values are preferred. Also, any non-filled option is
 // logged as a warning providing also a respective fallback value.
-func NewPublicAPIProxy(
-	basicProxy *APIProxy,
+func NewAPIProxy(
+	globalCtx *globctx.Context,
+	basicProxy *proxy.APIProxy,
 	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
-	cache Cache,
 	guard guard.ServiceGuard,
-	db *sql.DB,
 	opts PublicAPIProxyOpts,
 
-) *PublicAPIProxy {
+) *APIProxy {
 
 	respInt := opts.ResponseInterceptor
 	if respInt == nil {
-		respInt = func(pr *ProxiedResponse) {}
+		respInt = func(pr *proxy.ProxiedResponse) {}
 	}
 
-	p := &PublicAPIProxy{
+	p := &APIProxy{
 		client:              client,
 		basicProxy:          basicProxy,
 		clientCounter:       clientCounter,
-		cache:               cache,
+		cache:               globalCtx.Cache,
 		guard:               guard,
-		db:                  db,
+		db:                  globalCtx.CNCDB,
 		responseInterceptor: respInt,
+		tDBWriter:           globalCtx.ReportingWriter,
+		tzLocation:          globalCtx.TimezoneLocation,
 	}
 
 	if opts.AuthCookieName == "" {
@@ -300,14 +320,8 @@ func NewPublicAPIProxy(
 		p.authCookieName = opts.AuthCookieName
 	}
 
-	if opts.ServiceName == "" {
-		p.serviceName = DfltServiceName
-		log.Warn().Str("value", DfltServiceName).Msg("ServiceName not set for public proxy, using default")
-
-	} else {
-		p.serviceName = opts.ServiceName
-	}
-	p.servicePath = fmt.Sprintf("/service/%d/%s", sid, p.serviceName)
+	p.serviceKey = opts.ServiceKey
+	p.servicePath = fmt.Sprintf("/service/%s", p.serviceKey)
 
 	if opts.UserIDHeaderName == "" {
 		log.Warn().Msg("UserIDHeaderName not set for public proxy, no CNC user ID will be passed via headers")

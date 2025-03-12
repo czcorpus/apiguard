@@ -12,21 +12,23 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 var ErrCacheMiss = errors.New("cache miss")
 
-func GenerateCacheId(req *http.Request, resp BackendResponse, respectCookies []string) []byte {
+func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) []byte {
 	h := sha1.New()
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))
-	if respectCookies != nil {
+	if len(opts.respectCookies) > 0 {
 		hashCookies := make([]string, 0)
 		respParams := http.Request{}
 		if resp != nil {
 			respParams.Header = resp.GetHeaders()
 		}
-		for _, respectCookie := range respectCookies {
+		for _, respectCookie := range opts.respectCookies {
 			respCookie, err := respParams.Cookie(respectCookie)
 			if err == nil {
 				hashCookies = append(hashCookies, respCookie.Name+"="+respCookie.Value)
@@ -40,7 +42,25 @@ func GenerateCacheId(req *http.Request, resp BackendResponse, respectCookies []s
 		sort.Strings(hashCookies)
 		h.Write([]byte(strings.Join(hashCookies, ";")))
 	}
+	if len(opts.requestBody) > 0 {
+		h.Write(opts.requestBody)
+	}
 	return h.Sum(nil)
+}
+
+// IsCacheableProxying tests if the provided user request and response properties
+// make the response a valid candidate for caching.
+func IsCacheableProxying(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) bool {
+	ans := (resp.GetStatusCode() == http.StatusOK || resp.GetStatusCode() == http.StatusCreated) &&
+		resp.GetError() == nil &&
+		(req.Method == http.MethodGet || opts.cacheablePOST) &&
+		req.Header.Get("Cache-Control") != "no-cache"
+	log.Debug().
+		Str("url", req.URL.String()).
+		Bool("cacheable", ans).
+		Str("httpCacheControl", req.Header.Get("Cache-Control")).
+		Msg("testing cacheability")
+	return ans
 }
 
 type CacheConf struct {

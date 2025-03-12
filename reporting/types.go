@@ -39,13 +39,15 @@ type ProxyProcReport struct {
 	ProcTime float64
 	Status   int
 	Service  string
+	IsCached bool
 }
 
 func (report *ProxyProcReport) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl.Entry {
 	return tableWriter.NewEntry(report.DateTime).
 		Str("service", report.Service).
 		Float("proc_time", report.ProcTime).
-		Int("status", report.Status)
+		Int("status", report.Status).
+		Bool("is_cached", report.IsCached)
 }
 
 func (report *ProxyProcReport) GetTime() time.Time {
@@ -62,11 +64,13 @@ func (report *ProxyProcReport) MarshalJSON() ([]byte, error) {
 		ProcTime float64   `json:"procTime"`
 		Status   int       `json:"status"`
 		Service  string    `json:"service"`
+		Cached   bool      `json:"isCached"`
 	}{
 		DateTime: report.DateTime,
 		ProcTime: report.ProcTime,
 		Status:   report.Status,
 		Service:  report.Service,
+		Cached:   report.IsCached,
 	})
 }
 

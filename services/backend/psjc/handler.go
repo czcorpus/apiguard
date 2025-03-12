@@ -102,10 +102,10 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 }
 
 func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := aa.globalCtx.Cache.Get(req, nil)
+	resp, err := aa.globalCtx.Cache.Get(req)
 	if err == proxy.ErrCacheMiss {
 		resp := proxy.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.globalCtx.Cache.Set(req, resp, nil)
+		err = aa.globalCtx.Cache.Set(req, resp)
 		if err != nil {
 			return &proxy.SimpleResponse{Err: err}
 		}

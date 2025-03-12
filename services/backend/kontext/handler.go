@@ -148,14 +148,15 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 	req1 := *ctx.Request
 	req1.Body = io.NopCloser(bytes.NewBuffer(rawReq1Body))
 
-	serviceResp := kp.MakeRequest(&req1, reqProps)
+	serviceResp := kp.MakeCacheablePOSTRequest(&req1, reqProps, rawReq1Body)
+	cached = serviceResp.IsCached()
 	kp.MonitoringWrite(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
 		Service:  kp.EnvironConf().ServiceKey,
+		IsCached: cached,
 	})
-	cached = serviceResp.IsCached()
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy query_submit %s", ctx.Request.URL.Path)
 		http.Error(

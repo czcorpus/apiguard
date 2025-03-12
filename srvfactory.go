@@ -17,6 +17,7 @@ import (
 	"apiguard/guard/token"
 	"apiguard/monitoring"
 	"apiguard/proxy"
+	"apiguard/proxy/public"
 	"apiguard/services/backend/assc"
 	"apiguard/services/backend/cja"
 	"apiguard/services/backend/frodo"
@@ -287,7 +288,6 @@ func InitServices(
 					AuthTokenEntry:    authTokenEntry,
 					ServicePath:       fmt.Sprintf("/service/%d/kontext", sid),
 					ServiceKey:        fmt.Sprintf("%d/kontext", sid),
-					ServiceName:       "kontext",
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
 					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
@@ -366,7 +366,7 @@ func InitServices(
 					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
 					AuthTokenEntry:    authTokenEntry,
 					ServicePath:       fmt.Sprintf("/service/%d/mquery", sid),
-					ServiceName:       "mquery",
+					ServiceKey:        fmt.Sprintf("%d/mquery", sid),
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
 					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
@@ -447,7 +447,7 @@ func InitServices(
 					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
 					AuthTokenEntry:    authTokenEntry,
 					ServicePath:       fmt.Sprintf("/service/%d/frodo", sid),
-					ServiceName:       "frodo",
+					ServiceKey:        fmt.Sprintf("%d/frodo", sid),
 					CNCPortalLoginURL: cncPortalLoginURL,
 					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
 					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
@@ -548,16 +548,16 @@ func InitServices(
 				return fmt.Errorf("failed to initialize service %d (kwords): %w", sid, err)
 			}
 
-			kwordsActions := proxy.NewPublicAPIProxy(
+			kwordsActions := public.NewAPIProxy(
+				ctx,
 				coreProxy,
 				sid,
 				client,
 				analyzer.ExposeAsCounter(),
-				ctx.Cache,
 				analyzer,
-				ctx.CNCDB,
-				proxy.PublicAPIProxyOpts{
-					ServiceName:      "kwords",
+				public.PublicAPIProxyOpts{
+					ServiceKey:       fmt.Sprintf("%d/kwords", sid),
+					ServicePath:      fmt.Sprintf("/service/%d/kwords", sid),
 					BackendURL:       backendURL,
 					FrontendURL:      frontendUrl,
 					AuthCookieName:   globalConf.CNCAuth.SessionCookieName,
@@ -603,16 +603,16 @@ func InitServices(
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (gunstick): %w", sid, err)
 			}
-			gunstickActions := proxy.NewPublicAPIProxy(
+			gunstickActions := public.NewAPIProxy(
+				ctx,
 				coreProxy,
 				sid,
 				client,
 				grd.ExposeAsCounter(),
-				ctx.Cache,
 				grd,
-				ctx.CNCDB,
-				proxy.PublicAPIProxyOpts{
-					ServiceName:     "gunstick",
+				public.PublicAPIProxyOpts{
+					ServicePath:     fmt.Sprintf("/service/%d/gunstick", sid),
+					ServiceKey:      fmt.Sprintf("%d/gunstick", sid),
 					BackendURL:      backendURL,
 					FrontendURL:     frontendURL,
 					ReadTimeoutSecs: globalConf.ServerReadTimeoutSecs,
@@ -657,16 +657,16 @@ func InitServices(
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (hex): %w", sid, err)
 			}
-			hexActions := proxy.NewPublicAPIProxy(
+			hexActions := public.NewAPIProxy(
+				ctx,
 				coreProxy,
 				sid,
 				client,
 				grd.ExposeAsCounter(),
-				ctx.Cache,
 				grd,
-				ctx.CNCDB,
-				proxy.PublicAPIProxyOpts{
-					ServiceName:         "hex",
+				public.PublicAPIProxyOpts{
+					ServicePath:         fmt.Sprintf("/service/%d/hex", sid),
+					ServiceKey:          fmt.Sprintf("%d/hex", sid),
 					BackendURL:          backendURL,
 					FrontendURL:         frontendURL,
 					ReadTimeoutSecs:     globalConf.ServerReadTimeoutSecs,

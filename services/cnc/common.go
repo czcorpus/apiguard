@@ -12,7 +12,9 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/services/backend"
+	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"path"
 	"time"
@@ -143,6 +145,14 @@ func (kp *CoreProxy) MakeRequest(
 		proxy.CachingWithCookies(cacheApplCookies),
 	)
 	if err == proxy.ErrCacheMiss {
+		// TODO without this, invalid Read on closed Body happens on merge-freqs
+		bodyBytes, err := io.ReadAll(req.Body)
+		if err != nil {
+			return &proxy.ProxiedResponse{Err: err}
+		}
+		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		// ---------------------------------------------------------------------
+
 		resp = kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),

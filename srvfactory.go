@@ -392,6 +392,9 @@ func InitServices(
 					} else if ctx.Param("path") == "/preflight" {
 						mqueryActions.Preflight(ctx)
 
+					} else if ctx.Param("path") == "/merge-freqs" {
+						mqueryActions.MergeFreqs(ctx)
+
 					} else {
 						mqueryActions.AnyPath(ctx)
 					}

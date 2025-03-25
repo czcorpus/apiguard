@@ -20,6 +20,29 @@ type Conf struct {
 	Tokens          []token.TokenConf `json:"tokens"`
 }
 
+type mergeFreqsArgs struct {
+	URLS []string `json:"urls"`
+}
+
+type FreqDistribItemList []*FreqDistribItem
+
+type FreqDistribItem struct {
+	Word string  `json:"word"`
+	Freq int64   `json:"freq"`
+	Base int64   `json:"base"`
+	IPM  float32 `json:"ipm"`
+}
+
+type mergeFreqsResponse struct {
+	ConcSize         int64              `json:"concSize"`
+	CorpusSize       int64              `json:"corpusSize"`
+	SubcSize         int64              `json:"subcSize,omitempty"`
+	Freqs            []*FreqDistribItem `json:"freqs"`
+	Fcrit            string             `json:"fcrit"`
+	ExamplesQueryTpl string             `json:"examplesQueryTpl,omitempty"`
+	Error            string             `json:"error,omitempty"`
+}
+
 func (c *Conf) Validate(context string) error {
 	if err := c.ProxyConf.Validate(context); err != nil {
 		return err

@@ -51,6 +51,10 @@ func (aw *APIWriter) StatusCode() int {
 	return aw.statusCode
 }
 
+func (aw *APIWriter) Flush() {
+
+}
+
 func (aw *APIWriter) IsNotErrorStatus() bool {
 	return aw.statusCode >= 200 && aw.statusCode < 300
 }

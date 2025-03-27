@@ -145,12 +145,14 @@ func (kp *CoreProxy) MakeRequest(
 		proxy.CachingWithCookies(cacheApplCookies),
 	)
 	if err == proxy.ErrCacheMiss {
-		// TODO without this, invalid Read on closed Body happens on merge-freqs
-		bodyBytes, err := io.ReadAll(req.Body)
-		if err != nil {
-			return &proxy.ProxiedResponse{Err: err}
+		if req.Body != nil {
+			// TODO without this, invalid Read on closed Body happens on merge-freqs
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return &proxy.ProxiedResponse{Err: err}
+			}
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
-		req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		// ---------------------------------------------------------------------
 
 		resp = kp.apiProxy.Request(

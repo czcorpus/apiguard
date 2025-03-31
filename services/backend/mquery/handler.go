@@ -94,7 +94,9 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 	rt0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
 	cached = true
-	data := make([]mergeFreqsResponse, 0, len(args.URLS))
+	data := mergeFreqsResponse{
+		Parts: make([]*partialFreqResponse, 0, len(args.URLS)),
+	}
 	for _, u := range args.URLS {
 		req := *ctx.Request
 		parsedURL, err := url.Parse(u)
@@ -117,8 +119,8 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		}
 
 		body := resp.GetBody()
-		var dataRow mergeFreqsResponse
-		if err := sonic.Unmarshal(body, &dataRow); err != nil {
+		var freqPart partialFreqResponse
+		if err := sonic.Unmarshal(body, &freqPart); err != nil {
 			http.Error(
 				ctx.Writer,
 				fmt.Sprintf("failed to get partial freqs: %s", err),
@@ -126,7 +128,10 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 			)
 			return
 		}
-		data = append(data, dataRow)
+		data.Parts = append(data.Parts, &freqPart)
+		if data.Error == "" && freqPart.Error != "" {
+			data.Error = freqPart.Error
+		}
 
 		for k, v := range resp.GetHeaders() {
 			ctx.Writer.Header().Set(k, v[0])

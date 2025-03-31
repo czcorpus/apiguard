@@ -33,7 +33,7 @@ type FreqDistribItem struct {
 	IPM  float32 `json:"ipm"`
 }
 
-type mergeFreqsResponse struct {
+type partialFreqResponse struct {
 	ConcSize         int64              `json:"concSize"`
 	CorpusSize       int64              `json:"corpusSize"`
 	SubcSize         int64              `json:"subcSize,omitempty"`
@@ -41,6 +41,11 @@ type mergeFreqsResponse struct {
 	Fcrit            string             `json:"fcrit"`
 	ExamplesQueryTpl string             `json:"examplesQueryTpl,omitempty"`
 	Error            string             `json:"error,omitempty"`
+}
+
+type mergeFreqsResponse struct {
+	Parts []*partialFreqResponse `json:"parts"`
+	Error string                 `json:"error,omitempty"`
 }
 
 func (c *Conf) Validate(context string) error {

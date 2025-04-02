@@ -48,6 +48,15 @@ type mergeFreqsResponse struct {
 	Error string                 `json:"error,omitempty"`
 }
 
+type speechesArgs struct {
+	Corpname  string   `json:"corpname"`
+	Subcorpus string   `json:"subcorpus"`
+	Query     string   `json:"query"`
+	Structs   []string `json:"structs"`
+	LeftCtx   int      `json:"leftCtx"`
+	RightCtx  int      `json:"rightCtx"`
+}
+
 func (c *Conf) Validate(context string) error {
 	if err := c.ProxyConf.Validate(context); err != nil {
 		return err

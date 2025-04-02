@@ -152,6 +152,12 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, data)
 }
 
+func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
+	uniresp.RespondWithErrorJSON(
+		ctx, fmt.Errorf("not implemented yet"), http.StatusNotImplemented,
+	)
+}
+
 func NewMQueryProxy(
 	globalCtx *globctx.Context,
 	conf *cnc.ProxyConf,

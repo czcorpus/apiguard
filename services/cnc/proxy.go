@@ -157,9 +157,10 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	})
 	if serviceResp.GetError() != nil {
 		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
-		http.Error(
-			ctx.Writer,
-			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
+
+		proxy.WriteError(
+			ctx,
+			fmt.Errorf("failed to proxy request: %s", serviceResp.GetError()),
 			http.StatusInternalServerError,
 		)
 		return

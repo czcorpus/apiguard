@@ -7,10 +7,13 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/gin-gonic/gin"
 	"golang.org/x/time/rate"
 )
 
@@ -88,4 +91,21 @@ func ExtractClientIP(req *http.Request) string {
 		return ip
 	}
 	return strings.Split(req.RemoteAddr, ":")[0]
+}
+
+func WriteError(ctx *gin.Context, err error, status int) {
+	if ctx.Request.Header.Get("content-type") == "application/json" {
+		uniresp.RespondWithErrorJSON(
+			ctx,
+			fmt.Errorf("failed to proxy request: %s", err),
+			status,
+		)
+
+	} else {
+		http.Error(
+			ctx.Writer,
+			fmt.Sprintf("Failed to proxy request: %s", err),
+			status,
+		)
+	}
 }

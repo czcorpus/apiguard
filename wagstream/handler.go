@@ -18,6 +18,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -158,6 +159,11 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Cache-Control", "no-cache")
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
+	ctx.Writer.Header().Set("Transfer-Encoding", "chunked")
+	// The following one is super-important; otherwise Nginx's buffering
+	// may interfere with how individual events are sent and the output
+	// may pause in the middle of already available event data.
+	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
 	for {
 		select {
 		case response, ok := <-responseCh:
@@ -172,11 +178,17 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			switch tResponse := response.(type) {
 			case *EventSourceData:
 				eventData := string(tResponse.Data)
-				ctx.String(
-					http.StatusOK,
+				_, err := ctx.Writer.WriteString(
 					fmt.Sprintf(
 						"event: DataTile-%d\ndata: %s\n\n", tResponse.TileID, eventData),
 				)
+				if err != nil {
+					// not much we can do here
+					log.Error().Err(err).Msg("failed to write EventSource data")
+					return
+				}
+
+				ctx.Writer.Flush()
 			case []byte:
 				ctx.Writer.WriteHeader(http.StatusOK)
 				_, err := ctx.Writer.Write(tResponse)

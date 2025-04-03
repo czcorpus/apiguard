@@ -115,11 +115,10 @@ func (kp *CoreProxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEv
 		Any("reqProps", reqProps).
 		Msg("evaluated user * request")
 	if reqProps.Error != nil {
-		// TODO
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
-		http.Error(
-			ctx.Writer,
-			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
+		proxy.WriteError(
+			ctx,
+			fmt.Errorf("failed to proxy request: %s", reqProps.Error),
 			reqProps.ProposedResponse,
 		)
 		return guard.ReqEvaluation{}, false

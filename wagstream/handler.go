@@ -30,9 +30,9 @@ type Actions struct {
 	streams   *streams
 }
 
-// EventSourceData represents a single data source response
+// StreamingReadyResp represents a single data source response
 // as passed by APIGuard's data stream.
-type EventSourceData struct {
+type StreamingReadyResp struct {
 	TileID int
 
 	// Source is a unique identifier specifying requested data. Naturally,
@@ -51,11 +51,21 @@ type EventSourceData struct {
 	Status int
 }
 
+// RawStreamingReadyResp is a response from a service which already produces
+// EventSource data (e.g. chunked time distrib in MQuery).
+type RawStreamingReadyResp struct {
+	TileID int
+	Data   []byte
+	// Status contains the original HTTP status code as obtained
+	// from an API
+	Status int
+}
+
 type streamingError struct {
 	Error string `json:"error"`
 }
 
-func (actions *Actions) writeStreamingError(ctx *gin.Context, err error) {
+func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID int, err error) {
 	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
 	if err2 != nil {
 		ctx.String(http.StatusInternalServerError, "Internal Server Error")
@@ -63,7 +73,10 @@ func (actions *Actions) writeStreamingError(ctx *gin.Context, err error) {
 	}
 	// We use status 200 here deliberately as we don't want to trigger
 	// the error handler.
-	ctx.String(http.StatusOK, fmt.Sprintf("data: %s\n\n", messageJSON))
+	ctx.String(
+		http.StatusOK,
+		fmt.Sprintf("event: DataTile-%d\ndata: %s\n\n", tileID, messageJSON),
+	)
 }
 
 func (actions *Actions) Create(ctx *gin.Context) {
@@ -108,7 +121,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			req.Header.Add("content-type", rd.ContentType)
 
 			if rd.URL == "" { // this for situations where WaG needs an empty response
-				responseCh <- &EventSourceData{
+				responseCh <- &StreamingReadyResp{
 					TileID: rd.TileID,
 					Source: rd.URL,
 					Data:   []byte("null"),
@@ -125,7 +138,11 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				// Without that, the channel won't get closed which
 				// would cause the main data stream to never finish!
 				for resp := range apiWriter.Responses() {
-					responseCh <- resp
+					responseCh <- &RawStreamingReadyResp{
+						TileID: rd.TileID,
+						Data:   resp,
+						Status: apiWriter.statusCode,
+					}
 				}
 
 			} else {
@@ -139,7 +156,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				} else {
 					data = apiWriter.GetRawBytes()
 				}
-				responseCh <- &EventSourceData{
+				responseCh <- &StreamingReadyResp{
 					TileID: rd.TileID,
 					Source: rd.URL,
 					Data:   data,
@@ -176,7 +193,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				return
 			}
 			switch tResponse := response.(type) {
-			case *EventSourceData:
+			case *StreamingReadyResp:
 				eventData := string(tResponse.Data)
 				_, err := ctx.Writer.WriteString(
 					fmt.Sprintf(
@@ -189,14 +206,25 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				}
 
 				ctx.Writer.Flush()
-			case []byte:
-				ctx.Writer.WriteHeader(http.StatusOK)
-				_, err := ctx.Writer.Write(tResponse)
-				if err != nil {
-					actions.writeStreamingError(ctx, err)
+			case *RawStreamingReadyResp:
+				if tResponse.Status >= 200 && tResponse.Status < 300 {
+					ctx.Writer.WriteHeader(http.StatusOK)
+					_, err := ctx.Writer.Write(tResponse.Data)
+					if err != nil {
+						actions.writeStreamingError(ctx, tResponse.TileID, err)
+						ctx.Writer.Flush()
+						return
+					}
+
+				} else {
+					actions.writeStreamingError(
+						ctx,
+						tResponse.TileID,
+						fmt.Errorf("received error response from backend (status: %d)", tResponse.Status),
+					)
 					ctx.Writer.Flush()
-					return
 				}
+
 			}
 		case <-ctx.Done():
 			ctx.String(

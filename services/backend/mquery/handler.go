@@ -289,23 +289,23 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 	serviceResp := mp.MakeRequest(&req1, reqProps)
 	statusCode = serviceResp.GetStatusCode()
 	if err := serviceResp.GetError(); err != nil {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, err, statusCode)
+		uniresp.RespondWithErrorJSON(ctx, err, statusCode)
 		return
 	}
 	resp1Body := serviceResp.GetBody()
 	var resp1 concordanceResponse
 	if err := sonic.Unmarshal(resp1Body, &resp1); err != nil {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, fmt.Sprintf("failed to query concordance: %s", err), http.StatusInternalServerError)
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("failed to query concordance: %s", err), http.StatusInternalServerError)
 		return
 	}
 	if resp1.Error != "" {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, resp1.Error, statusCode)
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf(resp1.Error), statusCode)
 		return
 	}
 
 	pos, err := strconv.Atoi(resp1.Lines[rand.Intn(len(resp1.Lines))].Ref[1:])
 	if err != nil {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, fmt.Sprintf("failed to query concordance: %s", err), http.StatusInternalServerError)
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("failed to query concordance: %s", err), http.StatusInternalServerError)
 		return
 	}
 	req2URL, err := mp.createTokenContextMqueryURL(
@@ -319,7 +319,8 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		},
 	)
 	if err != nil {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, fmt.Sprintf("failed to query token context: %s", err), http.StatusInternalServerError)
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("failed to query token context: %s", err), http.StatusInternalServerError)
 		return
 	}
 	req2 := *ctx.Request
@@ -328,17 +329,18 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 	serviceResp = mp.MakeRequest(&req2, reqProps)
 	statusCode = serviceResp.GetStatusCode()
 	if err := serviceResp.GetError(); err != nil {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, err, statusCode)
+		uniresp.RespondWithErrorJSON(ctx, err, statusCode)
 		return
 	}
 	resp2Body := serviceResp.GetBody()
 	var resp2 tokenContextResponse
 	if err := sonic.Unmarshal(resp2Body, &resp2); err != nil {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, fmt.Sprintf("failed to query token context: %s", err), http.StatusInternalServerError)
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("failed to query token context: %s", err), http.StatusInternalServerError)
 		return
 	}
 	if resp2.Error != "" {
-		uniresp.WriteCustomJSONErrorResponse(ctx.Writer, resp2.Error, statusCode)
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf(resp2.Error), statusCode)
 		return
 	}
 

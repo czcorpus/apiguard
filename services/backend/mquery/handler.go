@@ -303,6 +303,11 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		return
 	}
 
+	if len(resp1.Lines) == 0 {
+		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no data found"), http.StatusNotFound)
+		return
+	}
+
 	pos, err := strconv.Atoi(resp1.Lines[rand.Intn(len(resp1.Lines))].Ref[1:])
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("failed to query concordance: %s", err), http.StatusInternalServerError)
@@ -332,17 +337,9 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, err, statusCode)
 		return
 	}
-	resp2Body := serviceResp.GetBody()
-	var resp2 tokenContextResponse
-	if err := sonic.Unmarshal(resp2Body, &resp2); err != nil {
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("failed to query token context: %s", err), http.StatusInternalServerError)
-		return
-	}
-	if resp2.Error != "" {
-		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf(resp2.Error), statusCode)
-		return
-	}
+
+	ctx.Status(serviceResp.GetStatusCode())
+	ctx.Writer.Write(serviceResp.GetBody())
 
 	mp.MonitoringWrite(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(mp.GlobalCtx().TimezoneLocation),
@@ -351,8 +348,6 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		Service:  mp.EnvironConf().ServiceKey,
 		IsCached: cached,
 	})
-
-	uniresp.WriteJSONResponse(ctx.Writer, resp2)
 }
 
 func NewMQueryProxy(

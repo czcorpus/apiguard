@@ -23,6 +23,7 @@ import (
 
 const (
 	esAPIWriterChanBufferSize = 40
+	respPingInterval          = time.Second * 5
 )
 
 type Actions struct {
@@ -61,6 +62,13 @@ type RawStreamingReadyResp struct {
 	Status int
 }
 
+// PingResp is used to keep the stream active in situations where - due
+// to too long waiting time for a next event - there is a threat that
+// the stream will be closed.
+type PingResp struct {
+	TS time.Time
+}
+
 type streamingError struct {
 	Error string `json:"error"`
 }
@@ -92,6 +100,13 @@ func (actions *Actions) Create(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]string{"id": id})
 }
 
+func (actions *Actions) emptyResponse(req *http.Request) []byte {
+	if req.Header.Get("content-type") == "application/json" {
+		return []byte("null")
+	}
+	return []byte{}
+}
+
 // Open handles the "open wstream" request which is basically a list
 // of requests to individual APIs configured in APIGuard. It creates
 // an EventSource stream and returns data as they arrive from those
@@ -107,6 +122,14 @@ func (actions *Actions) Open(ctx *gin.Context) {
 
 	responseCh := make(chan any, len(args.Requests)*2)
 	var wg sync.WaitGroup
+
+	ticker := time.NewTicker(respPingInterval)
+	go func() {
+		for c := range ticker.C {
+			responseCh <- &PingResp{TS: c}
+		}
+	}()
+
 	for _, reqData := range args.Requests {
 		wg.Add(1)
 		go func(rd request) {
@@ -124,7 +147,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				responseCh <- &StreamingReadyResp{
 					TileID: rd.TileID,
 					Source: rd.URL,
-					Data:   []byte("null"),
+					Data:   actions.emptyResponse(req),
 					Status: http.StatusOK,
 				}
 
@@ -170,6 +193,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 
 	go func() {
 		wg.Wait()
+		ticker.Stop()
 		close(responseCh)
 	}()
 
@@ -224,6 +248,16 @@ func (actions *Actions) Open(ctx *gin.Context) {
 					)
 					ctx.Writer.Flush()
 				}
+			case *PingResp:
+				_, err := ctx.Writer.WriteString(
+					fmt.Sprintf("data: %d\n\n", tResponse.TS.Unix()),
+				)
+				if err != nil {
+					// not much we can do here
+					log.Error().Err(err).Msg("failed to write EventSource data")
+					return
+				}
+				ctx.Writer.Flush()
 
 			}
 		case <-ctx.Done():

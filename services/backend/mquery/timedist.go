@@ -21,7 +21,6 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/czcorpus/cnc-gokit/util"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -52,6 +51,12 @@ func (sfargs *streamedFreqDistArgs) toURLQuery() string {
 	}
 	if sfargs.event != "" {
 		q.Add("event", sfargs.event)
+	}
+	if sfargs.fcrit != "" {
+		q.Add("fcrit", sfargs.fcrit)
+
+	} else if sfargs.attr != "" {
+		q.Add("attr", sfargs.attr)
 	}
 	return q.Encode()
 }
@@ -221,7 +226,6 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 			ctx, fmt.Errorf("failed to process: %w", err), http.StatusInternalServerError)
 		return
 	}
-	spew.Dump(lemmaData)
 
 	// then call "classic" streamed time dist
 
@@ -242,6 +246,7 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 		streamedFreqDistArgs{
 			q:        q,
 			attr:     ctx.Query("attr"),
+			fcrit:    ctx.Query("fcrit"),
 			flimit:   flimit,
 			maxItems: 100, // TODO
 			event:    ctx.Query("event"),

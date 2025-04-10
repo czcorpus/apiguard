@@ -179,6 +179,64 @@ func (kp *CoreProxy) MakeRequest(
 	return resp
 }
 
+func (kp *CoreProxy) MakeStreamRequest(
+	req *http.Request,
+	reqProps guard.ReqEvaluation,
+) proxy.BackendResponse {
+	kp.debugLogRequest(req)
+	cacheApplCookies := make([]string, 0, 2)
+	if kp.conf.CachingPerSession {
+		cacheApplCookies = append(cacheApplCookies, kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName)
+	}
+	resp, err := kp.globalCtx.Cache.Get(
+		req,
+		proxy.CachingWithCookies(cacheApplCookies),
+	)
+	if err == proxy.ErrCacheMiss {
+		if req.Body != nil {
+			// TODO without this, invalid Read on closed Body happens on merge-freqs
+			bodyBytes, err := io.ReadAll(req.Body)
+			if err != nil {
+				return &proxy.ProxiedStreamResponse{
+					BodyReader: proxy.EmptyReadCloser{},
+					Err:        err,
+				}
+			}
+			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+		}
+		// ---------------------------------------------------------------------
+
+		resp = kp.apiProxy.Request(
+			// TODO use some path builder here
+			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
+			req.URL.Query(),
+			req.Method,
+			req.Header,
+			req.Body,
+		)
+		kp.debugLogResponse(req, resp, err)
+		err = kp.globalCtx.Cache.Set(
+			req,
+			resp,
+			proxy.CachingWithCookies(cacheApplCookies),
+		)
+		if err != nil {
+			resp = &proxy.ProxiedStreamResponse{
+				BodyReader: proxy.EmptyReadCloser{},
+				Err:        err,
+			}
+		}
+		return resp
+	}
+	if err != nil {
+		return &proxy.ProxiedStreamResponse{
+			BodyReader: proxy.EmptyReadCloser{},
+			Err:        err,
+		}
+	}
+	return resp
+}
+
 // MakeCacheablePOSTRequest performs a HTTP request which is expected
 // to be POST but the method will cache the result. It requires explicit
 // passing of request body data leaving their extraction up to the consumer.

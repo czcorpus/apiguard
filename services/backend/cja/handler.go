@@ -13,6 +13,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -74,13 +75,18 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 		ctx.Request,
 	)
 	if resp.GetError() != nil {
-		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
+		uniresp.RespondWithErrorJSON(ctx, resp.GetError(), 500)
 		return
 	}
-
-	response, err := parseData(string(resp.GetBody()), aa.conf.BaseURL)
+	defer resp.GetBodyReader().Close()
+	respBody, err := io.ReadAll(resp.GetBodyReader())
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
+		uniresp.RespondWithErrorJSON(ctx, err, 500)
+		return
+	}
+	response, err := parseData(string(respBody), aa.conf.BaseURL)
+	if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, 500)
 		return
 	}
 	// TODO !!!! response.Backlink = backlink

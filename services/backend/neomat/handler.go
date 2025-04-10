@@ -13,6 +13,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -84,8 +85,13 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
-
-	entries, err := parseData(string(resp.GetBody()), maxItemsCount)
+	defer resp.GetBodyReader().Close()
+	respBody, err := io.ReadAll(resp.GetBodyReader())
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
+		return
+	}
+	entries, err := parseData(string(respBody), maxItemsCount)
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return

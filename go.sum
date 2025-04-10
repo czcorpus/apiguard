@@ -15,8 +15,8 @@ github.com/cloudwego/base64x v0.1.5 h1:XPciSp1xaq2VCSt6lF0phncD4koWyULpl5bUxbfCy
 github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJgA0rcu/8w=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/czcorpus/cnc-gokit v0.11.0 h1:0DSWVAMu6TyBLxeBfTRB/yezoFKQPy1zW8yqUJmcBzg=
-github.com/czcorpus/cnc-gokit v0.11.0/go.mod h1:BZSRrYUFIHXVIiuqnSoZbfXfL2X/gHWG3w35aIVW36U=
+github.com/czcorpus/cnc-gokit v0.13.0 h1:1WmKVDibQvSJciPJuMUjlZCcIBP279+sOMvw8bzBb/U=
+github.com/czcorpus/cnc-gokit v0.13.0/go.mod h1:BZSRrYUFIHXVIiuqnSoZbfXfL2X/gHWG3w35aIVW36U=
 github.com/czcorpus/hltscl v0.2.0 h1:Rz4zNKGKHS/RchgXWnEobXTnvkHb+Cz63/JneBHroMo=
 github.com/czcorpus/hltscl v0.2.0/go.mod h1:qoi+22q0mRV5UPHNkda2PoTwZ2gaOKlt2U/7eCCzYoY=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

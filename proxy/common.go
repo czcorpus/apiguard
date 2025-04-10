@@ -8,6 +8,7 @@ package proxy
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -40,7 +41,8 @@ type GeneralProxyConf struct {
 }
 
 type BackendResponse interface {
-	GetBody() []byte
+	GetBodyReader() io.ReadCloser
+	CloseBodyReader() error
 	GetHeaders() http.Header
 	GetStatusCode() int
 	IsCached() bool

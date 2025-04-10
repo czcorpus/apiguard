@@ -13,6 +13,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -90,7 +91,13 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 		}
 
 		// check if there are multiple results
-		STIs, err := lookForSTI(string(resp.GetBody()))
+		defer resp.CloseBodyReader()
+		respBody, err := io.ReadAll(resp.GetBodyReader())
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
+			return
+		}
+		STIs, err := lookForSTI(string(respBody))
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
@@ -107,7 +114,7 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 					uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 					return
 				}
-				payload, err := parseData(string(resp.GetBody()))
+				payload, err := parseData(string(respBody))
 				if err != nil {
 					uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 					return
@@ -120,7 +127,7 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 			response.Query = query
 			break
 		} else {
-			payload, err := parseData(string(resp.GetBody()))
+			payload, err := parseData(string(respBody))
 			if err != nil {
 				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 				return
@@ -145,12 +152,18 @@ func (aa *SSJCActions) createMainRequest(url string, req *http.Request) proxy.Ba
 		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
 		err = aa.globalCtx.Cache.Set(req, resp)
 		if err != nil {
-			return &proxy.SimpleResponse{Err: err}
+			return &proxy.SimpleResponse{
+				BodyReader: proxy.EmptyReadCloser{},
+				Err:        err,
+			}
 		}
 		return resp
 
 	} else if err != nil {
-		return &proxy.SimpleResponse{Err: err}
+		return &proxy.SimpleResponse{
+			BodyReader: proxy.EmptyReadCloser{},
+			Err:        err,
+		}
 	}
 	return resp
 }

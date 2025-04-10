@@ -14,6 +14,7 @@ import (
 	"apiguard/session"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -245,7 +246,13 @@ func (prox *APIProxy) AnyPath(ctx *gin.Context) {
 		ctx.Writer.Header().Set(k, v[0])
 	}
 	ctx.Writer.WriteHeader(resp.GetStatusCode())
-	ctx.Writer.Write(resp.GetBody())
+	defer resp.GetBodyReader().Close()
+	body, err := io.ReadAll(resp.GetBodyReader())
+	if err != nil {
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+	ctx.Writer.Write(body)
 }
 
 // NewAPIProxy

@@ -11,6 +11,7 @@ import (
 	"apiguard/services/cnc"
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -51,13 +52,21 @@ func Interceptor(pr *proxy.ProxiedResponse) {
 			pr.Headers.Del("location")
 			pr.Headers.Del("content-encoding")
 			pr.Headers.Set("content-length", fmt.Sprintf("%d", len(fakePage)))
-			pr.Body = fakePage
+			pr.BodyReader = io.NopCloser(bytes.NewReader(fakePage))
 		}
 
 	} else {
-		srch := bytes.Index(pr.Body, []byte{'v', 'a', 'r', ' ', 'h', 'e', 'x'})
+		defer pr.BodyReader.Close()
+		body, err := io.ReadAll(pr.BodyReader)
+		if err != nil {
+			log.Error().
+				Err(err).
+				Msg("failed to read response body")
+			return
+		}
+		srch := bytes.Index(body, []byte{'v', 'a', 'r', ' ', 'h', 'e', 'x'})
 		if srch > 0 {
-			pr.Body = pr.Body[srch-5:]
+			pr.BodyReader = io.NopCloser(bytes.NewReader(body[srch-5:]))
 		}
 	}
 }

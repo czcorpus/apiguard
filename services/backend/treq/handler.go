@@ -15,6 +15,7 @@ import (
 	"apiguard/reporting"
 	"apiguard/services/backend"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -171,7 +172,18 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
 	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	ctx.Writer.Write(serviceResp.GetBody())
+	defer serviceResp.CloseBodyReader()
+	respBody, err := io.ReadAll(serviceResp.GetBodyReader())
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+		http.Error(
+			ctx.Writer,
+			fmt.Sprintf("failed to proxy request: %s", err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	ctx.Writer.Write(respBody)
 }
 
 func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {

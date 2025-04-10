@@ -5,8 +5,9 @@ go 1.23.0
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/bytedance/sonic v1.12.9
-	github.com/czcorpus/cnc-gokit v0.11.0
+	github.com/czcorpus/cnc-gokit v0.13.0
 	github.com/czcorpus/hltscl v0.2.0
+	github.com/davecgh/go-spew v1.1.1
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.6.0
@@ -25,7 +26,6 @@ require (
 	github.com/bytedance/sonic/loader v0.2.2 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
 	github.com/gin-contrib/sse v0.1.0 // indirect

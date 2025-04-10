@@ -50,29 +50,24 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return &SimpleResponse{
-			Body: []byte{},
-			Err:  err,
+			Err: err,
 		}
 	}
 	req.Header.Set("User-Agent", userAgent)
 	resp, err := client.Do(req)
 	if err != nil {
 		return &SimpleResponse{
-			Body: []byte{},
-			Err:  err,
+			Err: err,
 		}
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return &SimpleResponse{
-			Body: []byte{},
-			Err:  err,
+			Err: err,
 		}
 	}
 	return &SimpleResponse{
-		Body:       body,
 		StatusCode: resp.StatusCode,
+		BodyReader: resp.Body,
 	}
 }
 
@@ -117,7 +112,7 @@ func (proxy *APIProxy) Request(
 	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
 		return &ProxiedResponse{
-			Body:       []byte{},
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,
@@ -127,14 +122,57 @@ func (proxy *APIProxy) Request(
 	resp, err := proxy.client.Do(req)
 	if err != nil {
 		return &ProxiedResponse{
-			Body:       []byte{},
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,
 		}
 	}
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+	log.Debug().
+		Str("url", targetURL.String()).
+		Err(err).
+		Int("status", resp.StatusCode).
+		Msgf(">>> Proxy request >>>")
+
+	ansHeaders := resp.Header
+	proxy.transformRedirect(ansHeaders)
+	return &ProxiedResponse{
+		BodyReader: resp.Body,
+		Headers:    ansHeaders,
+		StatusCode: resp.StatusCode,
+		Err:        nil,
+	}
+}
+
+func (proxy *APIProxy) RequestStream(
+	urlPath string,
+	args url.Values,
+	method string,
+	headers http.Header,
+	rbody io.Reader,
+) *ProxiedStreamResponse {
+
+	targetURL := proxy.BackendURL.JoinPath(urlPath)
+	targetURL.RawQuery = args.Encode()
+	req, err := http.NewRequest(method, targetURL.String(), rbody)
+	if err != nil {
+		return &ProxiedStreamResponse{
+			BodyReader: EmptyReadCloser{},
+			Headers:    http.Header{},
+			StatusCode: http.StatusInternalServerError,
+			Err:        err,
+		}
+	}
+	req.Header = headers
+	resp, err := proxy.client.Do(req)
+	if err != nil {
+		return &ProxiedStreamResponse{
+			BodyReader: EmptyReadCloser{},
+			Headers:    http.Header{},
+			StatusCode: http.StatusInternalServerError,
+			Err:        err,
+		}
+	}
 	log.Debug().
 		Str("url", targetURL.String()).
 		Err(err).
@@ -142,8 +180,8 @@ func (proxy *APIProxy) Request(
 		Msgf(">>> Proxy request >>>")
 
 	if err != nil {
-		return &ProxiedResponse{
-			Body:       []byte{},
+		return &ProxiedStreamResponse{
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,
@@ -151,8 +189,8 @@ func (proxy *APIProxy) Request(
 	}
 	ansHeaders := resp.Header
 	proxy.transformRedirect(ansHeaders)
-	return &ProxiedResponse{
-		Body:       body,
+	return &ProxiedStreamResponse{
+		BodyReader: resp.Body,
 		Headers:    ansHeaders,
 		StatusCode: resp.StatusCode,
 		Err:        nil,

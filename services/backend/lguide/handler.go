@@ -161,7 +161,13 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
-	parsed := Parse(string(resp.GetBody()))
+	defer resp.GetBodyReader().Close()
+	respBody, err := io.ReadAll(resp.GetBodyReader())
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
+		return
+	}
+	parsed := Parse(string(respBody))
 	if len(parsed.Alternatives) > 0 {
 		alts := parsed.Alternatives
 		resp = lga.createMainRequest(
@@ -173,7 +179,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
-		parsed = Parse(string(resp.GetBody()))
+		parsed = Parse(string(respBody))
 		parsed.Alternatives = alts
 	}
 

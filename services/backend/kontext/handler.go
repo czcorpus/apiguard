@@ -166,8 +166,16 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 		)
 		return
 	}
-
-	resp1Body := serviceResp.GetBody()
+	defer serviceResp.GetBodyReader().Close()
+	resp1Body, err := io.ReadAll(serviceResp.GetBodyReader())
+	if err != nil {
+		http.Error(
+			ctx.Writer,
+			fmt.Sprintf("failed to proxy query_submit: %s", serviceResp.GetError()),
+			http.StatusInternalServerError,
+		)
+		return
+	}
 	var resp1 querySubmitResponse
 	if err := sonic.Unmarshal(resp1Body, &resp1); err != nil {
 		http.Error(
@@ -196,7 +204,17 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
 	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	ctx.Writer.Write([]byte(serviceResp.GetBody()))
+	defer serviceResp.GetBodyReader().Close()
+	body2, err := io.ReadAll(serviceResp.GetBodyReader())
+	if err != nil {
+		http.Error(
+			ctx.Writer,
+			fmt.Sprintf("failed to proxy query_submit: %s", err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	ctx.Writer.Write(body2)
 }
 
 func NewKontextProxy(

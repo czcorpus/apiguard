@@ -398,6 +398,9 @@ func InitServices(
 					} else if ctx.Param("path") == "/speeches" {
 						mqueryActions.Speeches(ctx)
 
+					} else if ctx.Param("path") == "/time-dist-word" {
+						mqueryActions.TimeDistAltWord(ctx)
+
 					} else {
 						mqueryActions.AnyPath(ctx)
 					}

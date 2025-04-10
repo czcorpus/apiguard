@@ -14,6 +14,7 @@ import (
 	"apiguard/reporting"
 	"apiguard/session"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -26,6 +27,7 @@ import (
 
 type CoreProxy struct {
 	globalCtx    *globctx.Context
+	BackendURL   *url.URL
 	conf         *ProxyConf
 	rConf        *EnvironConf
 	guard        guard.ServiceGuard
@@ -170,7 +172,18 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
 	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	ctx.Writer.Write([]byte(serviceResp.GetBody()))
+	defer serviceResp.CloseBodyReader()
+	respBody, err := io.ReadAll(serviceResp.GetBodyReader())
+	if err != nil {
+		log.Error().Err(err).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+		proxy.WriteError(
+			ctx,
+			fmt.Errorf("failed to proxy request: %s", err),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+	ctx.Writer.Write([]byte(respBody))
 }
 
 func (kp *CoreProxy) debugLogResponse(req *http.Request, res proxy.BackendResponse, err error) {
@@ -211,11 +224,16 @@ func NewCoreProxy(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}
+	bu, err := url.Parse(conf.BackendURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
+	}
 	return &CoreProxy{
 		globalCtx:         globalCtx,
 		conf:              conf,
 		rConf:             gConf,
 		frontendHost:      fu.Host,
+		BackendURL:        bu,
 		guard:             grd,
 		apiProxy:          proxy,
 		reqCounter:        reqCounter,

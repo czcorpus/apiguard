@@ -13,6 +13,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -83,8 +84,13 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
-
-		entries, err = parseData(string(resp.GetBody()))
+		defer resp.CloseBodyReader()
+		respBody, err := io.ReadAll(resp.GetBodyReader())
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
+			return
+		}
+		entries, err = parseData(string(respBody))
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return

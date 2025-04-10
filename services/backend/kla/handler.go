@@ -13,6 +13,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -94,8 +95,13 @@ func (aa *KLAActions) Query(ctx *gin.Context) {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
-
-		images, err = parseData(string(resp.GetBody()), maxImageCount, aa.conf.BaseURL)
+		defer resp.GetBodyReader().Close()
+		body, err := io.ReadAll(resp.GetBodyReader())
+		if err != nil {
+			uniresp.RespondWithErrorJSON(ctx, err, 500)
+			return
+		}
+		images, err = parseData(string(body), maxImageCount, aa.conf.BaseURL)
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return

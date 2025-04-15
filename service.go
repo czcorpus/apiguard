@@ -45,7 +45,6 @@ func initProxyEngine(
 	alarm *monitoring.AlarmTicker,
 	skipIPFilter bool,
 ) http.Handler {
-
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
@@ -207,10 +206,26 @@ func initProxyEngine(
 	return engine
 }
 
-func initWagStreamingEngine(conf *config.Configuration, actionHandler *wagstream.Actions) http.Handler {
+func initWagStreamingEngine(
+	conf *config.Configuration,
+	actionHandler *wagstream.Actions,
+	streamingCache wagstream.StreamingCache,
+	cacheWrites chan<- wagstream.CacheWriteChunkReq,
+) http.Handler {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
+	engine.Use(func(ctx *gin.Context) {
+		ctx.Writer = &wagstream.MainRespWriter{
+			ResponseWriter: ctx.Writer,
+			CacheWrites:    cacheWrites,
+			// CacheKey must be set later, in a corresponding wstream handler,
+			// once it decodes stream properies
+
+		}
+		ctx.Next()
+	})
+
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
@@ -256,9 +271,22 @@ func runService(conf *config.Configuration) {
 		engine = initProxyEngine(conf, globalCtx, alarm, false)
 		log.Info().Msg("running in the PROXY mode")
 	case config.OperationModeStreaming:
+		cacheWrites := make(chan wagstream.CacheWriteChunkReq, 100)
+		var cache wagstream.StreamingCache
+		if conf.DisableStreamingModeCache {
+			cache = wagstream.NewNullCache(ctx, cacheWrites)
+			log.Warn().Msg("wag streaming cache disabled in config")
+
+		} else {
+			cache = wagstream.NewCache(ctx, cacheWrites, globalCtx.CNCDB)
+		}
 		apiEngine := initProxyEngine(conf, globalCtx, alarm, true)
-		actionsHandler := wagstream.NewActions(ctx, apiEngine)
-		engine = initWagStreamingEngine(conf, actionsHandler)
+		// note that in streaming mode, caching for individual backend
+		// handlers is set to Null cache and only possible caching
+		// is centralized here
+
+		actionsHandler := wagstream.NewActions(ctx, cache, apiEngine)
+		engine = initWagStreamingEngine(conf, actionsHandler, cache, cacheWrites)
 		log.Info().Msg("running in the STREAMING mode")
 	default:
 		engine = nil

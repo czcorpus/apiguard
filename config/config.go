@@ -106,14 +106,15 @@ func (services *servicesSection) validate() error {
 */
 
 type Configuration struct {
-	apiAllowedClientsCache []net.IPNet
-	ServerHost             string        `json:"serverHost"`
-	ServerPort             int           `json:"serverPort"`
-	ServerReadTimeoutSecs  int           `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs int           `json:"serverWriteTimeoutSecs"`
-	TimeZone               string        `json:"timeZone"`
-	PublicRoutesURL        string        `json:"publicRoutesUrl"`
-	OperationMode          OperationMode `json:"operationMode"`
+	apiAllowedClientsCache    []net.IPNet
+	ServerHost                string        `json:"serverHost"`
+	ServerPort                int           `json:"serverPort"`
+	ServerReadTimeoutSecs     int           `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs    int           `json:"serverWriteTimeoutSecs"`
+	TimeZone                  string        `json:"timeZone"`
+	PublicRoutesURL           string        `json:"publicRoutesUrl"`
+	OperationMode             OperationMode `json:"operationMode"`
+	DisableStreamingModeCache bool          `json:"disableStreamingModeCache"`
 
 	// APIAllowedClients is a list of IP/CIDR addresses allowed to access the API.
 	// Mostly, we should stick here with our internal network.
@@ -121,7 +122,7 @@ type Configuration struct {
 	Botwatch          botwatch.Conf            `json:"botwatch"`
 	Telemetry         *telemetry.Conf          `json:"telemetry"`
 	Services          []GeneralServiceConf     `json:"services"`
-	Cache             proxy.CacheConf          `json:"cache"`
+	Cache             *proxy.CacheConf         `json:"cache"`
 	Reporting         *reporting.Conf          `json:"reporting"`
 	Logging           logging.LoggingConf      `json:"logging"`
 	Monitoring        *monitoring.LimitingConf `json:"monitoring"`

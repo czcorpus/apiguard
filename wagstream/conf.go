@@ -6,6 +6,12 @@
 
 package wagstream
 
+import (
+	"crypto/sha1"
+	"encoding/hex"
+	"strings"
+)
+
 // request is a single API request which we pack into
 // an HTTP stream request.
 type request struct {
@@ -59,4 +65,15 @@ func (srj *StreamRequestJSON) ApplyDefaults() {
 			v.ContentType = "application/json"
 		}
 	}
+}
+
+func (srj *StreamRequestJSON) ToCacheKey() string {
+	var buff strings.Builder
+	for _, req := range srj.Requests {
+		buff.WriteString(req.Method)
+		buff.WriteString(req.URL)
+		buff.WriteString(req.Body)
+	}
+	sum := sha1.Sum([]byte(buff.String()))
+	return hex.EncodeToString(sum[:])
 }

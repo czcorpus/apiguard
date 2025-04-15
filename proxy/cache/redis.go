@@ -44,12 +44,13 @@ func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions))
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
 		return nil, proxy.ErrCacheMiss
+
 	} else if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("proxy cache access error: %w", err)
 	}
 	_, err = rrc.redisClient.Expire(rrc.redisContext, cacheID, time.Duration(rrc.conf.TTLSecs)*time.Second).Result()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("proxy cache access error: %w", err)
 	}
 	reader := bytes.NewReader([]byte(val))
 	decoder := gob.NewDecoder(reader)
@@ -57,8 +58,9 @@ func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions))
 	err = decoder.Decode(&ans)
 	if err == nil {
 		ans.MarkCached()
+		return ans, nil
 	}
-	return ans, err
+	return nil, fmt.Errorf("proxy cache access error: %w", err)
 }
 
 func (rrc *Redis) Set(req *http.Request, resp proxy.BackendResponse, opts ...func(*proxy.CacheEntryOptions)) error {

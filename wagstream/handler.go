@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"reflect"
 	"sync"
 	"time"
 
@@ -29,6 +30,7 @@ const (
 type Actions struct {
 	apiRoutes http.Handler
 	streams   *streams
+	cache     StreamingCache
 }
 
 func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID int, err error) {
@@ -75,6 +77,38 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	if args == nil {
 		uniresp.RespondWithErrorJSON(
 			ctx, fmt.Errorf("stream %s not found", streamID), http.StatusNotFound)
+		return
+	}
+
+	ctx.Writer.Header().Set("Cache-Control", "no-cache")
+	ctx.Writer.Header().Set("Connection", "keep-alive")
+	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
+	ctx.Writer.Header().Set("Transfer-Encoding", "chunked")
+	// The following one is super-important; otherwise Nginx's buffering
+	// may interfere with how individual events are sent and the output
+	// may pause in the middle of already available event data.
+	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
+
+	cachingWriter, ok := ctx.Writer.(*MainRespWriter)
+	if !ok {
+		panic(fmt.Errorf("expected MainRespWriter in /wstream, found %s", reflect.TypeOf(ctx.Writer)))
+	}
+	defer cachingWriter.FinishCaching()
+	cacheKey := args.ToCacheKey()
+	data, err := actions.cache.Get(args)
+	if err == nil {
+		ctx.Writer.WriteString(data)
+		ctx.Writer.Flush()
+		return
+
+	} else if err == ErrCacheMiss {
+		// we set the cache writing key to configure writer
+		// to store data to cache
+		cachingWriter.CacheWriteKey = cacheKey
+
+	} else {
+		uniresp.RespondWithErrorJSON(
+			ctx, fmt.Errorf("failed to use wstream cache: %w", err), http.StatusInternalServerError)
 		return
 	}
 
@@ -155,14 +189,6 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		close(responseCh)
 	}()
 
-	ctx.Writer.Header().Set("Cache-Control", "no-cache")
-	ctx.Writer.Header().Set("Connection", "keep-alive")
-	ctx.Writer.Header().Set("Content-Type", "text/event-stream")
-	ctx.Writer.Header().Set("Transfer-Encoding", "chunked")
-	// The following one is super-important; otherwise Nginx's buffering
-	// may interfere with how individual events are sent and the output
-	// may pause in the middle of already available event data.
-	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
 	for {
 		select {
 		case response, ok := <-responseCh:
@@ -229,9 +255,10 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	}
 }
 
-func NewActions(ctx context.Context, apiRoutes http.Handler) *Actions {
+func NewActions(ctx context.Context, cache StreamingCache, apiRoutes http.Handler) *Actions {
 	a := &Actions{
 		apiRoutes: apiRoutes,
+		cache:     cache,
 		streams:   newStreams(),
 	}
 	tc := time.NewTicker(5 * time.Minute)

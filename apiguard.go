@@ -120,15 +120,21 @@ func createGlobalCtx(
 	tDBWriter.AddTableWriter(reporting.ProxyMonitoringTable)
 	tDBWriter.AddTableWriter(reporting.TelemetryMonitoringTable)
 
+	cncdb := openCNCDatabase(&conf.CNCDB)
+
 	var cacheBackend proxy.Cache
-	if conf.Cache.FileRootPath != "" {
-		cacheBackend = cache.NewFileCache(&conf.Cache)
-		log.Info().Msgf("using file request cache (path: %s)", conf.Cache.FileRootPath)
+	if conf.OperationMode == config.OperationModeStreaming {
+		cacheBackend = cache.NewNullCache()
+		log.Warn().Msg("streaming mode, individual service handlers won't use caching")
+
+	} else if conf.Cache.FileRootPath != "" {
+		cacheBackend = cache.NewFileCache(conf.Cache)
+		log.Info().Msgf("using file response cache (path: %s)", conf.Cache.FileRootPath)
 		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else if conf.Cache.RedisAddr != "" {
-		cacheBackend = cache.NewRedisCache(&conf.Cache)
-		log.Info().Msgf("using redis request cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
+		cacheBackend = cache.NewRedisCache(conf.Cache)
+		log.Info().Msgf("using redis response cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
 		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else {
@@ -139,7 +145,7 @@ func createGlobalCtx(
 	ans.TimezoneLocation = conf.TimezoneLocation()
 	ans.ReportingWriter = tDBWriter
 	ans.BackendLogger = globctx.NewBackendLogger(tDBWriter)
-	ans.CNCDB = openCNCDatabase(&conf.CNCDB)
+	ans.CNCDB = cncdb
 	ans.Cache = cacheBackend
 	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
 

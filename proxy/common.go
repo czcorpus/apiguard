@@ -51,26 +51,38 @@ type BackendResponse interface {
 }
 
 type CacheEntryOptions struct {
-	respectCookies []string
-	requestBody    []byte
-	cacheablePOST  bool
+	RespectCookies []string
+	RequestBody    []byte
+	CacheablePOST  bool
+
+	// tag may serve for debugging/reviewing cached entries
+	Tag string
 }
 
 func CachingWithCookies(cookies []string) func(*CacheEntryOptions) {
 	return func(opts *CacheEntryOptions) {
-		opts.respectCookies = cookies
+		opts.RespectCookies = cookies
 	}
 }
 
 func CachingWithReqBody(body []byte) func(*CacheEntryOptions) {
 	return func(opts *CacheEntryOptions) {
-		opts.requestBody = body
+		opts.RequestBody = body
 	}
 }
 
 func CachingWithCacheablePOST() func(*CacheEntryOptions) {
 	return func(opts *CacheEntryOptions) {
-		opts.cacheablePOST = true
+		opts.CacheablePOST = true
+	}
+}
+
+// CachingWithTag sets a tag which may become part
+// of cache's record. Some backend may not support it,
+// in which case they should silently ignore the option.
+func CachingWithTag(tag string) func(*CacheEntryOptions) {
+	return func(opts *CacheEntryOptions) {
+		opts.Tag = tag
 	}
 }
 

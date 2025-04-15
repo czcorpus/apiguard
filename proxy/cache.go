@@ -22,13 +22,13 @@ func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOp
 	h := sha1.New()
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))
-	if len(opts.respectCookies) > 0 {
+	if len(opts.RespectCookies) > 0 {
 		hashCookies := make([]string, 0)
 		respParams := http.Request{}
 		if resp != nil {
 			respParams.Header = resp.GetHeaders()
 		}
-		for _, respectCookie := range opts.respectCookies {
+		for _, respectCookie := range opts.RespectCookies {
 			respCookie, err := respParams.Cookie(respectCookie)
 			if err == nil {
 				hashCookies = append(hashCookies, respCookie.Name+"="+respCookie.Value)
@@ -42,8 +42,8 @@ func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOp
 		sort.Strings(hashCookies)
 		h.Write([]byte(strings.Join(hashCookies, ";")))
 	}
-	if len(opts.requestBody) > 0 {
-		h.Write(opts.requestBody)
+	if len(opts.RequestBody) > 0 {
+		h.Write(opts.RequestBody)
 	}
 	return h.Sum(nil)
 }
@@ -53,7 +53,7 @@ func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOp
 func IsCacheableProxying(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) bool {
 	ans := (resp.GetStatusCode() == http.StatusOK || resp.GetStatusCode() == http.StatusCreated) &&
 		resp.GetError() == nil &&
-		(req.Method == http.MethodGet || opts.cacheablePOST) &&
+		(req.Method == http.MethodGet || opts.CacheablePOST) &&
 		req.Header.Get("Cache-Control") != "no-cache"
 	log.Debug().
 		Str("url", req.URL.String()).

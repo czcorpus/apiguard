@@ -29,6 +29,11 @@ type MainRespWriter struct {
 	// won't attempt to store anything
 	CacheWriteKey string
 
+	// CacheTag is stored along with cached data and is intended
+	// for making stats and deciding what to keep in cache
+	// in the long term.
+	CacheTag CacheTag
+
 	CacheWrites chan<- CacheWriteChunkReq
 }
 
@@ -46,6 +51,7 @@ func (writer *MainRespWriter) WriteString(data string) (int, error) {
 	if writer.CacheWriteKey != "" {
 		writer.CacheWrites <- CacheWriteChunkReq{
 			Data: []byte(data),
+			Tag:  writer.CacheTag,
 			Key:  writer.CacheWriteKey,
 		}
 	}
@@ -54,7 +60,10 @@ func (writer *MainRespWriter) WriteString(data string) (int, error) {
 
 func (writer *MainRespWriter) FinishCaching() {
 	if writer.CacheWriteKey != "" {
-		writer.CacheWrites <- CacheWriteChunkReq{Flush: true, Key: writer.CacheWriteKey}
+		writer.CacheWrites <- CacheWriteChunkReq{
+			Flush: true,
+			Key:   writer.CacheWriteKey,
+		}
 	}
 }
 

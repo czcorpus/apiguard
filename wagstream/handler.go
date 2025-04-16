@@ -105,6 +105,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		// we set the cache writing key to configure writer
 		// to store data to cache
 		cachingWriter.CacheWriteKey = cacheKey
+		cachingWriter.CacheTag = args.Tag
 
 	} else {
 		uniresp.RespondWithErrorJSON(

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
 )
 
@@ -23,7 +24,7 @@ var ErrCacheMiss = errors.New("streaming cache miss")
 CREATE TABLE apiguard_persistent_cache (
 	id VARCHAR(50),
 	value MEDIUMTEXT,
-	tag VARCHAR(100),
+	tag JSON,
 	created DATETIME NOT NULL,
 	num_used INT NOT NULL DEFAULT 1,
 	last_used DATETIME NOT NULL,
@@ -31,6 +32,21 @@ CREATE TABLE apiguard_persistent_cache (
 )
 
 */
+
+type CacheTagUserQuery struct {
+	Word  string   `json:"word"`
+	PoS   []string `json:"pos"`
+	Lemma string   `json:"lemma"`
+}
+
+type CacheTag struct {
+	Queries      []CacheTagUserQuery `json:"queries"`
+	QueryType    string              `json:"queryType"`
+	Query1Domain string              `json:"query1Domain"`
+	Query2Domain string              `json:"query2Domain"`
+}
+
+// -------------------------------
 
 type MariaDBCacheRow struct {
 	ID       string
@@ -46,7 +62,7 @@ type MariaDBCacheRow struct {
 type CacheWriteChunkReq struct {
 	Data     []byte
 	Key      string
-	Tag      string
+	Tag      CacheTag
 	Flush    bool
 	Received time.Time
 }
@@ -65,26 +81,13 @@ type writeChunksReqs map[string]CacheWriteChunkReq
 func (wch writeChunksReqs) appendToExisting(value CacheWriteChunkReq) CacheWriteChunkReq {
 	curr, ok := wch[value.Key]
 	if !ok {
-		if len(value.Data) > 20 {
-			fmt.Println(">>>> SETTING NEW VALUE ", value.Key, " :: ", string(value.Data[:20]))
-
-		} else {
-			fmt.Println(">>>> SETTING NEW VALUE ", value.Key, " :: ---")
-		}
-
 		wch[value.Key] = value
 
 	} else {
-		if len(value.Data) > 20 {
-			fmt.Println(">>>> APPENDING VALUE ", value.Key, " :: ", string(value.Data[:20]))
-
-		} else {
-			fmt.Println(">>>> APPENDING VALUE ", value.Key, " :: ---")
-		}
 		curr.Data = append(curr.Data, value.Data...)
 		curr.Flush = curr.Flush || value.Flush // we need to make sure Flush won't get overwritten
 		curr.Received = value.Received
-		if curr.Tag == "" {
+		if len(curr.Tag.Queries) == 0 {
 			curr.Tag = value.Tag
 		}
 		wch[value.Key] = curr
@@ -165,12 +168,17 @@ func (backend *PersistentCache) Get(req *StreamRequestJSON) (string, error) {
 func (backend *PersistentCache) set(req CacheWriteChunkReq) error {
 	cacheID := req.Key
 	dt := time.Now()
+	tagJSON, err := sonic.Marshal(req.Tag)
+	if err != nil {
+		return fmt.Errorf("failed to serialize search tag to JSON: %w", err)
+	}
+
 	if _, err := backend.conn.Exec(
 		"INSERT INTO apiguard_persistent_cache (id, value, tag, created, num_used, last_used)"+
 			" VALUES (?, ?, ?, ?, ?, ?)"+
 			" ON DUPLICATE KEY UPDATE"+
 			" value = CONCAT(value, VALUES(value))",
-		cacheID, string(req.Data), req.Tag, dt, 1, dt,
+		cacheID, string(req.Data), tagJSON, dt, 1, dt,
 	); err != nil {
 		return fmt.Errorf("failed to store proxy response to cache: %w", err)
 	}

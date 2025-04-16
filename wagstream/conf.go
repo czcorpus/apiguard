@@ -54,6 +54,7 @@ type request struct {
 // to APIGuard's data streaming API proxy.
 type StreamRequestJSON struct {
 	Requests []*request `json:"requests"`
+	Tag      CacheTag   `json:"tag"`
 }
 
 func (srj *StreamRequestJSON) ApplyDefaults() {

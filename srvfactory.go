@@ -32,6 +32,7 @@ import (
 	"apiguard/services/backend/psjc"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
+	"apiguard/services/backend/w2v"
 	"apiguard/services/cnc"
 	"apiguard/session"
 	"encoding/json"
@@ -687,6 +688,62 @@ func InitServices(
 				hexActions.AnyPath,
 			)
 			log.Info().Int("sid", sid).Msg("Proxy for Hex enabled")
+
+		// W2V proxy
+		case "w2v":
+			var typedConf w2v.Conf
+			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
+				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+			}
+			if err := typedConf.Validate("w2v"); err != nil {
+				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+			}
+			client := httpclient.New(
+				httpclient.WithFollowRedirects(),
+				httpclient.WithInsecureSkipVerify(),
+				httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
+			)
+			analyzer := dflt.New(
+				ctx,
+				globalConf.CNCAuth.SessionCookieName,
+				typedConf.SessionValType,
+				typedConf.Limits,
+			)
+			go analyzer.Run()
+			backendURL, err := url.Parse(typedConf.BackendURL)
+			if err != nil {
+				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+			}
+			frontendUrl, err := url.Parse(typedConf.FrontendURL)
+			if err != nil {
+				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+			}
+			coreProxy, err := proxy.NewAPIProxy(typedConf.GetCoreConf())
+			if err != nil {
+				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+			}
+
+			w2vActions := public.NewAPIProxy(
+				ctx,
+				coreProxy,
+				sid,
+				client,
+				analyzer.ExposeAsCounter(),
+				analyzer,
+				public.PublicAPIProxyOpts{
+					ServiceKey:       fmt.Sprintf("%d/w2v", sid),
+					ServicePath:      fmt.Sprintf("/service/%d/w2v", sid),
+					BackendURL:       backendURL,
+					FrontendURL:      frontendUrl,
+					AuthCookieName:   globalConf.CNCAuth.SessionCookieName,
+					UserIDHeaderName: typedConf.TrueUserIDHeader,
+					ReadTimeoutSecs:  globalConf.ServerReadTimeoutSecs,
+				},
+			)
+			apiRoutes.Any(
+				fmt.Sprintf("/service/%d/w2v/*path", sid),
+				w2vActions.AnyPath)
+			log.Info().Int("sid", sid).Msg("Proxy for w2v enabled")
 
 		default:
 			log.Warn().Msgf("Ignoring unknown service %d: %s", sid, servConf.Type)

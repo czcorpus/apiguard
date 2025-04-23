@@ -123,7 +123,16 @@ func (actions *Actions) Open(ctx *gin.Context) {
 		}
 	}()
 
+	// WaG may intentionally (if two or more tiles require the same data) produce requests
+	// where multiple tiles have the same request URL. In such case, we will keep track
+	// of URL => tiles mapping and only unique URLs will be sent to corresponding backends.
+	groupedRequests := make(groupedRequests)
+
 	for _, reqData := range args.Requests {
+		groupedRequests.register(reqData)
+	}
+
+	for reqData, tiles := range groupedRequests.valIter {
 		wg.Add(1)
 		go func(rd request) {
 			var bodyReader io.Reader
@@ -137,11 +146,13 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			req.Header.Add("content-type", rd.ContentType)
 
 			if rd.URL == "" { // this for situations where WaG needs an empty response
-				responseCh <- &StreamingReadyResp{
-					TileID: rd.TileID,
-					Source: rd.URL,
-					Data:   actions.emptyResponse(req),
-					Status: http.StatusOK,
+				for _, tile := range tiles {
+					responseCh <- &StreamingReadyResp{
+						TileID: tile,
+						Source: rd.URL,
+						Data:   actions.emptyResponse(req),
+						Status: http.StatusOK,
+					}
 				}
 
 			} else if rd.IsEventSource {
@@ -154,10 +165,12 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				// Without that, the channel won't get closed which
 				// would cause the main data stream to never finish!
 				for resp := range apiWriter.Responses() {
-					responseCh <- &RawStreamingReadyResp{
-						TileID: rd.TileID,
-						Data:   resp,
-						Status: apiWriter.statusCode,
+					for _, tile := range tiles {
+						responseCh <- &RawStreamingReadyResp{
+							TileID: tile,
+							Data:   resp,
+							Status: apiWriter.statusCode,
+						}
 					}
 				}
 
@@ -172,11 +185,13 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				} else {
 					data = apiWriter.GetRawBytes()
 				}
-				responseCh <- &StreamingReadyResp{
-					TileID: rd.TileID,
-					Source: rd.URL,
-					Data:   data,
-					Status: apiWriter.StatusCode(),
+				for _, tile := range tiles {
+					responseCh <- &StreamingReadyResp{
+						TileID: tile,
+						Source: rd.URL,
+						Data:   data,
+						Status: apiWriter.StatusCode(),
+					}
 				}
 			}
 			wg.Done()

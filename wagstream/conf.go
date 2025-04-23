@@ -50,6 +50,17 @@ type request struct {
 	IsEventSource bool `json:"isEventSource"`
 }
 
+func (req *request) dedupKey() string {
+	var buff strings.Builder
+	buff.WriteString(req.Method)
+	buff.WriteString(req.URL)
+	buff.WriteString(req.Body)
+	sum := sha1.Sum([]byte(buff.String()))
+	return hex.EncodeToString(sum[:])
+}
+
+// --------------------------------------------------
+
 // StreamRequestJSON represents an HTTP body of a request
 // to APIGuard's data streaming API proxy.
 type StreamRequestJSON struct {

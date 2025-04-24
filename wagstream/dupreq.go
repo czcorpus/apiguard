@@ -6,13 +6,21 @@
 
 package wagstream
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/czcorpus/cnc-gokit/collections"
+)
+
 // groupedRequests maps between tile URLs (here keys)
 // and tileIDs (here values)
-type groupedRequests map[string][]*request
+type groupedRequests map[int][]*request
 
 // register adds a new tileID=>URL pair.
 func (ureqs groupedRequests) register(req *request) {
-	reqKey := req.dedupKey()
+	reqKey := req.groupingKey()
 	vals, ok := ureqs[reqKey]
 	if ok {
 		vals = append(vals, req)
@@ -24,12 +32,23 @@ func (ureqs groupedRequests) register(req *request) {
 	}
 }
 
-func (ureqs groupedRequests) keyIter(yield func(item string) bool) {
-	for k := range ureqs {
-		if !yield(k) {
-			return
+func (ureqs groupedRequests) String() string {
+	var ans strings.Builder
+	var i int
+	for k, v := range ureqs {
+		values := strings.Join(
+			collections.SliceMap(v, func(v *request, i int) string {
+				return strconv.Itoa(v.TileID)
+			}),
+			", ",
+		)
+		if i > 0 {
+			ans.WriteString("; ")
 		}
+		ans.WriteString(fmt.Sprintf("%d => %s", k, values))
+		i++
 	}
+	return fmt.Sprintf("groupedRequests{ %s }", ans.String())
 }
 
 func (ureqs groupedRequests) valIter(yield func(item *request, tiles []int) bool) {

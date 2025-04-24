@@ -14,8 +14,21 @@ import (
 
 // request is a single API request which we pack into
 // an HTTP stream request.
+// In WaG, the corresponding types are:
+// - TileRequest
+// - OtherTileRequest
 type request struct {
 	TileID int `json:"tileId"`
+
+	/**
+	 * OtherTileID, if specified, declares that the tile
+	 * TileID wants to read the same data as OtherTileID.
+	 * If set, then URL, Method, Body are ignored and
+	 * APIGuard will respond by the corresponding data
+	 * also to this tile.
+	 *
+	 */
+	OtherTileID *int `json:"otherTileId"`
 
 	// URL is an APIGuard service URL we want to query
 	// and read the result from data stream. I.e. this
@@ -50,13 +63,11 @@ type request struct {
 	IsEventSource bool `json:"isEventSource"`
 }
 
-func (req *request) dedupKey() string {
-	var buff strings.Builder
-	buff.WriteString(req.Method)
-	buff.WriteString(req.URL)
-	buff.WriteString(req.Body)
-	sum := sha1.Sum([]byte(buff.String()))
-	return hex.EncodeToString(sum[:])
+func (req *request) groupingKey() int {
+	if req.OtherTileID != nil {
+		return *req.OtherTileID
+	}
+	return req.TileID
 }
 
 // --------------------------------------------------

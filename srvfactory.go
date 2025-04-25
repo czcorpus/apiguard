@@ -30,6 +30,7 @@ import (
 	"apiguard/services/backend/mquery"
 	"apiguard/services/backend/neomat"
 	"apiguard/services/backend/psjc"
+	"apiguard/services/backend/scollex"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
 	"apiguard/services/backend/w2v"
@@ -744,6 +745,79 @@ func InitServices(
 				fmt.Sprintf("/service/%d/w2v/*path", sid),
 				w2vActions.AnyPath)
 			log.Info().Int("sid", sid).Msg("Proxy for w2v enabled")
+
+		// Scollex proxy
+		case "scollex":
+			var typedConf scollex.Conf
+			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
+				return fmt.Errorf("failed to initialize service %d (scollex): %w", sid, err)
+			}
+			// we don't want to bother admins with none session type, so we set it here
+			typedConf.SessionValType = session.SessionTypeNone
+			if err := typedConf.Validate("scollex"); err != nil {
+				return fmt.Errorf("failed to initialize service %d (scollex): %w", sid, err)
+			}
+			var scollexReqCounter chan<- guard.RequestInfo
+			if len(typedConf.Limits) > 0 {
+				scollexReqCounter = alarm.Register(
+					fmt.Sprintf("%d/scollex", sid),
+					typedConf.Alarm,
+					typedConf.Limits,
+				)
+			}
+			var grd guard.ServiceGuard
+			switch typedConf.GuardType {
+			case guard.GuardTypeToken:
+				grd = token.NewGuard(
+					ctx,
+					fmt.Sprintf("/service/%d/scollex", sid),
+					typedConf.TokenHeaderName,
+					typedConf.Limits,
+					typedConf.Tokens,
+					[]string{"/openapi"},
+				)
+			case guard.GuardTypeDflt:
+				grd = dflt.New(
+					ctx,
+					globalConf.CNCAuth.SessionCookieName,
+					typedConf.SessionValType,
+					typedConf.Limits,
+				)
+			default:
+				return fmt.Errorf("scollex proxy does not support guard type `%s`", typedConf.GuardType)
+			}
+
+			scollexActions, err := scollex.NewScollexProxy(
+				ctx,
+				&typedConf.ProxyConf,
+				&cnc.EnvironConf{
+					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
+					AuthTokenEntry:    authTokenEntry,
+					ServicePath:       fmt.Sprintf("/service/%d/scollex", sid),
+					ServiceKey:        fmt.Sprintf("%d/scollex", sid),
+					CNCPortalLoginURL: cncPortalLoginURL,
+					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
+					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
+				},
+				grd,
+				scollexReqCounter,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to initialize service %d (scollex): %w", sid, err)
+			}
+
+			apiRoutes.Any(
+				fmt.Sprintf("/service/%d/scollex/*path", sid),
+				func(ctx *gin.Context) {
+					if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
+						scollexActions.Login(ctx)
+
+					} else {
+						scollexActions.AnyPath(ctx)
+					}
+				},
+			)
+			log.Info().Int("sid", sid).Msg("Proxy for Scollex enabled")
 
 		default:
 			log.Warn().Msgf("Ignoring unknown service %d: %s", sid, servConf.Type)

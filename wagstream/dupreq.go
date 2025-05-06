@@ -51,11 +51,16 @@ func (ureqs groupedRequests) String() string {
 	return fmt.Sprintf("groupedRequests{ %s }", ans.String())
 }
 
-func (ureqs groupedRequests) valIter(yield func(item *request, tiles []int) bool) {
+type reqIdent struct {
+	TileID   int
+	QueryIdx int
+}
+
+func (ureqs groupedRequests) valIter(yield func(item *request, tiles []reqIdent) bool) {
 	for _, v := range ureqs {
-		tiles := make([]int, len(v))
+		tiles := make([]reqIdent, len(v))
 		for i, t := range v {
-			tiles[i] = t.TileID
+			tiles[i] = reqIdent{TileID: t.TileID, QueryIdx: t.QueryIdx}
 		}
 		if !yield(v[0], tiles) {
 			return

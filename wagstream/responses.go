@@ -13,6 +13,11 @@ import "time"
 type StreamingReadyResp struct {
 	TileID int
 
+	// QueryIdx specifies query number. In the "single" mode WaG search, this
+	// must be always 0. In the "cmp" mode, it corresponds queries user entered
+	// for comparison.
+	QueryIdx int
+
 	// Source is a unique identifier specifying requested data. Naturally,
 	// original APIGuard URL which would be used in the "proxy" mode,
 	// is the best solution for this. Such value is easy to register
@@ -33,7 +38,10 @@ type StreamingReadyResp struct {
 // EventSource data (e.g. chunked time distrib in MQuery).
 type RawStreamingReadyResp struct {
 	TileID int
-	Data   []byte
+
+	QueryIdx int
+
+	Data []byte
 	// Status contains the original HTTP status code as obtained
 	// from an API
 	Status int

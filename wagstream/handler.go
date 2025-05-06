@@ -124,8 +124,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	}()
 
 	// WaG may intentionally (if two or more tiles require the same data) produce requests
-	// where multiple tiles have the same request URL. In such case, we will keep track
-	// of URL => tiles mapping and only unique URLs will be sent to corresponding backends.
+	// which just read data from other tiles. For that matter, we need to group the tiles.
 	groupedRequests := make(groupedRequests)
 
 	for _, reqData := range args.Requests {
@@ -148,10 +147,11 @@ func (actions *Actions) Open(ctx *gin.Context) {
 			if rd.URL == "" { // this for situations where WaG needs an empty response
 				for _, tile := range tiles {
 					responseCh <- &StreamingReadyResp{
-						TileID: tile,
-						Source: rd.URL,
-						Data:   actions.emptyResponse(req),
-						Status: http.StatusOK,
+						TileID:   tile.TileID,
+						QueryIdx: tile.QueryIdx,
+						Source:   rd.URL,
+						Data:     actions.emptyResponse(req),
+						Status:   http.StatusOK,
 					}
 				}
 
@@ -167,9 +167,10 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				for resp := range apiWriter.Responses() {
 					for _, tile := range tiles {
 						responseCh <- &RawStreamingReadyResp{
-							TileID: tile,
-							Data:   resp,
-							Status: apiWriter.statusCode,
+							TileID:   tile.TileID,
+							QueryIdx: tile.QueryIdx,
+							Data:     resp,
+							Status:   apiWriter.statusCode,
 						}
 					}
 				}
@@ -187,10 +188,11 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				}
 				for _, tile := range tiles {
 					responseCh <- &StreamingReadyResp{
-						TileID: tile,
-						Source: rd.URL,
-						Data:   data,
-						Status: apiWriter.StatusCode(),
+						TileID:   tile.TileID,
+						QueryIdx: tile.QueryIdx,
+						Source:   rd.URL,
+						Data:     data,
+						Status:   apiWriter.StatusCode(),
 					}
 				}
 			}
@@ -221,7 +223,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				eventData := string(tResponse.Data)
 				_, err := ctx.Writer.WriteString(
 					fmt.Sprintf(
-						"event: DataTile-%d\ndata: %s\n\n", tResponse.TileID, eventData),
+						"event: DataTile-%d.%d\ndata: %s\n\n", tResponse.TileID, tResponse.QueryIdx, eventData),
 				)
 				if err != nil {
 					// not much we can do here

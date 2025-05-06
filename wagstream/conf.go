@@ -20,6 +20,11 @@ import (
 type request struct {
 	TileID int `json:"tileId"`
 
+	// QueryIdx specifies query number. In the "single" mode WaG search, this
+	// must be always 0. In the "cmp" mode, it corresponds queries user entered
+	// for comparison.
+	QueryIdx int `json:"queryIdx"`
+
 	/**
 	 * OtherTileID, if specified, declares that the tile
 	 * TileID wants to read the same data as OtherTileID.
@@ -29,6 +34,11 @@ type request struct {
 	 *
 	 */
 	OtherTileID *int `json:"otherTileId"`
+
+	// OtherTileQueryIdx has the same function as QueryIdx
+	// but for the "other" tile (i.e. to address a concrete
+	// query in the "other" tile)
+	OtherTileQueryIdx *int `json:"otherTileQueryIdx"`
 
 	// URL is an APIGuard service URL we want to query
 	// and read the result from data stream. I.e. this

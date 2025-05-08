@@ -11,7 +11,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -105,10 +104,6 @@ type PersistentCache struct {
 	buffer        writeChunksReqs
 }
 
-func (backend *PersistentCache) isPingEntry(ch CacheWriteChunkReq) bool {
-	return strings.HasPrefix(string(ch.Data), "data: ")
-}
-
 func (backend *PersistentCache) listenAndWriteAccesses(ctx context.Context) {
 	for {
 		select {
@@ -129,10 +124,6 @@ func (backend *PersistentCache) listenAndWriteAccesses(ctx context.Context) {
 			}
 		case entry := <-backend.writes:
 			// TODO remove old recs
-			if backend.isPingEntry(entry) {
-				log.Debug().Msgf("cache skipping PING entry: %s", string(entry.Data))
-				continue
-			}
 			mergedEntry := backend.buffer.appendToExisting(entry)
 			if mergedEntry.Flush {
 				firstErrMsg, event, err := findErrorMsgInStream(mergedEntry.Data)

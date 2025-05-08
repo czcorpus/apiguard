@@ -140,7 +140,6 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				bodyBuff.Write([]byte(rd.Body))
 				bodyReader = bodyBuff
 			}
-			log.Debug().Str("url", rd.URL).Str("method", rd.Method).Msg("registering wstream backend request")
 			req, _ := http.NewRequest(rd.Method, rd.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
 			req.Header.Add("content-type", rd.ContentType)

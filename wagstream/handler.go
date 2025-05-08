@@ -126,10 +126,11 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	// WaG may intentionally (if two or more tiles require the same data) produce requests
 	// which just read data from other tiles. For that matter, we need to group the tiles.
 	groupedRequests := make(groupedRequests)
-
 	for _, reqData := range args.Requests {
 		groupedRequests.register(reqData)
 	}
+
+	log.Debug().Any("groups", groupedRequests).Msg("created grouped wstream requests")
 
 	for reqData, tiles := range groupedRequests.valIter {
 		wg.Add(1)
@@ -140,6 +141,7 @@ func (actions *Actions) Open(ctx *gin.Context) {
 				bodyBuff.Write([]byte(rd.Body))
 				bodyReader = bodyBuff
 			}
+			log.Debug().Str("url", rd.URL).Str("method", rd.Method).Msg("registering wstream backend request")
 			req, _ := http.NewRequest(rd.Method, rd.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
 			req.Header.Add("content-type", rd.ContentType)

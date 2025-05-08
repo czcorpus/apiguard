@@ -11,13 +11,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/rs/zerolog/log"
 )
 
-var ErrCacheMiss = errors.New("streaming cache miss")
+var (
+	ErrCacheMiss    = errors.New("streaming cache miss")
+	pingSrchPattern = regexp.MustCompile(`^data:\s+[0-9]+`)
+)
 
 /*
 
@@ -104,6 +108,10 @@ type PersistentCache struct {
 	buffer        writeChunksReqs
 }
 
+func (backend *PersistentCache) isPingEntry(ch CacheWriteChunkReq) bool {
+	return pingSrchPattern.Match(ch.Data)
+}
+
 func (backend *PersistentCache) listenAndWriteAccesses(ctx context.Context) {
 	for {
 		select {
@@ -124,6 +132,10 @@ func (backend *PersistentCache) listenAndWriteAccesses(ctx context.Context) {
 			}
 		case entry := <-backend.writes:
 			// TODO remove old recs
+			if backend.isPingEntry(entry) {
+				log.Debug().Msgf("cache skipping PING entry: %s", string(entry.Data))
+				continue
+			}
 			mergedEntry := backend.buffer.appendToExisting(entry)
 			if mergedEntry.Flush {
 				firstErrMsg, event, err := findErrorMsgInStream(mergedEntry.Data)

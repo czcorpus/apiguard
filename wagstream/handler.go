@@ -7,6 +7,8 @@
 package wagstream
 
 import (
+	"apiguard/wagstream/tileconf"
+	loader "apiguard/wagstream/tileconf"
 	"bytes"
 	"context"
 	"fmt"
@@ -28,9 +30,14 @@ const (
 )
 
 type Actions struct {
-	apiRoutes http.Handler
-	streams   *streams
-	cache     StreamingCache
+	apiRoutes  http.Handler
+	streams    *streams
+	cache      StreamingCache
+	confLoader wagConfLoader
+}
+
+type wagConfLoader interface {
+	GetConf(db, id string) ([]byte, error)
 }
 
 func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID int, err error) {
@@ -47,7 +54,7 @@ func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID int, err er
 	)
 }
 
-func (actions *Actions) Create(ctx *gin.Context) {
+func (actions *Actions) CreateStream(ctx *gin.Context) {
 	var args StreamRequestJSON
 
 	if err := ctx.BindJSON(&args); err != nil {
@@ -67,11 +74,11 @@ func (actions *Actions) emptyResponse(req *http.Request) []byte {
 	return []byte{}
 }
 
-// Open handles the "open wstream" request which is basically a list
+// StartStream handles the "open wstream" request which is basically a list
 // of requests to individual APIs configured in APIGuard. It creates
 // an EventSource stream and returns data as they arrive from those
 // APIs.
-func (actions *Actions) Open(ctx *gin.Context) {
+func (actions *Actions) StartStream(ctx *gin.Context) {
 	streamID := ctx.Param("id")
 	args := actions.streams.Get(streamID)
 	if args == nil {
@@ -275,11 +282,39 @@ func (actions *Actions) Open(ctx *gin.Context) {
 	}
 }
 
-func NewActions(ctx context.Context, cache StreamingCache, apiRoutes http.Handler) *Actions {
+func (actions *Actions) TileConf(ctx *gin.Context) {
+	data, err := actions.confLoader.GetConf(ctx.Param("db"), ctx.Param("id"))
+	if err == tileconf.ErrNotFound {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusNotFound)
+		return
+
+	} else if err != nil {
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+		return
+	}
+	uniresp.WriteRawJSONResponse(ctx.Writer, data)
+}
+
+func NewActions(
+	ctx context.Context,
+	cache StreamingCache,
+	apiRoutes http.Handler,
+	wagTilesConfDir string,
+) *Actions {
+	var confLoader wagConfLoader
+	if wagTilesConfDir != "" {
+		confLoader = &loader.JSONFiles{RootDir: wagTilesConfDir}
+
+	} else {
+		log.Warn().Msg("no wagTilesConfDir specified - APIGuard will not serve as WaG tile configuration provider")
+		confLoader = &loader.Null{}
+	}
+
 	a := &Actions{
-		apiRoutes: apiRoutes,
-		cache:     cache,
-		streams:   newStreams(),
+		apiRoutes:  apiRoutes,
+		cache:      cache,
+		streams:    newStreams(),
+		confLoader: confLoader,
 	}
 	tc := time.NewTicker(5 * time.Minute)
 	go func() {

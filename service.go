@@ -229,8 +229,10 @@ func initWagStreamingEngine(
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
-	engine.PUT("/wstream", actionHandler.Create)
-	engine.GET("/wstream/:id", actionHandler.Open)
+	engine.PUT("/wag/stream", actionHandler.CreateStream)
+	engine.GET("/wag/stream/:id", actionHandler.StartStream)
+	engine.GET("/wag/tileconf/:db/:id", actionHandler.TileConf)
+
 	return engine
 }
 
@@ -285,7 +287,8 @@ func runService(conf *config.Configuration) {
 		// handlers is set to Null cache and only possible caching
 		// is centralized here
 
-		actionsHandler := wagstream.NewActions(ctx, cache, apiEngine)
+		actionsHandler := wagstream.NewActions(
+			ctx, cache, apiEngine, conf.WagTilesConfDir)
 		engine = initWagStreamingEngine(conf, actionsHandler, cache, cacheWrites)
 		log.Info().Msg("running in the STREAMING mode")
 	default:

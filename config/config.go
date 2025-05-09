@@ -20,6 +20,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
 )
@@ -115,6 +116,7 @@ type Configuration struct {
 	PublicRoutesURL           string        `json:"publicRoutesUrl"`
 	OperationMode             OperationMode `json:"operationMode"`
 	DisableStreamingModeCache bool          `json:"disableStreamingModeCache"`
+	WagTilesConfDir           string        `json:"wagTilesConfDir"`
 
 	// APIAllowedClients is a list of IP/CIDR addresses allowed to access the API.
 	// Mostly, we should stick here with our internal network.
@@ -192,6 +194,16 @@ func (c *Configuration) Validate() error {
 	if err := c.OperationMode.Validate(); err != nil {
 		return err
 	}
+	if c.WagTilesConfDir != "" {
+		isDir, err := fs.IsDir(c.WagTilesConfDir)
+		if err != nil {
+			return fmt.Errorf("failed to test wagTilesConfDir %s: %w", c.WagTilesConfDir, err)
+		}
+		if !isDir {
+			return fmt.Errorf("wagTilesConfDir %s is not a directory", c.WagTilesConfDir)
+		}
+	}
+
 	return nil
 }
 

@@ -23,7 +23,12 @@ func (ureqs groupedRequests) register(req *request) {
 	reqKey := req.groupingKey()
 	vals, ok := ureqs[reqKey]
 	if ok {
-		vals = append(vals, req)
+		if req.OtherTileID == nil { // request without a dependency must be always first
+			vals = append([]*request{req}, vals...)
+
+		} else {
+			vals = append(vals, req)
+		}
 		ureqs[reqKey] = vals
 
 	} else {

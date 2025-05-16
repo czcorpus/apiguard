@@ -66,7 +66,7 @@ type MariaDBCacheRow struct {
 type CacheWriteChunkReq struct {
 	Data     []byte
 	Key      string
-	Tag      CacheTag
+	Tag      *CacheTag
 	Flush    bool
 	Received time.Time
 }

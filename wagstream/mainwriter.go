@@ -26,13 +26,13 @@ type MainRespWriter struct {
 
 	// CacheWriteKey specifies cache key under which writer's
 	// data will be stored to cache. If empty, then the writer
-	// won't attempt to store anything
+	// won't attempt to store anything.
 	CacheWriteKey string
 
 	// CacheTag is stored along with cached data and is intended
 	// for making stats and deciding what to keep in cache
 	// in the long term.
-	CacheTag CacheTag
+	CacheTag *CacheTag
 
 	CacheWrites chan<- CacheWriteChunkReq
 }

@@ -86,7 +86,7 @@ func (req *request) groupingKey() int {
 // to APIGuard's data streaming API proxy.
 type StreamRequestJSON struct {
 	Requests []*request `json:"requests"`
-	Tag      CacheTag   `json:"tag"`
+	Tag      *CacheTag  `json:"tag"`
 }
 
 func (srj *StreamRequestJSON) ApplyDefaults() {
@@ -100,7 +100,13 @@ func (srj *StreamRequestJSON) ApplyDefaults() {
 	}
 }
 
+// ToCacheKey produces a deterministic cache key
+// of the request. In case the request has the attribute
+// Tag empty, empty string is returned which means "no caching"
 func (srj *StreamRequestJSON) ToCacheKey() string {
+	if srj.Tag == nil {
+		return ""
+	}
 	var buff strings.Builder
 	for _, req := range srj.Requests {
 		buff.WriteString(req.Method)

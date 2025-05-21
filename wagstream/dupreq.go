@@ -16,7 +16,7 @@ import (
 
 // groupedRequests maps between tile URLs (here keys)
 // and tileIDs (here values)
-type groupedRequests map[int][]*request
+type groupedRequests map[string][]*request
 
 // register adds a new tileID=>URL pair.
 func (ureqs groupedRequests) register(req *request) {
@@ -50,7 +50,7 @@ func (ureqs groupedRequests) String() string {
 		if i > 0 {
 			ans.WriteString("; ")
 		}
-		ans.WriteString(fmt.Sprintf("%d => %s", k, values))
+		ans.WriteString(fmt.Sprintf("%s => %s", k, values))
 		i++
 	}
 	return fmt.Sprintf("groupedRequests{ %s }", ans.String())

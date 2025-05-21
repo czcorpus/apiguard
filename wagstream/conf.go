@@ -9,7 +9,10 @@ package wagstream
 import (
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"strings"
+
+	"github.com/czcorpus/cnc-gokit/util"
 )
 
 // request is a single API request which we pack into
@@ -73,11 +76,9 @@ type request struct {
 	IsEventSource bool `json:"isEventSource"`
 }
 
-func (req *request) groupingKey() int {
-	if req.OtherTileID != nil {
-		return *req.OtherTileID
-	}
-	return req.TileID
+func (req *request) groupingKey() string {
+	tid := util.Ternary(req.OtherTileID != nil, *req.OtherTileID, req.TileID)
+	return fmt.Sprintf("%d.%d", tid, req.QueryIdx)
 }
 
 // --------------------------------------------------

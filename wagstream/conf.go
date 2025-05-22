@@ -11,8 +11,6 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
-
-	"github.com/czcorpus/cnc-gokit/util"
 )
 
 // request is a single API request which we pack into
@@ -77,8 +75,14 @@ type request struct {
 }
 
 func (req *request) groupingKey() string {
-	tid := util.Ternary(req.OtherTileID != nil, *req.OtherTileID, req.TileID)
-	return fmt.Sprintf("%d.%d", tid, req.QueryIdx)
+	var tileID int
+	if req.OtherTileID != nil {
+		tileID = *req.OtherTileID
+
+	} else {
+		tileID = req.TileID
+	}
+	return fmt.Sprintf("%d.%d", tileID, req.QueryIdx)
 }
 
 // --------------------------------------------------

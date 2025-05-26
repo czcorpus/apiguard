@@ -44,10 +44,10 @@ type CacheTagUserQuery struct {
 }
 
 type CacheTag struct {
-	Queries      []CacheTagUserQuery `json:"queries"`
-	QueryType    string              `json:"queryType"`
-	Query1Domain string              `json:"query1Domain"`
-	Query2Domain string              `json:"query2Domain"`
+	Queries       []CacheTagUserQuery `json:"queries"`
+	QueryType     string              `json:"queryType"`
+	ApplicationID string              `json:"applicationId"`
+	TranslatLang  string              `json:"translatLang"`
 }
 
 // -------------------------------

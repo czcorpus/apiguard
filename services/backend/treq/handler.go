@@ -88,10 +88,9 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		Msg("evaluated user treq/* request")
 	clientID = reqProps.ClientID
 	if reqProps.Error != nil {
-		// TODO
-		http.Error(
-			ctx.Writer,
-			fmt.Sprintf("Failed to proxy request: %s", reqProps.Error),
+		proxy.WriteError(
+			ctx,
+			fmt.Errorf("Failed to proxy request: %w", reqProps.Error),
 			reqProps.ProposedResponse,
 		)
 		return

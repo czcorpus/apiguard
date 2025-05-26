@@ -108,7 +108,8 @@ func ExtractClientIP(req *http.Request) string {
 }
 
 func WriteError(ctx *gin.Context, err error, status int) {
-	if ctx.Request.Header.Get("content-type") == "application/json" {
+	if ctx.Request.Header.Get("content-type") == "application/json" ||
+		ctx.Request.Header.Get("content-type") == "text/event-stream" {
 		uniresp.RespondWithErrorJSON(
 			ctx,
 			fmt.Errorf("failed to proxy request: %s", err),

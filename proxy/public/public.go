@@ -174,7 +174,7 @@ func (prox *APIProxy) AnyPath(ctx *gin.Context) {
 	}
 	prox.clientCounter <- clientID
 
-	reqProps := prox.guard.EvaluateRequest(ctx.Request)
+	reqProps := prox.guard.EvaluateRequest(ctx.Request, nil)
 	if reqProps.Error != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
 		proxy.WriteError(

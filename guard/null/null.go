@@ -28,7 +28,7 @@ func (sra *Guard) LogAppliedDelay(respDelay time.Duration, clientID common.Clien
 	return nil
 }
 
-func (sra *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
+func (sra *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
 	return guard.ReqEvaluation{
 		ProposedResponse: http.StatusOK,
 	}

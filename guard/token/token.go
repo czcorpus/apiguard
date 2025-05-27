@@ -104,7 +104,7 @@ func (g *Guard) pathMatchesExclude(req *http.Request) bool {
 	return false
 }
 
-func (g *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
+func (g *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
 	userID := g.validateToken(req.Header.Get(g.tokenHeaderName))
 	if !(userID.IsValid() || g.pathMatchesExclude(req)) {
 		return guard.ReqEvaluation{

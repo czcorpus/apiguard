@@ -97,7 +97,7 @@ func (a *Guard) checkForBan(req *http.Request, userID common.UserID) (bool, erro
 	return false, nil
 }
 
-func (a *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
+func (a *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
 	banned, err := a.checkForBan(req, common.InvalidUserID)
 	if err != nil {
 		return guard.ReqEvaluation{

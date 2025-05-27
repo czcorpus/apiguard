@@ -98,7 +98,7 @@ type ServiceGuard interface {
 	//  * etc.
 	// ... it should determine which response to return along with
 	// some additional info (user ID, session ID - if available/applicable)
-	EvaluateRequest(req *http.Request) ReqEvaluation
+	EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) ReqEvaluation
 
 	TestUserIsAnonymous(userID common.UserID) bool
 

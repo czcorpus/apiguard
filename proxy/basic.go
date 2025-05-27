@@ -71,6 +71,10 @@ func GetRequest(url, userAgent string) *SimpleResponse {
 	}
 }
 
+// APIProxy is a minimum common functionality needed
+// to proxy requests to APIGuard to different backends/APIs.
+// It has only methods for performing request and request stream
+// (Server-side events).
 type APIProxy struct {
 	BackendURL  *url.URL
 	FrontendURL *url.URL

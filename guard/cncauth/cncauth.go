@@ -178,7 +178,7 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
 func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
-
+	var usesFallbackCookie bool
 	clientIP := proxy.ExtractClientIP(req)
 
 	if analyzer.db == nil {
@@ -203,6 +203,7 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 			}
 
 		} else {
+			usesFallbackCookie = true
 			proxy.LogCookies(req, log.Debug()).Msg("using default cookie")
 			cookieValue = session.CNCSessionValue{}.UpdatedFrom(fallbackCookie.Value)
 		}
@@ -211,14 +212,16 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 		analyzer.db, analyzer.sessionValFactory().UpdatedFrom(cookieValue.String()))
 	if err != nil {
 		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusInternalServerError,
-			ClientID:         apiUserID,
-			Error:            fmt.Errorf("failed to determine userID: %w", err),
+			ProposedResponse:   http.StatusInternalServerError,
+			ClientID:           apiUserID,
+			UsesFallbackCookie: usesFallbackCookie,
+			Error:              fmt.Errorf("failed to determine userID: %w", err),
 		}
 	}
 	if !apiUserID.IsValid() {
 		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusUnauthorized,
+			ProposedResponse:   http.StatusUnauthorized,
+			UsesFallbackCookie: usesFallbackCookie,
 		}
 	}
 	if len(analyzer.confLimits) > 0 {
@@ -236,9 +239,10 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 		if !limiter.Allow() {
 			log.Debug().Str("clientIp", clientIP).Msg("limiting client with status 429")
 			return guard.ReqEvaluation{
-				ProposedResponse: http.StatusTooManyRequests,
-				ClientID:         apiUserID,
-				SessionID:        cookieValue.String(),
+				ProposedResponse:   http.StatusTooManyRequests,
+				ClientID:           apiUserID,
+				SessionID:          cookieValue.String(),
+				UsesFallbackCookie: usesFallbackCookie,
 			}
 		}
 	}
@@ -247,20 +251,23 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 	banned, err := analyzer.checkForBan(req, common.ClientID{IP: clientIP, ID: apiUserID})
 	if err != nil {
 		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusInternalServerError,
-			Error:            err,
+			ProposedResponse:   http.StatusInternalServerError,
+			UsesFallbackCookie: usesFallbackCookie,
+			Error:              err,
 		}
 	}
 	if banned {
 		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusForbidden,
+			ProposedResponse:   http.StatusForbidden,
+			UsesFallbackCookie: usesFallbackCookie,
 		}
 	}
 	return guard.ReqEvaluation{
-		ProposedResponse: http.StatusOK,
-		ClientID:         apiUserID,
-		SessionID:        cookieValue.String(),
-		Error:            err,
+		ProposedResponse:   http.StatusOK,
+		ClientID:           apiUserID,
+		SessionID:          cookieValue.String(),
+		UsesFallbackCookie: usesFallbackCookie,
+		Error:              err,
 	}
 }
 

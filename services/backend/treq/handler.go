@@ -28,9 +28,9 @@ import (
 
 type TreqProxy struct {
 	*cnc.CoreProxy
-	conf       *Conf
-	authCookie *http.Cookie
-	reauthSF   singleflight.Group
+	conf               *Conf
+	authFallbackCookie *http.Cookie
+	reauthSF           singleflight.Group
 }
 
 func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -72,19 +72,23 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		proxy.WriteError(ctx, fmt.Errorf("invalid path detected"), http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.Guard().EvaluateRequest(ctx.Request, tp.authCookie)
+	reqProps := tp.Guard().EvaluateRequest(ctx.Request, tp.authFallbackCookie)
 	log.Debug().
 		Str("reqPath", ctx.Request.URL.Path).
 		Any("reqProps", reqProps).
 		Msg("evaluated user treq/* request")
 	clientID = reqProps.ClientID
 	if reqProps.ProposedResponse == http.StatusUnauthorized {
-		_, err, _ := tp.reauthSF.Do("reauth", func() (interface{}, error) {
+		_, err, _ := tp.reauthSF.Do("reauth", func() (any, error) {
 			resp := tp.LoginWithToken(tp.conf.CNCAuthToken)
 			if resp.Err() == nil {
 				c := resp.Cookie(tp.EnvironConf().CNCAuthCookie)
+				log.Debug().
+					Str("serviceId", tp.EnvironConf().ServiceKey).
+					Str("cookieValue", resp.Cookie(tp.EnvironConf().CNCAuthCookie).Value).
+					Msg("performed reauthentication")
 				if c != nil {
-					tp.authCookie = c
+					tp.authFallbackCookie = c
 					return true, nil
 				}
 			}
@@ -98,7 +102,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			)
 			return
 		}
-		if tp.authCookie == nil {
+		if tp.authFallbackCookie == nil {
 			proxy.WriteError(
 				ctx,
 				fmt.Errorf(
@@ -109,7 +113,6 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			)
 			return
 		}
-		ctx.Request.AddCookie(tp.authCookie)
 
 	} else if reqProps.Error != nil {
 		proxy.WriteError(
@@ -122,6 +125,10 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	} else if reqProps.ForbidsAccess() {
 		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
 		return
+	}
+
+	if reqProps.UsesFallbackCookie {
+		ctx.Request.AddCookie(tp.authFallbackCookie)
 	}
 
 	passedHeaders := ctx.Request.Header

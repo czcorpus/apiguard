@@ -55,6 +55,34 @@ func (kp *CoreProxy) EnvironConf() *EnvironConf {
 	return kp.rConf
 }
 
+func (kp *CoreProxy) CountRequest(ctx *gin.Context, created time.Time, serviceKey string, userID common.UserID) {
+	if kp.reqCounter != nil {
+		kp.reqCounter <- guard.RequestInfo{
+			Created:     created,
+			Service:     serviceKey,
+			NumRequests: 1,
+			UserID:      userID,
+			IP:          ctx.ClientIP(),
+		}
+	}
+}
+
+func (kp *CoreProxy) ProxyRequest(
+	path string,
+	args url.Values,
+	method string,
+	headers http.Header,
+	rbody io.Reader,
+) *proxy.ProxiedResponse {
+	return kp.apiProxy.Request(
+		path,
+		args,
+		method,
+		headers,
+		rbody,
+	)
+}
+
 // Preflight is used by APIGuard client (e.g. WaG) to find out whether
 // the user using the client is logged in or not.
 // To be able to recognize users logged in via CNC cookie (which is the
@@ -76,7 +104,7 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 		)
 	}(&userId)
 
-	reqProps := kp.guard.EvaluateRequest(ctx.Request)
+	reqProps := kp.guard.EvaluateRequest(ctx.Request, nil)
 	log.Debug().
 		Str("reqPath", ctx.Request.URL.Path).
 		Any("reqProps", reqProps).
@@ -96,6 +124,10 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	}
 	ctx.Writer.WriteHeader(http.StatusNoContent)
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{})
+}
+
+func (kp *CoreProxy) WriteReport(report *reporting.ProxyProcReport) {
+	kp.tDBWriter.Write(report)
 }
 
 // AnyPath is the main handler for KonText API actions.

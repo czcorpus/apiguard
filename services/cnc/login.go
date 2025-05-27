@@ -31,16 +31,30 @@ type loginResponse struct {
 	err     error
 }
 
+func (resp loginResponse) Cookies() []*http.Cookie {
+	return resp.cookies
+}
+
+func (resp loginResponse) Cookie(name string) *http.Cookie {
+	for _, c := range resp.cookies {
+		if c.Name == name {
+			return c
+		}
+	}
+	return nil
+}
+
+func (resp loginResponse) Err() error {
+	return resp.err
+}
+
 func (resp loginResponse) isInvalidCredentials() bool {
 	return resp.message == "Invalid credentials"
 }
 
-// loginFromCtx performs an HTTP request with
-// CNC login based on current ctx (where we're
-// interested mainly in user's request properties).
-func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
+func (kp *CoreProxy) LoginWithToken(token string) loginResponse {
 	postData := url.Values{}
-	postData.Set(kp.rConf.AuthTokenEntry, ctx.Request.FormValue(kp.rConf.AuthTokenEntry))
+	postData.Set(kp.rConf.AuthTokenEntry, token)
 	req2, err := http.NewRequest(
 		http.MethodPost,
 		kp.rConf.CNCPortalLoginURL,
@@ -89,6 +103,13 @@ func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
 		message: respMsg[0],
 		cookies: resp.Cookies(),
 	}
+}
+
+// loginFromCtx performs an HTTP request with
+// CNC login based on current ctx (where we're
+// interested mainly in user's request properties).
+func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
+	return kp.LoginWithToken(ctx.Request.FormValue(kp.rConf.AuthTokenEntry))
 }
 
 // applyLoginRespCookies applies respose cookies as obtained

@@ -70,6 +70,18 @@ type ReqEvaluation struct {
 	SessionID        string
 	ProposedResponse int
 	Error            error
+
+	// UsesFallbackCookie can be set by an evaluation process
+	// in case it succeeded to authenticate request against
+	// the backend using the fallback (aka "one cookie for all")
+	// cookie.
+	// In case the value is true, it should always mean that:
+	// 1)  the evaluation process has already tried the user cookies
+	//     and failed.
+	// AND 2) the fallback cookie is defined
+	// Note that the 'true' value does not imply the evalutation
+	// will propose status 200.
+	UsesFallbackCookie bool
 }
 
 func (rp ReqEvaluation) ForbidsAccess() bool {

@@ -80,7 +80,7 @@ func (sra *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 	return false, nil
 }
 
-func (sra *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
+func (sra *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
 	clientIP := proxy.ExtractClientIP(req)
 
 	if len(sra.confLimits) > 0 {

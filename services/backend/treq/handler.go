@@ -14,6 +14,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/services/backend"
+	"apiguard/services/cnc"
 	"fmt"
 	"io"
 	"net/http"
@@ -22,23 +23,14 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
+	"golang.org/x/sync/singleflight"
 )
 
 type TreqProxy struct {
-	globalCtx       *globctx.Context
-	conf            *Conf
-	cncAuthCookie   string
-	readTimeoutSecs int
-	guard           *cncauth.Guard
-	apiProxy        *proxy.APIProxy
-	tDBWriter       reporting.ReportingWriter
-	servicePath     string
-	serviceKey      string
-
-	// reqCounter can be used to send info about number of request
-	// to an alarm service. Please note that this value can be nil
-	// (in such case, nothing is sent)
-	reqCounter chan<- guard.RequestInfo
+	*cnc.CoreProxy
+	conf       *Conf
+	authCookie *http.Cookie
+	reauthSF   singleflight.Group
 }
 
 func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -52,24 +44,22 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	var cached, indirectAPICall bool
 	var clientID, humanID common.UserID
-	t0 := time.Now().In(tp.globalCtx.TimezoneLocation)
+	t0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
+
 	defer func(currUserID, currHumanID *common.UserID, indirect *bool, created time.Time) {
 		loggedUserID := currUserID
-		if currHumanID.IsValid() && tp.guard.TestUserIsAnonymous(*currHumanID) {
+		if currHumanID.IsValid() && tp.Guard().TestUserIsAnonymous(*currHumanID) {
 			loggedUserID = currHumanID
 		}
-		if tp.reqCounter != nil {
-			tp.reqCounter <- guard.RequestInfo{
-				Created:     created,
-				Service:     tp.serviceKey,
-				NumRequests: 1,
-				UserID:      *loggedUserID,
-				IP:          ctx.ClientIP(),
-			}
-		}
-		tp.globalCtx.BackendLogger.Log(
+		tp.CountRequest(
+			ctx,
+			created,
+			tp.EnvironConf().ServiceKey,
+			*loggedUserID,
+		)
+		tp.GlobalCtx().BackendLogger.Log(
 			ctx.Request,
-			tp.serviceKey,
+			tp.EnvironConf().ServiceKey,
 			time.Since(t0),
 			cached,
 			*loggedUserID,
@@ -77,20 +67,54 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			reporting.BackendActionTypeQuery,
 		)
 	}(&clientID, &humanID, &indirectAPICall, t0)
-	if !strings.HasPrefix(ctx.Request.URL.Path, tp.servicePath) {
-		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
+
+	if !strings.HasPrefix(ctx.Request.URL.Path, tp.EnvironConf().ServicePath) {
+		proxy.WriteError(ctx, fmt.Errorf("invalid path detected"), http.StatusInternalServerError)
 		return
 	}
-	reqProps := tp.guard.EvaluateRequest(ctx.Request)
+	reqProps := tp.Guard().EvaluateRequest(ctx.Request, tp.authCookie)
 	log.Debug().
 		Str("reqPath", ctx.Request.URL.Path).
 		Any("reqProps", reqProps).
 		Msg("evaluated user treq/* request")
 	clientID = reqProps.ClientID
-	if reqProps.Error != nil {
+	if reqProps.ProposedResponse == http.StatusUnauthorized {
+		_, err, _ := tp.reauthSF.Do("reauth", func() (interface{}, error) {
+			resp := tp.LoginWithToken(tp.conf.CNCAuthToken)
+			if resp.Err() == nil {
+				c := resp.Cookie(tp.EnvironConf().CNCAuthCookie)
+				if c != nil {
+					tp.authCookie = c
+					return true, nil
+				}
+			}
+			return false, nil
+		})
+		if err != nil {
+			proxy.WriteError(
+				ctx,
+				fmt.Errorf("failed to proxy request: %w", err),
+				reqProps.ProposedResponse,
+			)
+			return
+		}
+		if tp.authCookie == nil {
+			proxy.WriteError(
+				ctx,
+				fmt.Errorf(
+					"failed to proxy request: cnc auth cookie '%s' not found",
+					tp.EnvironConf().CNCAuthCookie,
+				),
+				reqProps.ProposedResponse,
+			)
+			return
+		}
+		ctx.Request.AddCookie(tp.authCookie)
+
+	} else if reqProps.Error != nil {
 		proxy.WriteError(
 			ctx,
-			fmt.Errorf("Failed to proxy request: %w", reqProps.Error),
+			fmt.Errorf("failed to proxy request: %w", reqProps.Error),
 			reqProps.ProposedResponse,
 		)
 		return
@@ -101,10 +125,10 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	}
 
 	passedHeaders := ctx.Request.Header
-	if tp.cncAuthCookie != tp.conf.FrontendSessionCookieName {
+	if tp.EnvironConf().CNCAuthCookie != tp.conf.FrontendSessionCookieName {
 		var err error
 		// here we reveal actual human user ID to the API (i.e. not a special fallback user)
-		humanID, err = tp.guard.DetermineTrueUserID(ctx.Request)
+		humanID, err = tp.Guard().DetermineTrueUserID(ctx.Request)
 		clientID = humanID
 		if err != nil {
 			log.Error().Err(err).Msgf("failed to extract human user ID information (ignoring)")
@@ -114,8 +138,8 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	guard.RestrictResponseTime(
 		ctx.Writer,
 		ctx.Request,
-		tp.readTimeoutSecs,
-		tp.guard,
+		tp.EnvironConf().ReadTimeoutSecs,
+		tp.Guard(),
 		common.ClientID{
 			IP: ctx.RemoteIP(),
 			ID: clientID,
@@ -127,7 +151,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		err := backend.MapFrontendCookieToBackend(
 			ctx.Request,
 			tp.conf.FrontendSessionCookieName,
-			tp.cncAuthCookie,
+			tp.EnvironConf().CNCAuthCookie,
 		)
 		if err != nil {
 			http.Error(
@@ -141,20 +165,20 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	// then update auth cookie by x-api-key (if applicable)
 	xApiKey := ctx.Request.Header.Get(backend.HeaderAPIKey)
 	if xApiKey != "" {
-		cookie, err := ctx.Request.Cookie(tp.cncAuthCookie)
+		cookie, err := ctx.Request.Cookie(tp.EnvironConf().CNCAuthCookie)
 		if err == nil {
 			cookie.Value = xApiKey
 		}
 	}
 
-	rt0 := time.Now().In(tp.globalCtx.TimezoneLocation)
+	rt0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
 	serviceResp := tp.makeRequest(ctx.Request)
 	cached = serviceResp.IsCached()
-	tp.tDBWriter.Write(&reporting.ProxyProcReport{
-		DateTime: time.Now().In(tp.globalCtx.TimezoneLocation),
+	tp.WriteReport(&reporting.ProxyProcReport{
+		DateTime: time.Now().In(tp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   serviceResp.GetStatusCode(),
-		Service:  tp.serviceKey,
+		Service:  tp.EnvironConf().ServiceKey,
 		IsCached: cached,
 	})
 	if serviceResp.GetError() != nil {
@@ -186,18 +210,21 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 }
 
 func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
-	cacheApplCookies := []string{tp.conf.FrontendSessionCookieName, tp.cncAuthCookie}
-	resp, err := tp.globalCtx.Cache.Get(req, proxy.CachingWithCookies(cacheApplCookies))
+	cacheApplCookies := []string{
+		tp.conf.FrontendSessionCookieName,
+		tp.EnvironConf().CNCAuthCookie,
+	}
+	resp, err := tp.GlobalCtx().Cache.Get(req, proxy.CachingWithCookies(cacheApplCookies))
 	if err == proxy.ErrCacheMiss {
-		path := req.URL.Path[len(tp.servicePath):]
-		resp = tp.apiProxy.Request(
+		path := req.URL.Path[len(tp.EnvironConf().ServicePath):]
+		resp = tp.ProxyRequest(
 			path,
 			req.URL.Query(),
 			req.Method,
 			req.Header,
 			req.Body,
 		)
-		err := tp.globalCtx.Cache.Set(req, resp, proxy.CachingWithCookies(cacheApplCookies))
+		err := tp.GlobalCtx().Cache.Set(req, resp, proxy.CachingWithCookies(cacheApplCookies))
 		if err != nil {
 			return &proxy.ProxiedResponse{Err: err}
 		}
@@ -212,26 +239,16 @@ func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
 func NewTreqProxy(
 	globalCtx *globctx.Context,
 	conf *Conf,
-	sid int,
-	cncAuthCookie string,
+	gConf *cnc.EnvironConf,
 	guard *cncauth.Guard,
-	readTimeoutSecs int,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
-	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
+	proxy, err := cnc.NewCoreProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create KonText proxy: %w", err)
 	}
 	return &TreqProxy{
-		globalCtx:       globalCtx,
-		conf:            conf,
-		cncAuthCookie:   cncAuthCookie,
-		guard:           guard,
-		readTimeoutSecs: readTimeoutSecs,
-		apiProxy:        proxy,
-		reqCounter:      reqCounter,
-		tDBWriter:       globalCtx.ReportingWriter,
-		serviceKey:      fmt.Sprintf("%d/treq", sid),
-		servicePath:     fmt.Sprintf("/service/%d/treq", sid),
+		CoreProxy: proxy,
+		conf:      conf,
 	}, nil
 }

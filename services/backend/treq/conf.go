@@ -7,39 +7,14 @@
 package treq
 
 import (
-	"apiguard/monitoring"
 	"apiguard/proxy"
-	"apiguard/session"
+	"apiguard/services/cnc"
 	"fmt"
 )
 
 type Conf struct {
-	// BackendURL is a URL where the backend is installed
-	// (typically something like "http://192.168.1.x:8080")
-	// The URL should not end with the slash character
-	BackendURL string `json:"backendUrl"`
-
-	// FrontendURL should specify a URL clients access the
-	// API from. E.g. for KonText it can be something
-	// like https://www.korpus.cz/kontext-api/v0.17
-	// The URL should not end with the slash character
-	FrontendURL string `json:"frontendUrl"`
-
-	// FrontendSessionCookieName provides a name of the session cookie
-	// used between APIGuard clients (e.g. WaG) and APIGuard.
-	// If defined, APIGuard will remap this cookie to the one used
-	// in the CNCAuth section where a central auth cookie is defined.
-	FrontendSessionCookieName string `json:"frontendSessionCookieName"`
-
-	Limits []proxy.Limit `json:"limits"`
-
-	Alarm monitoring.AlarmConf `json:"alarm"`
-
-	ReqTimeoutSecs int `json:"reqTimeoutSecs"`
-
-	IdleConnTimeoutSecs int `json:"idleConnTimeoutSecs"`
-
-	SessionValType session.SessionType `json:"sessionValType"`
+	cnc.ProxyConf
+	CNCAuthToken string `json:"cncAuthToken"`
 }
 
 func (c *Conf) Validate(context string) error {

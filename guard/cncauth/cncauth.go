@@ -177,7 +177,7 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 // sends custom auth cookie, then the user identified by that cookie
 // will be detected here - not the one indetified by CNC common autentication
 // cookie.
-func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
+func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
 
 	clientIP := proxy.ExtractClientIP(req)
 
@@ -195,10 +195,16 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request) guard.ReqEvaluation {
 			Str("backendCookie", analyzer.backendSessionCookie).
 			Str("frontendCookie", analyzer.frontendSessionCookie).
 			Msgf("failed to find authentication cookies")
-		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusUnauthorized,
-			ClientID:         common.InvalidUserID,
-			Error:            fmt.Errorf("session cookie not found"),
+		if fallbackCookie == nil {
+			return guard.ReqEvaluation{
+				ProposedResponse: http.StatusUnauthorized,
+				ClientID:         common.InvalidUserID,
+				Error:            fmt.Errorf("session cookie not found"),
+			}
+
+		} else {
+			proxy.LogCookies(req, log.Debug()).Msg("using default cookie")
+			cookieValue = session.CNCSessionValue{}.UpdatedFrom(fallbackCookie.Value)
 		}
 	}
 	apiUserID, err := guard.FindUserBySession(

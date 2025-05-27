@@ -510,10 +510,16 @@ func InitServices(
 			treqActions, err := treq.NewTreqProxy(
 				ctx,
 				&typedConf,
-				sid,
-				globalConf.CNCAuth.SessionCookieName,
+				&cnc.EnvironConf{
+					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
+					AuthTokenEntry:    authTokenEntry,
+					ServicePath:       fmt.Sprintf("/service/%d/treq", sid),
+					ServiceKey:        fmt.Sprintf("%d/treq", sid),
+					CNCPortalLoginURL: cncPortalLoginURL,
+					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
+					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
+				},
 				cnca,
-				globalConf.ServerReadTimeoutSecs,
 				treqReqCounter,
 			)
 			if err != nil {

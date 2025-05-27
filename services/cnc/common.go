@@ -109,7 +109,7 @@ func (kp *CoreProxy) ProcessReqHeaders(
 }
 
 func (kp *CoreProxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEvaluation, bool) {
-	reqProps := kp.guard.EvaluateRequest(ctx.Request)
+	reqProps := kp.guard.EvaluateRequest(ctx.Request, nil)
 	log.Debug().
 		Str("reqPath", ctx.Request.URL.Path).
 		Any("reqProps", reqProps).

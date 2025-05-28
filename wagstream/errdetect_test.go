@@ -22,8 +22,7 @@ func TestFindErrorInStream(t *testing.T) {
 		"event: DataTile-3\n" +
 		"data: {\"bar\": \"lorem ipsum\"}\n\n"
 	fmt.Println(s)
-	errMsg, event, err := findErrorMsgInStream([]byte(s))
-	assert.NoError(t, err)
+	errMsg, event := findErrorMsgInStream([]byte(s))
 	assert.Equal(t, "data resource not found", errMsg)
 	assert.Equal(t, "DataTile-2", event)
 }

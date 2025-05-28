@@ -30,8 +30,10 @@ func testDataForError(data string) (string, error) {
 
 // findErrorMsgInStream searches for "data:" containing a JSON with the 'error'
 // entry. If found, than the entry is considered as having an error (which e.g.
-// prevents us from caching the stream)
-func findErrorMsgInStream(inputData []byte) (string, string, error) {
+// prevents us from caching the stream).
+// Please note that even failing to detect an error is considered an error just
+// like the ones returned by backends themselves.
+func findErrorMsgInStream(inputData []byte) (string, string) {
 	var eventType, data string
 	scanner := bufio.NewScanner(bytes.NewReader(inputData))
 	for scanner.Scan() {
@@ -41,12 +43,11 @@ func findErrorMsgInStream(inputData []byte) (string, string, error) {
 			if data != "" {
 				errMsg, err := testDataForError(strings.TrimSpace(data))
 				if err != nil {
-					log.Error().Err(err).Msg("failed to read error information in wagstream")
-					continue
+					return fmt.Sprintf("unknown error: %s", strings.TrimSpace(data)), eventType
 				}
 				if errMsg != "" {
 					log.Debug().Str("msg", errMsg).Str("event", eventType).Msg("detected an error in data stream")
-					return errMsg, eventType, nil
+					return errMsg, eventType
 				}
 				data = ""
 				eventType = ""
@@ -65,5 +66,5 @@ func findErrorMsgInStream(inputData []byte) (string, string, error) {
 
 		}
 	}
-	return "", "", nil
+	return "", ""
 }

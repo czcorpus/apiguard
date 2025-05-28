@@ -134,6 +134,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	}
 
 	if reqProps.RequiresFallbackCookie {
+		tp.DeleteCookie(ctx.Request, tp.authFallbackCookie.Name)
 		ctx.Request.AddCookie(tp.authFallbackCookie)
 	}
 

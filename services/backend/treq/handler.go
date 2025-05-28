@@ -84,9 +84,13 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			log.Debug().Msgf("reauthentication result: %s", resp.String())
 			if resp.Err() == nil {
 				c := resp.Cookie(tp.EnvironConf().CNCAuthCookie)
+				cVal := "-"
+				if c != nil {
+					cVal = c.Value
+				}
 				log.Debug().
 					Str("serviceId", tp.EnvironConf().ServiceKey).
-					Str("cookieValue", resp.Cookie(tp.EnvironConf().CNCAuthCookie).Value).
+					Str("cookieValue", cVal).
 					Msg("performed reauthentication")
 				if c != nil {
 					tp.authFallbackCookie = c

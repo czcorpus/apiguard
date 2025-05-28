@@ -196,7 +196,7 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 			Str("frontendCookie", analyzer.frontendSessionCookie).
 			Msgf("failed to find authentication cookies")
 		requiresFallbackCookie = true
-		if fallbackCookie == nil {
+		if fallbackCookie == nil { //note requiresFallbackCookie == true - it is because here there is no other way already
 			return guard.ReqEvaluation{
 				ProposedResponse: http.StatusUnauthorized,
 				ClientID:         common.InvalidUserID,
@@ -221,7 +221,7 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 	if !apiUserID.IsValid() {
 		return guard.ReqEvaluation{
 			ProposedResponse:       http.StatusUnauthorized,
-			RequiresFallbackCookie: requiresFallbackCookie,
+			RequiresFallbackCookie: true,
 		}
 	}
 	if len(analyzer.confLimits) > 0 {

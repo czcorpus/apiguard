@@ -138,11 +138,8 @@ func (backend *PersistentCache) listenAndWriteAccesses(ctx context.Context) {
 			}
 			mergedEntry := backend.buffer.appendToExisting(entry)
 			if mergedEntry.Flush {
-				firstErrMsg, event, err := findErrorMsgInStream(mergedEntry.Data)
-				if err != nil {
-					log.Error().Err(err).Msg("failed to cache wagstream")
-
-				} else if firstErrMsg != "" {
+				firstErrMsg, event := findErrorMsgInStream(mergedEntry.Data)
+				if firstErrMsg != "" {
 					log.Warn().
 						Str("msg", firstErrMsg).
 						Str("event", event).

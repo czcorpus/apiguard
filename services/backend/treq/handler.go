@@ -81,6 +81,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	if reqProps.ProposedResponse == http.StatusUnauthorized {
 		_, err, _ := tp.reauthSF.Do("reauth", func() (any, error) {
 			resp := tp.LoginWithToken(tp.conf.CNCAuthToken)
+			log.Debug().Msgf("reauthentication result: %s", resp.String())
 			if resp.Err() == nil {
 				c := resp.Cookie(tp.EnvironConf().CNCAuthCookie)
 				log.Debug().
@@ -91,8 +92,9 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 					tp.authFallbackCookie = c
 					return true, nil
 				}
+				return false, nil
 			}
-			return false, nil
+			return false, resp.Err()
 		})
 		if err != nil {
 			proxy.WriteError(

@@ -58,7 +58,10 @@ func (resp loginResponse) String() string {
 		}
 		ans.WriteString(c.Name)
 	}
-	ans.WriteString(fmt.Sprintf(", err: %s", resp.err.Error()))
+	if resp.err != nil {
+		ans.WriteString(fmt.Sprintf(", err: %s", resp.err.Error()))
+	}
+	ans.WriteString("]")
 	return ans.String()
 }
 

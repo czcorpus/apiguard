@@ -133,7 +133,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		return
 	}
 
-	if reqProps.UsesFallbackCookie {
+	if reqProps.RequiresFallbackCookie {
 		ctx.Request.AddCookie(tp.authFallbackCookie)
 	}
 

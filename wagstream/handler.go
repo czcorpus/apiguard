@@ -152,6 +152,9 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 			req, _ := http.NewRequest(rd.Method, rd.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
 			req.Header.Add("content-type", rd.ContentType)
+			for _, ck := range ctx.Request.Cookies() {
+				req.AddCookie(ck)
+			}
 
 			if rd.URL == "" { // this for situations where WaG needs an empty response
 				for _, tile := range tiles {

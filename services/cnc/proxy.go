@@ -43,6 +43,24 @@ type CoreProxy struct {
 	sessionValFactory func() session.HTTPSession
 }
 
+func (kp *CoreProxy) DeleteCookie(req *http.Request, name string) {
+	cookies := req.Cookies()
+	var cookieStrings []string
+
+	for _, cookie := range cookies {
+		if cookie.Name != name {
+			cookieStrings = append(cookieStrings, cookie.String())
+		}
+	}
+
+	if len(cookieStrings) > 0 {
+		req.Header.Set("Cookie", strings.Join(cookieStrings, "; "))
+
+	} else {
+		req.Header.Del("Cookie")
+	}
+}
+
 func (kp *CoreProxy) GlobalCtx() *globctx.Context {
 	return kp.globalCtx
 }

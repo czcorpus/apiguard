@@ -183,14 +183,6 @@ func (proxy *APIProxy) RequestStream(
 		Int("status", resp.StatusCode).
 		Msgf(">>> Proxy request >>>")
 
-	if err != nil {
-		return &ProxiedStreamResponse{
-			BodyReader: EmptyReadCloser{},
-			Headers:    http.Header{},
-			StatusCode: http.StatusInternalServerError,
-			Err:        err,
-		}
-	}
 	ansHeaders := resp.Header
 	proxy.transformRedirect(ansHeaders)
 	return &ProxiedStreamResponse{

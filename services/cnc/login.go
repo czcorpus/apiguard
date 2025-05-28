@@ -44,6 +44,24 @@ func (resp loginResponse) Cookie(name string) *http.Cookie {
 	return nil
 }
 
+func (resp loginResponse) Status() int {
+	return resp.code
+}
+
+// String provides an informative overview about the value
+func (resp loginResponse) String() string {
+	var ans strings.Builder
+	ans.WriteString(fmt.Sprintf("loginResponse[status: %d, cookies: ", resp.code))
+	for i, c := range resp.cookies {
+		if i > 0 {
+			ans.WriteString(", ")
+		}
+		ans.WriteString(c.Name)
+	}
+	ans.WriteString(fmt.Sprintf(", err: %s", resp.err.Error()))
+	return ans.String()
+}
+
 func (resp loginResponse) Err() error {
 	return resp.err
 }

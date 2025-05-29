@@ -15,6 +15,7 @@ import (
 	"apiguard/reporting"
 	"apiguard/services/backend"
 	"apiguard/services/cnc"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -129,11 +130,18 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 		return
 
 	} else if reqProps.ForbidsAccess() {
-		http.Error(ctx.Writer, http.StatusText(reqProps.ProposedResponse), reqProps.ProposedResponse)
+		proxy.WriteError(
+			ctx,
+			errors.New(http.StatusText(reqProps.ProposedResponse)),
+			reqProps.ProposedResponse,
+		)
 		return
 	}
 
 	if reqProps.RequiresFallbackCookie {
+		log.Debug().
+			Str("serviceId", tp.EnvironConf().ServiceKey).
+			Str("value", tp.authFallbackCookie.Value).Msg("applying fallback cookie")
 		tp.DeleteCookie(ctx.Request, tp.authFallbackCookie.Name)
 		ctx.Request.AddCookie(tp.authFallbackCookie)
 	}

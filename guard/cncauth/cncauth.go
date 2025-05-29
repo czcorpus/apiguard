@@ -198,9 +198,10 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 		requiresFallbackCookie = true
 		if fallbackCookie == nil { //note requiresFallbackCookie == true - it is because here there is no other way already
 			return guard.ReqEvaluation{
-				ProposedResponse: http.StatusUnauthorized,
-				ClientID:         common.InvalidUserID,
-				Error:            fmt.Errorf("session cookie not found"),
+				ProposedResponse:       http.StatusUnauthorized,
+				ClientID:               common.InvalidUserID,
+				Error:                  fmt.Errorf("session cookie not found"),
+				RequiresFallbackCookie: requiresFallbackCookie,
 			}
 
 		} else {

@@ -19,13 +19,46 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/singleflight"
 )
+
+type subsetArgs struct {
+	From            string   `json:"from"`
+	To              string   `json:"to"`
+	MultiWord       bool     `json:"multiword"`
+	Regex           bool     `json:"regex"`
+	Lemma           bool     `json:"lemma"`
+	CaseInsensitive bool     `json:"ci"`
+	Pkgs            []string `json:"pkgs[i]"`
+	Query           string   `json:"query"`
+	Asc             bool     `json:"asc"`
+	Order           string   `json:"order"`
+}
+
+func (args subsetArgs) ToQuery() url.Values {
+	urlArgs := make(url.Values)
+	urlArgs.Add("from", args.From)
+	urlArgs.Add("to", args.To)
+	urlArgs.Add("multiword", util.Ternary(args.MultiWord, "true", "false"))
+	urlArgs.Add("lemma", util.Ternary(args.Lemma, "true", "false"))
+	urlArgs.Add("ci", util.Ternary(args.CaseInsensitive, "true", "false"))
+	for _, pk := range args.Pkgs {
+		urlArgs.Add("pkgs[i]", pk)
+	}
+	urlArgs.Add("query", args.Query)
+	urlArgs.Add("asc", util.Ternary(args.Asc, "true", "false"))
+	urlArgs.Add("order", args.Order)
+	return urlArgs
+}
+
+type subsetsReq map[string]subsetArgs
 
 type TreqProxy struct {
 	*cnc.CoreProxy

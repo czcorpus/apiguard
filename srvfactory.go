@@ -527,7 +527,14 @@ func InitServices(
 			}
 			apiRoutes.Any(
 				fmt.Sprintf("/service/%d/treq/*path", sid),
-				treqActions.AnyPath,
+				func(ctx *gin.Context) {
+					if ctx.Param("path") == "/api/v1/subsets" {
+						treqActions.Subsets(ctx)
+
+					} else {
+						treqActions.AnyPath(ctx)
+					}
+				},
 			)
 			log.Info().Int("sid", sid).Msg("Proxy for Treq enabled")
 

@@ -91,7 +91,7 @@ func (wch writeChunksReqs) appendToExisting(value CacheWriteChunkReq) CacheWrite
 		curr.Data = append(curr.Data, value.Data...)
 		curr.Flush = curr.Flush || value.Flush // we need to make sure Flush won't get overwritten
 		curr.Received = value.Received
-		if len(curr.Tag.Queries) == 0 {
+		if curr.Tag != nil && len(curr.Tag.Queries) == 0 {
 			curr.Tag = value.Tag
 		}
 		wch[value.Key] = curr

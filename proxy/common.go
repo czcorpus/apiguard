@@ -45,6 +45,7 @@ type BackendResponse interface {
 	CloseBodyReader() error
 	GetHeaders() http.Header
 	GetStatusCode() int
+	IsDataStream() bool
 	IsCached() bool
 	MarkCached()
 	GetError() error

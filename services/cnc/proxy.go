@@ -13,6 +13,7 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/session"
+	"bufio"
 	"fmt"
 	"io"
 	"net/http"
@@ -150,6 +151,7 @@ func (kp *CoreProxy) WriteReport(report *reporting.ProxyProcReport) {
 
 // AnyPath is the main handler for KonText API actions.
 func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
+
 	var userID, humanID common.UserID
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
@@ -223,17 +225,41 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	}
 	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
 	defer serviceResp.CloseBodyReader()
-	respBody, err := io.ReadAll(serviceResp.GetBodyReader())
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
-		proxy.WriteError(
-			ctx,
-			fmt.Errorf("failed to proxy request: %s", err),
-			http.StatusInternalServerError,
-		)
-		return
+
+	if serviceResp.IsDataStream() {
+		scanner := bufio.NewScanner(serviceResp.GetBodyReader())
+		var eventChunk []string
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "" {
+				if len(eventChunk) > 0 {
+					completeEvent := strings.Join(eventChunk, "\n") + "\n\n"
+					ctx.Writer.Write([]byte(completeEvent))
+					eventChunk = eventChunk[:0]
+				}
+
+			} else {
+				eventChunk = append(eventChunk, line)
+			}
+		}
+		if len(eventChunk) > 0 {
+			completeEvent := strings.Join(eventChunk, "\n") + "\n\n"
+			ctx.Writer.Write([]byte(completeEvent))
+		}
+
+	} else {
+		respBody, err := io.ReadAll(serviceResp.GetBodyReader())
+		if err != nil {
+			log.Error().Err(err).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+			proxy.WriteError(
+				ctx,
+				fmt.Errorf("failed to proxy request: %s", err),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		ctx.Writer.Write([]byte(respBody))
 	}
-	ctx.Writer.Write([]byte(respBody))
 }
 
 func (kp *CoreProxy) debugLogResponse(req *http.Request, res proxy.BackendResponse, err error) {

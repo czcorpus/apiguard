@@ -157,35 +157,33 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 			}
 
 			if rd.URL == "" { // this for situations where WaG needs an empty response
-				for _, tile := range tiles {
-					responseCh <- &StreamingReadyResp{
-						TileID:   tile.TileID,
-						QueryIdx: tile.QueryIdx,
-						Source:   rd.URL,
-						Data:     actions.emptyResponse(req),
-						Status:   http.StatusOK,
-					}
+				responseCh <- &StreamingReadyResp{
+					TileID:   tiles[0].TileID,
+					QueryIdx: tiles[0].QueryIdx,
+					Source:   rd.URL,
+					Data:     actions.emptyResponse(req),
+					Status:   http.StatusOK,
 				}
 
 			} else if rd.IsEventSource {
 				apiWriter := NewESAPIWriter(esAPIWriterChanBufferSize)
-				actions.apiRoutes.ServeHTTP(apiWriter, req)
 				// Important note:
 				// Here we rely on the fact that a respective
 				// route handler will call ctx.Writer.Flush()
 				// (see the handler and our custom AfterHandlerCallback)
 				// Without that, the channel won't get closed which
 				// would cause the main data stream to never finish!
-				for resp := range apiWriter.Responses() {
-					for _, tile := range tiles {
+				go func() {
+					for resp := range apiWriter.Responses() {
 						responseCh <- &RawStreamingReadyResp{
-							TileID:   tile.TileID,
-							QueryIdx: tile.QueryIdx,
+							TileID:   tiles[0].TileID,
+							QueryIdx: tiles[0].QueryIdx,
 							Data:     resp,
 							Status:   apiWriter.statusCode,
 						}
 					}
-				}
+				}()
+				actions.apiRoutes.ServeHTTP(apiWriter, req)
 
 			} else {
 				apiWriter := NewAPIWriter()
@@ -198,14 +196,12 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 				} else {
 					data = apiWriter.GetRawBytes()
 				}
-				for _, tile := range tiles {
-					responseCh <- &StreamingReadyResp{
-						TileID:   tile.TileID,
-						QueryIdx: tile.QueryIdx,
-						Source:   rd.URL,
-						Data:     data,
-						Status:   apiWriter.StatusCode(),
-					}
+				responseCh <- &StreamingReadyResp{
+					TileID:   tiles[0].TileID,
+					QueryIdx: tiles[0].QueryIdx,
+					Source:   rd.URL,
+					Data:     data,
+					Status:   apiWriter.StatusCode(),
 				}
 			}
 			wg.Done()

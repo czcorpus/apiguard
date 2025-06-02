@@ -9,6 +9,7 @@ package proxy
 import (
 	"io"
 	"net/http"
+	"strings"
 )
 
 type EmptyReadCloser struct{}
@@ -53,6 +54,10 @@ func (pr *ProxiedResponse) GetError() error {
 
 func (pr *ProxiedResponse) IsCached() bool {
 	return pr.Cached
+}
+
+func (pr *ProxiedResponse) IsDataStream() bool {
+	return strings.Contains(pr.Headers.Get("Content-Type"), "text/event-stream")
 }
 
 func (pr *ProxiedResponse) MarkCached() {
@@ -101,6 +106,10 @@ func (pr *ProxiedStreamResponse) IsCached() bool {
 	return pr.Cached
 }
 
+func (pr *ProxiedStreamResponse) IsDataStream() bool {
+	return strings.Contains(pr.Headers.Get("Content-Type"), "text/event-stream")
+}
+
 func (pr *ProxiedStreamResponse) MarkCached() {
 	pr.Cached = true
 }
@@ -139,6 +148,10 @@ func (sr *SimpleResponse) GetError() error {
 
 func (sr *SimpleResponse) IsCached() bool {
 	return sr.Cached
+}
+
+func (sr *SimpleResponse) IsDataStream() bool {
+	return false
 }
 
 func (sr *SimpleResponse) MarkCached() {

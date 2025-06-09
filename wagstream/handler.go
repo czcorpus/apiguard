@@ -37,7 +37,7 @@ type Actions struct {
 }
 
 type wagConfLoader interface {
-	GetConf(db, id string) ([]byte, error)
+	GetConf(id string) ([]byte, error)
 }
 
 func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID int, err error) {
@@ -282,7 +282,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 }
 
 func (actions *Actions) TileConf(ctx *gin.Context) {
-	data, err := actions.confLoader.GetConf(ctx.Param("db"), ctx.Param("id"))
+	data, err := actions.confLoader.GetConf(ctx.Param("id"))
 	if err == tileconf.ErrNotFound {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusNotFound)
 		return
@@ -299,10 +299,14 @@ func NewActions(
 	cache StreamingCache,
 	apiRoutes http.Handler,
 	wagTilesConfDir string,
-) *Actions {
+) (*Actions, error) {
 	var confLoader wagConfLoader
 	if wagTilesConfDir != "" {
-		confLoader = &loader.JSONFiles{RootDir: wagTilesConfDir}
+		var err error
+		confLoader, err = loader.NewJSONFiles(ctx, wagTilesConfDir)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create wagstream actions: %w", err)
+		}
 
 	} else {
 		log.Warn().Msg("no wagTilesConfDir specified - APIGuard will not serve as WaG tile configuration provider")
@@ -326,5 +330,5 @@ func NewActions(
 			}
 		}
 	}()
-	return a
+	return a, nil
 }

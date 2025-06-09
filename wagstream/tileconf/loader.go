@@ -7,86 +7,173 @@
 package tileconf
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/rs/zerolog/log"
 )
 
 var (
 	ErrNotFound = errors.New("tile conf not found")
 )
 
+// JSONConf is a subset of an actual tile conf. For our purposes,
+// we need just proper tile ID.
 type JSONConf struct {
 	Ident string `json:"ident"`
 }
 
+// ------------------ JSONFiles loader
+
 type JSONFiles struct {
-	RootDir    string
-	loadedData map[string][]byte
-	mapLock    sync.Mutex
+	RootDir string
+	files   map[string]appDirectory // maps app:Tile => fs path
 }
 
-func (jf *JSONFiles) mkFullIdent(db, prefix, tile string) string {
-	return fmt.Sprintf("%s/%s:%s", db, prefix, tile)
-}
-
-func (jf *JSONFiles) scanFiles(db, prefix string) error {
-	jf.mapLock.Lock()
-	defer jf.mapLock.Unlock()
-	path := filepath.Join(jf.RootDir, db, prefix)
-	tileConfigs, err := os.ReadDir(path)
-	if err != nil {
-		return fmt.Errorf("failed to scan for domain dirs in %s: %w", path, err)
+func (jf *JSONFiles) GetConf(id string) ([]byte, error) {
+	log.Info().Str("id", id).Msg("loading WaG tile configuration")
+	idElms := strings.Split(id, ":") // [app]:[tile]
+	if len(idElms) != 2 {
+		return []byte{}, fmt.Errorf("invalid tile id '%s', must be [app]:[tile]", id)
 	}
-	for _, entry := range tileConfigs {
-		entryPath := filepath.Join(path, entry.Name())
-		rawConf, err := os.ReadFile(entryPath)
+	appConf, ok := jf.files[idElms[0]]
+	if !ok {
+		return []byte{}, fmt.Errorf("cannot load tile conf JSON %s: app %s has no directory", id, idElms[0])
+	}
+	fullPath, ok := appConf.files[idElms[1]]
+	if !ok {
+		return []byte{}, fmt.Errorf("cannot load tile conf JSON %s: tile %s not found", id, idElms[1])
+	}
+	rawConf, err := os.ReadFile(fullPath)
+	if err != nil {
+		return []byte{}, fmt.Errorf("failed to read tile JSON config file %s: %w", appConf.fullPath(), err)
+	}
+
+	var conf JSONConf
+	if err := json.Unmarshal(rawConf, &conf); err != nil {
+		return []byte{}, fmt.Errorf("invalid tile JSON config file %s: %w", fullPath, err)
+	}
+	return rawConf, nil
+}
+
+type appDirectory struct {
+	rootPath string
+	id       string
+	files    map[string]string
+}
+
+func (dir appDirectory) fullPath() string {
+	return filepath.Join(dir.rootPath, dir.id)
+}
+
+func scanAppFiles(rootDir, appID string) (map[string]string, error) {
+	items, err := os.ReadDir(filepath.Join(rootDir, appID))
+	if err != nil {
+		return map[string]string{}, fmt.Errorf("failed to scan directory for wag tile configs: %w", err)
+	}
+	ans := make(map[string]string)
+	for _, item := range items {
+		fullPath := filepath.Join(rootDir, appID, item.Name())
+		rawConf, err := os.ReadFile(fullPath)
 		if err != nil {
-			return fmt.Errorf("failed to read json config file %s: %w", entryPath, err)
+			log.Error().Err(err).Str("file", fullPath).Msg("failed to read tile JSON config file; skipping")
+			continue
 		}
+
 		var conf JSONConf
 		if err := json.Unmarshal(rawConf, &conf); err != nil {
-			return fmt.Errorf("failed to unmarshal json config file %s: %w", entryPath, err)
+			log.Error().Err(err).Str("file", fullPath).Msg("invalid tile JSON config file; skipping")
+			continue
 		}
-		jf.loadedData[jf.mkFullIdent(db, prefix, conf.Ident)] = rawConf
+		ans[conf.Ident] = fullPath
 	}
-	return nil
+	return ans, nil
 }
 
-func (jf *JSONFiles) GetConf(db, id string) ([]byte, error) {
-	idElms := strings.Split(id, ":") // [prefix]:[tile]
-	if len(idElms) != 2 {
-		return []byte{}, fmt.Errorf("invalid tile id '%s', must be [prefix]:[tile]", id)
+func scanAll(ctx context.Context, rootDir string) ([]appDirectory, error) {
+	ans := make([]appDirectory, 0, 10)
+	items, err := os.ReadDir(rootDir)
+	if err != nil {
+		return []appDirectory{}, fmt.Errorf("failed to rescan tile configs: %w", err)
 	}
-	if jf.loadedData == nil {
-		jf.loadedData = make(map[string][]byte)
-		if err := jf.scanFiles(db, idElms[0]); err != nil {
-			return []byte{}, fmt.Errorf("failed to get conf: %w", err)
+	for _, item := range items {
+		appID := item.Name()
+		appDir := appDirectory{
+			id:       appID,
+			rootPath: rootDir,
 		}
-	}
+		tileMap, err := scanAppFiles(rootDir, appID)
+		if err != nil {
+			log.Err(err).
+				Str("path", filepath.Join(rootDir, appID)).
+				Msg("failed to process tile conf directory, skipping")
+			continue
+		}
+		appDir.files = tileMap
 
-	data, ok := jf.loadedData[jf.mkFullIdent(db, idElms[0], idElms[1])]
-	if !ok {
-		// let's try rescan, maybe a new file was added and now requested
-		if err := jf.scanFiles(db, idElms[0]); err != nil {
-			return []byte{}, fmt.Errorf("failed to get conf: %w", err)
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return nil, fmt.Errorf("failed to instantiate JSONFiles loader: %w", err)
 		}
-		data, ok = jf.loadedData[jf.mkFullIdent(db, idElms[0], idElms[1])]
-		if !ok {
-			return []byte{}, ErrNotFound
+		if err := watcher.Add(filepath.Join(rootDir, appID)); err != nil {
+			return nil, fmt.Errorf("failed to instantiate JSONFiles loader: %w", err)
 		}
+		ans = append(ans, appDir)
+		log.Info().Str("directory", filepath.Join(rootDir, appID)).Msg("watching tile conf directory for changes")
+		go func() {
+			for {
+				select {
+				case <-ctx.Done():
+					log.Warn().Str("app", appDir.id).Msg("closing JSONFiles file watch due to cancellation")
+					watcher.Close()
+				case _, ok := <-watcher.Events:
+					if !ok {
+						return
+					}
+					updFiles, err := scanAppFiles(rootDir, appDir.id)
+					if err != nil {
+						log.Error().Err(err).Str("app", appID).Msg("failed to rescan directory for an app")
+					}
+					appDir.files = updFiles
+				case err, ok := <-watcher.Errors:
+					if !ok {
+						return
+					}
+					log.Error().Err(err).Msg("JSONFiles failed to watch for file changes")
+
+				}
+			}
+		}()
+
 	}
-	return []byte(data), nil
+	return ans, nil
+}
+
+func NewJSONFiles(ctx context.Context, rootDir string) (*JSONFiles, error) {
+	appDirs, err := scanAll(ctx, rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to instantiate JSONFiles: %w", err)
+	}
+	appDirsMap := make(map[string]appDirectory)
+	for _, v := range appDirs {
+		appDirsMap[v.id] = v
+	}
+	return &JSONFiles{
+		RootDir: rootDir,
+		files:   appDirsMap,
+	}, nil
 }
 
 // -------------------------------
 
 type Null struct{}
 
-func (null *Null) GetConf(db, id string) ([]byte, error) {
+func (null *Null) GetConf(id string) ([]byte, error) {
 	return []byte{}, ErrNotFound
 }

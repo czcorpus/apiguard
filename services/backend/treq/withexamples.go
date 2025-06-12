@@ -333,8 +333,9 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 	for i, translation := range translations.Lines {
 		cql := fmt.Sprintf(
 			`[word=="%s"] within %s:[word=="%s"]`,
-			/* strings.ReplaceAll(translation.From, "\"", "\\\"") */ "moje",
-			toCorp /* strings.ReplaceAll(translation.To, "\"", "\\\"") */, "moje",
+			strings.ReplaceAll(translation.From, "\"", "\\\""),
+			toCorp,
+			strings.ReplaceAll(translation.To, "\"", "\\\""),
 		)
 		urlQuery := make(url.Values)
 		urlQuery.Add("q", cql)

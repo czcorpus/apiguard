@@ -132,10 +132,11 @@ func scanAll(ctx context.Context, rootDir string) ([]appDirectory, error) {
 				case <-ctx.Done():
 					log.Warn().Str("app", appDir.id).Msg("closing JSONFiles file watch due to cancellation")
 					watcher.Close()
-				case _, ok := <-watcher.Events:
+				case evt, ok := <-watcher.Events:
 					if !ok {
 						return
 					}
+					log.Warn().Str("name", evt.Name).Msg("detected change in tile JSON config file(s)")
 					updFiles, err := scanAppFiles(rootDir, appDir.id)
 					if err != nil {
 						log.Error().Err(err).Str("app", appID).Msg("failed to rescan directory for an app")

@@ -65,6 +65,7 @@ type TreqProxy struct {
 	conf               *Conf
 	authFallbackCookie *http.Cookie
 	reauthSF           singleflight.Group
+	httpEngine         http.Handler
 }
 
 func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
@@ -296,6 +297,7 @@ func NewTreqProxy(
 	conf *Conf,
 	gConf *cnc.EnvironConf,
 	guard *cncauth.Guard,
+	httpEngine http.Handler,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
 	proxy, err := cnc.NewCoreProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
@@ -303,7 +305,8 @@ func NewTreqProxy(
 		return nil, fmt.Errorf("failed to create KonText proxy: %w", err)
 	}
 	return &TreqProxy{
-		CoreProxy: proxy,
-		conf:      conf,
+		CoreProxy:  proxy,
+		conf:       conf,
+		httpEngine: httpEngine,
 	}, nil
 }

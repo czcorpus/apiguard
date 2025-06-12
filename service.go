@@ -137,6 +137,7 @@ func initProxyEngine(
 
 	if err := InitServices(
 		globalCtx,
+		engine,
 		apiRoutes,
 		conf,
 		alarm,

@@ -14,7 +14,8 @@ import (
 
 type Conf struct {
 	cnc.ProxyConf
-	CNCAuthToken string `json:"cncAuthToken"`
+	CNCAuthToken          string `json:"cncAuthToken"`
+	ConcMQueryServicePath string `json:"concMqueryServicePath"`
 }
 
 func (c *Conf) Validate(context string) error {

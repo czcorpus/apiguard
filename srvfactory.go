@@ -58,6 +58,7 @@ func AfterHandlerCallback(callback func(c *gin.Context)) gin.HandlerFunc {
 
 func InitServices(
 	ctx *globctx.Context,
+	engine http.Handler,
 	apiRoutes *gin.RouterGroup,
 	globalConf *config.Configuration,
 	alarm *monitoring.AlarmTicker,
@@ -520,6 +521,7 @@ func InitServices(
 					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
 				},
 				cnca,
+				engine,
 				treqReqCounter,
 			)
 			if err != nil {
@@ -530,6 +532,9 @@ func InitServices(
 				func(ctx *gin.Context) {
 					if ctx.Param("path") == "/api/v1/subsets" {
 						treqActions.Subsets(ctx)
+
+					} else if ctx.Param("path") == "/api/v1/with-examples" {
+						treqActions.WithExamples(ctx)
 
 					} else {
 						treqActions.AnyPath(ctx)

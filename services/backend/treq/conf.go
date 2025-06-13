@@ -10,12 +10,19 @@ import (
 	"apiguard/proxy"
 	"apiguard/services/cnc"
 	"fmt"
+
+	"github.com/rs/zerolog/log"
+)
+
+const (
+	defaultNumExamplesPerWord = 1
 )
 
 type Conf struct {
 	cnc.ProxyConf
 	CNCAuthToken          string `json:"cncAuthToken"`
 	ConcMQueryServicePath string `json:"concMqueryServicePath"`
+	NumExamplesPerWord    int    `json:"numExamplesPerWord"`
 }
 
 func (c *Conf) Validate(context string) error {
@@ -24,6 +31,12 @@ func (c *Conf) Validate(context string) error {
 	}
 	if err := c.SessionValType.Validate(); err != nil {
 		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
+	}
+	if c.NumExamplesPerWord == 0 {
+		log.Warn().
+			Int("default", defaultNumExamplesPerWord).
+			Msg("service.treq.numExamplesPerWord not set, using default")
+		c.NumExamplesPerWord = defaultNumExamplesPerWord
 	}
 	return nil
 }

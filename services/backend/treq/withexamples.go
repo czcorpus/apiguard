@@ -17,9 +17,9 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
+	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/czcorpus/mquery-common/concordance"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
 
@@ -381,11 +381,9 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 				translation.To,
 				err.Error())
 		}
-		if treqTranslation.Error == "" {
-			treqTranslation.Examples = &concExample{
-				Text:          concData.Lines,
-				InteractionID: uuid.New().String(),
-			}
+		treqTranslation.Examples = &concExample{
+			Text:          util.Ternary(treqTranslation.Error == "", concData.Lines, []concordance.Line{}),
+			InteractionID: fmt.Sprintf("treqInteractionKey:%s", translation.To),
 		}
 		ans.Lines[i] = treqExtRespLine{
 			Freq: translation.Freq,

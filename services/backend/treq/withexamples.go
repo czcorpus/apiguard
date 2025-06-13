@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -340,7 +341,7 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 		)
 		urlQuery := make(url.Values)
 		urlQuery.Add("q", cql)
-		urlQuery.Add("maxRows", "2") // TODO configurable
+		urlQuery.Add("maxRows", strconv.Itoa(tp.conf.NumExamplesPerWord))
 		mqueryURL, err := url.JoinPath(tp.conf.ConcMQueryServicePath, "concordance", fromCorp)
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)

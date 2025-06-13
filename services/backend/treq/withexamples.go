@@ -43,6 +43,7 @@ type concExample struct {
 type treqExtTranslation struct {
 	Word     string       `json:"word"`
 	Examples *concExample `json:"examples"`
+	Error    string       `json:"error,omitempty"`
 }
 
 type treqExtRespLine struct {
@@ -363,24 +364,34 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 		}
 		tp.httpEngine.ServeHTTP(customWriter, &req)
 
+		treqTranslation := treqExtTranslation{
+			Word: translation.To,
+		}
+		if customWriter.statusCode < 200 || customWriter.statusCode >= 300 {
+			treqTranslation.Error = fmt.Sprintf(
+				"failed to get translation examples for \u2039%s\u203A (status code %d)",
+				translation.To,
+				customWriter.statusCode)
+		}
 		concResp := customWriter.body.Bytes()
 		var concData concResponse
 		if err := json.Unmarshal(concResp, &concData); err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
+			treqTranslation.Error = fmt.Sprintf(
+				"failed to get translation examples for \u2039%s\u203A: %s",
+				translation.To,
+				err.Error())
 		}
-		fmt.Println("concData.Lines: ", concData.Lines)
+		if treqTranslation.Error == "" {
+			treqTranslation.Examples = &concExample{
+				Text:          concData.Lines,
+				InteractionID: uuid.New().String(),
+			}
+		}
 		ans.Lines[i] = treqExtRespLine{
 			Freq: translation.Freq,
 			Perc: translation.Perc,
 			From: translation.From,
-			To: treqExtTranslation{
-				Word: translation.To,
-				Examples: &concExample{
-					Text:          concData.Lines,
-					InteractionID: uuid.New().String(),
-				},
-			},
+			To:   treqTranslation,
 		}
 
 	}

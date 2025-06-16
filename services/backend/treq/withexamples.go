@@ -348,6 +348,7 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 			urlQuery := make(url.Values)
 			urlQuery.Add("q", cql)
 			urlQuery.Add("maxRows", strconv.Itoa(tp.conf.NumExamplesPerWord))
+			urlQuery.Add("showTextProps", "1")
 			mqueryURL, err := url.JoinPath(tp.conf.ConcMQueryServicePath, "concordance", fromCorp)
 			if err != nil {
 				uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)

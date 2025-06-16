@@ -16,10 +16,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// testDataForError tries to find json-encoded data from a data stream chunk
+// It assumes that error is always encoded in an object under the 'error' key.
+// A possible slice of maps (map[string]any) is reported as "no error".
 func testDataForError(data string) (string, error) {
 	ddata := make(map[string]any)
-	if err := sonic.Unmarshal([]byte(data), &ddata); err != nil {
-		return "", err
+	var altData []map[string]any
+	err := sonic.Unmarshal([]byte(data), &ddata)
+	if err != nil {
+		err = sonic.Unmarshal([]byte(data), &altData)
+		if err != nil {
+			return "", fmt.Errorf("testDataForError failed - JSON response type not recognized: %w", err)
+		}
+		return "", nil // returned list of object is considered "no error" situation
 	}
 	errMsg, ok := ddata["error"]
 	if ok {

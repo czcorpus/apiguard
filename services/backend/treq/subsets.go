@@ -136,8 +136,8 @@ func (tp *TreqProxy) Subsets(ctx *gin.Context) {
 
 	incrementalAns := make(map[string]treqResp)
 	var mapLock sync.Mutex
-
 	var wg sync.WaitGroup
+
 	for subsetID, args := range allSubsetsArgs {
 		wg.Add(1)
 		go func(req http.Request, reqArgs subsetArgs) {

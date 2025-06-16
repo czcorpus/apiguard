@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -325,87 +326,100 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 	fromCorp := ctx.Query("fromCorp")
 	toCorp := ctx.Query("toCorp")
 
-	ans := treqExtResponse{
+	ans := &treqExtResponse{
 		Sum:      translations.Sum,
 		Lines:    make([]treqExtRespLine, len(translations.Lines)),
 		FromCorp: fromCorp,
 		ToCorp:   toCorp,
 	}
+	var ansEditLock sync.Mutex
+	var wg sync.WaitGroup
 
 	for i, translation := range translations.Lines {
-		cql := fmt.Sprintf(
-			`[word=="%s"] within %s:[word=="%s"]`,
-			strings.ReplaceAll(translation.From, "\"", "\\\""),
-			toCorp,
-			strings.ReplaceAll(translation.To, "\"", "\\\""),
-		)
-		urlQuery := make(url.Values)
-		urlQuery.Add("q", cql)
-		urlQuery.Add("maxRows", strconv.Itoa(tp.conf.NumExamplesPerWord))
-		mqueryURL, err := url.JoinPath(tp.conf.ConcMQueryServicePath, "concordance", fromCorp)
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
-		}
+		wg.Add(1)
+		go func(trLine treqRespLine, lineIdx int) {
+			defer wg.Done()
+			cql := fmt.Sprintf(
+				`[word=="%s"] within %s:[word=="%s"]`,
+				strings.ReplaceAll(trLine.From, "\"", "\\\""),
+				toCorp,
+				strings.ReplaceAll(trLine.To, "\"", "\\\""),
+			)
+			urlQuery := make(url.Values)
+			urlQuery.Add("q", cql)
+			urlQuery.Add("maxRows", strconv.Itoa(tp.conf.NumExamplesPerWord))
+			mqueryURL, err := url.JoinPath(tp.conf.ConcMQueryServicePath, "concordance", fromCorp)
+			if err != nil {
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+				return
+			}
 
-		req := *ctx.Request
-		req.Header = req.Header.Clone() // this prevents concurrent access to headers (= a map)
-		req.Method = "GET"
-		fullURL := mqueryURL + "?" + urlQuery.Encode()
-		parsedURL, err := url.Parse(fullURL)
-		if err != nil {
-			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-			return
-		}
-		req.URL = parsedURL
-		req.Body = io.NopCloser(strings.NewReader(""))
-		customWriter := &customResponseWriter{
-			body:   &bytes.Buffer{},
-			header: make(http.Header),
-		}
-		tp.httpEngine.ServeHTTP(customWriter, &req)
+			req := *ctx.Request
+			req.Header = req.Header.Clone() // this prevents concurrent access to headers (= a map)
+			req.Method = "GET"
+			fullURL := mqueryURL + "?" + urlQuery.Encode()
+			parsedURL, err := url.Parse(fullURL)
+			if err != nil {
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+				return
+			}
+			req.URL = parsedURL
+			req.Body = io.NopCloser(strings.NewReader(""))
+			customWriter := &customResponseWriter{
+				body:   &bytes.Buffer{},
+				header: make(http.Header),
+			}
+			tp.httpEngine.ServeHTTP(customWriter, &req)
 
-		treqTranslation := treqExtTranslation{
-			Word: translation.To,
-		}
-		if customWriter.statusCode < 200 || customWriter.statusCode >= 300 {
-			treqTranslation.Error = fmt.Sprintf(
-				"failed to get translation examples for \u2039%s\u203A (status code %d)",
-				translation.To,
-				customWriter.statusCode)
-		}
-		concResp := customWriter.body.Bytes()
-		var concData concResponse
-		if err := json.Unmarshal(concResp, &concData); err != nil {
-			treqTranslation.Error = fmt.Sprintf(
-				"failed to get translation examples for \u2039%s\u203A: %s",
-				translation.To,
-				err.Error())
-		}
-		treqTranslation.Examples = &concExample{
-			Text:          util.Ternary(treqTranslation.Error == "", concData.Lines, []concordance.Line{}),
-			InteractionID: fmt.Sprintf("treqInteractionKey:%s", translation.To),
-		}
-		ans.Lines[i] = treqExtRespLine{
-			Freq: translation.Freq,
-			Perc: translation.Perc,
-			From: translation.From,
-			To:   treqTranslation,
-		}
+			treqTranslation := treqExtTranslation{
+				Word: trLine.To,
+			}
+			if customWriter.statusCode < 200 || customWriter.statusCode >= 300 {
+				treqTranslation.Error = fmt.Sprintf(
+					"failed to get translation examples for \u2039%s\u203A (status code %d)",
+					trLine.To,
+					customWriter.statusCode)
+			}
+			concResp := customWriter.body.Bytes()
+			var concData concResponse
+			if err := json.Unmarshal(concResp, &concData); err != nil {
+				treqTranslation.Error = fmt.Sprintf(
+					"failed to get translation examples for \u2039%s\u203A: %s",
+					trLine.To,
+					err.Error())
+			}
+			treqTranslation.Examples = &concExample{
+				Text:          util.Ternary(treqTranslation.Error == "", concData.Lines, []concordance.Line{}),
+				InteractionID: fmt.Sprintf("treqInteractionKey:%s", trLine.To),
+			}
+			ansEditLock.Lock()
+			ans.Lines[lineIdx] = treqExtRespLine{
+				Freq: trLine.Freq,
+				Perc: trLine.Perc,
+				From: trLine.From,
+				To:   treqTranslation,
+			}
 
+			rawAns, err := json.Marshal(ans)
+			ansEditLock.Unlock()
+
+			if err != nil {
+				log.Error().Err(err).Msg("failed to prepare EventSource data")
+				return
+			}
+
+			_, err = ctx.Writer.WriteString(
+				fmt.Sprintf(
+					"event: DataTile-%s.%d\ndata: %s\n\n", ctx.Query("tileId"), 0, rawAns),
+			)
+			if err != nil {
+				// not much we can do here
+				log.Error().Err(err).Msg("failed to write EventSource data")
+				return
+			}
+
+		}(translation, i)
 	}
-
-	data, err := json.Marshal(ans)
-	if err != nil {
-		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
-		return
-	}
-
-	// TODO vvvvvvvvvvvvvvvvvvvvvvvv
-	for k, v := range serviceResp.GetHeaders() {
-		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
-	}
-	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	ctx.Writer.Write(data)
-
+	wg.Wait()
+	ctx.Writer.Flush()
 }

@@ -164,6 +164,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					Data:     actions.emptyResponse(req),
 					Status:   http.StatusOK,
 				}
+				wg.Done()
 
 			} else if rd.IsEventSource {
 				apiWriter := NewESAPIWriter(esAPIWriterChanBufferSize)
@@ -182,6 +183,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 							Status:   apiWriter.statusCode,
 						}
 					}
+					wg.Done()
 				}()
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
 
@@ -203,8 +205,8 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					Data:     data,
 					Status:   apiWriter.StatusCode(),
 				}
+				wg.Done()
 			}
-			wg.Done()
 		}(*reqData)
 
 	}

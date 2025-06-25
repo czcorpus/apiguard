@@ -44,11 +44,11 @@ func (jf *JSONFiles) GetConf(id string) ([]byte, error) {
 	}
 	appConf, ok := jf.files[idElms[0]]
 	if !ok {
-		return []byte{}, fmt.Errorf("cannot load tile conf JSON %s: app %s has no directory", id, idElms[0])
+		return []byte{}, ErrNotFound
 	}
 	fullPath, ok := appConf.files[idElms[1]]
 	if !ok {
-		return []byte{}, fmt.Errorf("cannot load tile conf JSON %s: tile %s not found", id, idElms[1])
+		return []byte{}, ErrNotFound
 	}
 	rawConf, err := os.ReadFile(fullPath)
 	if err != nil {
@@ -62,22 +62,12 @@ func (jf *JSONFiles) GetConf(id string) ([]byte, error) {
 	return rawConf, nil
 }
 
-type appDirectory struct {
-	rootPath string
-	id       string
-	files    map[string]string
-}
-
-func (dir appDirectory) fullPath() string {
-	return filepath.Join(dir.rootPath, dir.id)
-}
-
-func scanAppFiles(rootDir, appID string) (map[string]string, error) {
+func scanAppFiles(rootDir, appID string) (confFiles, error) {
 	items, err := os.ReadDir(filepath.Join(rootDir, appID))
 	if err != nil {
 		return map[string]string{}, fmt.Errorf("failed to scan directory for wag tile configs: %w", err)
 	}
-	ans := make(map[string]string)
+	ans := make(confFiles)
 	for _, item := range items {
 		fullPath := filepath.Join(rootDir, appID, item.Name())
 		rawConf, err := os.ReadFile(fullPath)
@@ -96,11 +86,11 @@ func scanAppFiles(rootDir, appID string) (map[string]string, error) {
 	return ans, nil
 }
 
-func scanAll(ctx context.Context, rootDir string) ([]appDirectory, error) {
-	ans := make([]appDirectory, 0, 10)
+func (jf *JSONFiles) scanAll(ctx context.Context, rootDir string) error {
+	jf.files = make(map[string]appDirectory)
 	items, err := os.ReadDir(rootDir)
 	if err != nil {
-		return []appDirectory{}, fmt.Errorf("failed to rescan tile configs: %w", err)
+		return fmt.Errorf("failed to rescan tile configs: %w", err)
 	}
 	for _, item := range items {
 		appID := item.Name()
@@ -119,12 +109,12 @@ func scanAll(ctx context.Context, rootDir string) ([]appDirectory, error) {
 
 		watcher, err := fsnotify.NewWatcher()
 		if err != nil {
-			return nil, fmt.Errorf("failed to instantiate JSONFiles loader: %w", err)
+			return fmt.Errorf("failed to instantiate JSONFiles loader: %w", err)
 		}
 		if err := watcher.Add(filepath.Join(rootDir, appID)); err != nil {
-			return nil, fmt.Errorf("failed to instantiate JSONFiles loader: %w", err)
+			return fmt.Errorf("failed to instantiate JSONFiles loader: %w", err)
 		}
-		ans = append(ans, appDir)
+		jf.files[appDir.id] = appDir
 		log.Info().Str("directory", filepath.Join(rootDir, appID)).Msg("watching tile conf directory for changes")
 		go func() {
 			for {
@@ -136,12 +126,17 @@ func scanAll(ctx context.Context, rootDir string) ([]appDirectory, error) {
 					if !ok {
 						return
 					}
-					log.Warn().Str("name", evt.Name).Msg("detected change in tile JSON config file(s)")
 					updFiles, err := scanAppFiles(rootDir, appDir.id)
 					if err != nil {
 						log.Error().Err(err).Str("app", appID).Msg("failed to rescan directory for an app")
 					}
+					log.Warn().
+						Str("app", appDir.id).
+						Str("name", evt.Name).
+						Str("operation", evt.Op.String()).
+						Msg("detected change in tile JSON config file(s)")
 					appDir.files = updFiles
+					jf.files[appDir.id] = appDir
 				case err, ok := <-watcher.Errors:
 					if !ok {
 						return
@@ -153,22 +148,17 @@ func scanAll(ctx context.Context, rootDir string) ([]appDirectory, error) {
 		}()
 
 	}
-	return ans, nil
+	return nil
 }
 
 func NewJSONFiles(ctx context.Context, rootDir string) (*JSONFiles, error) {
-	appDirs, err := scanAll(ctx, rootDir)
-	if err != nil {
+	ans := &JSONFiles{
+		RootDir: rootDir,
+	}
+	if err := ans.scanAll(ctx, rootDir); err != nil {
 		return nil, fmt.Errorf("failed to instantiate JSONFiles: %w", err)
 	}
-	appDirsMap := make(map[string]appDirectory)
-	for _, v := range appDirs {
-		appDirsMap[v.id] = v
-	}
-	return &JSONFiles{
-		RootDir: rootDir,
-		files:   appDirsMap,
-	}, nil
+	return ans, nil
 }
 
 // -------------------------------

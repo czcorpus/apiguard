@@ -187,6 +187,7 @@ func New(
 			backend:        counting.NewAnalyzer(globalCtx.TelemetryDB),
 			loc:            globalCtx.TimezoneLocation,
 			anonymousUsers: globalCtx.AnonymousUserIDs,
+			storage:        globalCtx.TelemetryDB,
 		}, nil
 	case "dumb":
 		return &Guard{
@@ -195,6 +196,7 @@ func New(
 			backend:        dumb.NewAnalyzer(globalCtx.TelemetryDB),
 			loc:            globalCtx.TimezoneLocation,
 			anonymousUsers: globalCtx.AnonymousUserIDs,
+			storage:        globalCtx.TelemetryDB,
 		}, nil
 	case "entropy":
 		backend, err := entropy.NewAnalyzer(
@@ -208,6 +210,7 @@ func New(
 			backend:        backend,
 			loc:            globalCtx.TimezoneLocation,
 			anonymousUsers: globalCtx.AnonymousUserIDs,
+			storage:        globalCtx.TelemetryDB,
 		}, nil
 	case "neural":
 		backend, err := neural.NewAnalyzer(
@@ -223,6 +226,7 @@ func New(
 			backend:        backend,
 			loc:            globalCtx.TimezoneLocation,
 			anonymousUsers: globalCtx.AnonymousUserIDs,
+			storage:        globalCtx.TelemetryDB,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown analyzer backend %s", telemetryConf.Analyzer)

@@ -1,0 +1,211 @@
+// Copyright 2025 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2025 Charles University - Faculty of Arts,
+//                Institute of the Czech National Corpus
+// All rights reserved.
+
+package wss
+
+import (
+	"apiguard/common"
+	"apiguard/globctx"
+	"apiguard/guard"
+	"apiguard/reporting"
+	"apiguard/services/cnc"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/bytedance/sonic"
+	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+)
+
+//
+
+type WSServerProxy struct {
+	*cnc.CoreProxy
+	httpEngine http.Handler
+}
+
+func (proxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
+	var userID, humanID common.UserID
+	var cached, indirectAPICall bool
+	var statusCode int
+	t0 := time.Now().In(proxy.GlobalCtx().TimezoneLocation)
+
+	defer proxy.LogRequest(ctx, &humanID, &indirectAPICall, &cached, t0)
+
+	rawReq1Body, err := io.ReadAll(ctx.Request.Body)
+	if err != nil {
+		http.Error(ctx.Writer, "Failed to process tt-collocations args", http.StatusBadRequest)
+		return
+	}
+	var args ttCollsFreqsArgs
+	if err := sonic.Unmarshal(rawReq1Body, &args); err != nil {
+		http.Error(ctx.Writer, "Failed to process tt-collocations args", http.StatusBadRequest)
+		return
+	}
+
+	if !strings.HasPrefix(ctx.Request.URL.Path, proxy.EnvironConf().ServicePath) {
+		log.Error().Msgf("failed to get merge freqs - invalid path detected")
+		http.Error(ctx.Writer, "Invalid path detected", http.StatusInternalServerError)
+		return
+	}
+	reqProps, ok := proxy.AuthorizeRequestOrRespondErr(ctx)
+	if !ok {
+		return
+	}
+
+	humanID, err = proxy.Guard().DetermineTrueUserID(ctx.Request)
+	if err != nil {
+		log.Error().Err(err).Msg("failed to extract human user ID information")
+		http.Error(ctx.Writer, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
+		return
+	}
+	if humanID == common.InvalidUserID {
+		humanID = reqProps.ClientID
+	}
+
+	clientID := common.ClientID{
+		IP: ctx.RemoteIP(),
+		ID: humanID,
+	}
+
+	if err := guard.RestrictResponseTime(
+		ctx.Writer, ctx.Request, proxy.EnvironConf().ReadTimeoutSecs, proxy.Guard(), clientID,
+	); err != nil {
+		return
+	}
+
+	if err := proxy.ProcessReqHeaders(
+		ctx, humanID, userID, &indirectAPICall,
+	); err != nil {
+		log.Error().Err(reqProps.Error).Msgf("failed to get tt-collocations - cookie mapping")
+		http.Error(
+			ctx.Writer,
+			err.Error(),
+			http.StatusInternalServerError,
+		)
+		return
+	}
+
+	rt0 := time.Now().In(proxy.GlobalCtx().TimezoneLocation)
+
+	cached = true
+	data := streamResponse{
+		Parts: make(map[string]collResponse),
+	}
+
+	// TODO this is debatable:
+	// here we write empty data so the stream handler
+	// fills in data for "data: ..." and then we continue
+	// writing true data with both "event" and "data"
+	// But we have to make sure this cannot fail in strange ways
+	// This also means, client has to know how to handle the {} response
+	_, err = fmt.Fprint(ctx.Writer, "{}\n\n")
+	if err != nil {
+		log.Error().Err(err).Msg("failed to write response")
+		// TODO
+	}
+
+	for _, textType := range args.TextTypes {
+		req := *ctx.Request
+		var reqURL *url.URL
+		if args.PoS != "" {
+			reqURL = proxy.BackendURL.JoinPath(
+				proxy.EnvironConf().ServicePath, "dataset", args.Dataset, "collocations", args.Word, args.PoS)
+
+		} else {
+			reqURL = proxy.BackendURL.JoinPath(
+				proxy.EnvironConf().ServicePath, "dataset", args.Dataset, "collocations", args.Word)
+		}
+		urlArgs := make(url.Values)
+		urlArgs.Add("tt", textType)
+		urlArgs.Add("limit", strconv.Itoa(args.Limit))
+		reqURL.RawQuery = urlArgs.Encode()
+		req.URL = reqURL
+		req.Method = "GET"
+		resp := proxy.MakeRequest(&req, reqProps)
+
+		if resp.GetError() != nil {
+			log.Error().Err(resp.GetError()).Msgf("failed to to get partial tt-colls %s", reqURL.String())
+			http.Error(
+				ctx.Writer,
+				fmt.Sprintf("failed to get partial tt-colls: %s", resp.GetError()),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+
+		defer resp.GetBodyReader().Close()
+		body, err := io.ReadAll(resp.GetBodyReader())
+		if err != nil {
+			http.Error(
+				ctx.Writer,
+				fmt.Sprintf("failed to get partial tt-colls: %s", err),
+				http.StatusInternalServerError,
+			)
+		}
+		var ttCollPart collResponse
+		if err := sonic.Unmarshal(body, &ttCollPart); err != nil {
+			http.Error(
+				ctx.Writer,
+				fmt.Sprintf("failed to get partial freqs: %s", err),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		data.Parts[textType] = ttCollPart
+		if data.Error == "" && ttCollPart.Error != "" {
+			data.Error = ttCollPart.Error
+		}
+
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to prepare EventSource data")
+			return
+		}
+
+		_, err = fmt.Fprintf(
+			ctx.Writer,
+			"event: DataTile-%d.%d\ndata: %s\n\n",
+			args.TileID, 0, jsonData,
+		)
+		if err != nil {
+			// not much we can do here
+			log.Error().Err(err).Msg("failed to write EventSource data")
+			return
+		}
+	}
+
+	proxy.MonitoringWrite(&reporting.ProxyProcReport{
+		DateTime: time.Now().In(proxy.GlobalCtx().TimezoneLocation),
+		ProcTime: time.Since(rt0).Seconds(),
+		Status:   statusCode,
+		Service:  proxy.EnvironConf().ServiceKey,
+		IsCached: cached,
+	})
+}
+
+func NewWSServerProxy(
+	globalCtx *globctx.Context,
+	conf *cnc.ProxyConf,
+	gConf *cnc.EnvironConf,
+	guard guard.ServiceGuard,
+	httpEngine http.Handler,
+	reqCounter chan<- guard.RequestInfo,
+) (*WSServerProxy, error) {
+	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create MQuery proxy: %w", err)
+	}
+	return &WSServerProxy{
+		CoreProxy:  proxy,
+		httpEngine: httpEngine,
+	}, nil
+}

@@ -33,7 +33,7 @@ import (
 	"apiguard/services/backend/scollex"
 	"apiguard/services/backend/ssjc"
 	"apiguard/services/backend/treq"
-	"apiguard/services/backend/w2v"
+	"apiguard/services/backend/wss"
 	"apiguard/services/cnc"
 	"apiguard/session"
 	"encoding/json"
@@ -708,20 +708,15 @@ func InitServices(
 			)
 			log.Info().Int("sid", sid).Msg("Proxy for Hex enabled")
 
-		// W2V proxy
-		case "w2v":
-			var typedConf w2v.Conf
+		// WSS proxy
+		case "wss":
+			var typedConf wss.Conf
 			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+				return fmt.Errorf("failed to initialize service %d (wss): %w", sid, err)
 			}
-			if err := typedConf.Validate("w2v"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+			if err := typedConf.Validate("wss"); err != nil {
+				return fmt.Errorf("failed to initialize service %d (wss): %w", sid, err)
 			}
-			client := httpclient.New(
-				httpclient.WithFollowRedirects(),
-				httpclient.WithInsecureSkipVerify(),
-				httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
-			)
 			analyzer := dflt.New(
 				ctx,
 				globalConf.CNCAuth.SessionCookieName,
@@ -729,40 +724,70 @@ func InitServices(
 				typedConf.Limits,
 			)
 			go analyzer.Run()
-			backendURL, err := url.Parse(typedConf.BackendURL)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
-			}
-			frontendUrl, err := url.Parse(typedConf.FrontendURL)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
-			}
-			coreProxy, err := proxy.NewAPIProxy(typedConf.GetCoreConf())
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (w2v): %w", sid, err)
+
+			var wssReqCounter chan<- guard.RequestInfo
+			if len(typedConf.Limits) > 0 {
+				wssReqCounter = alarm.Register(
+					fmt.Sprintf("%d/mquery", sid),
+					typedConf.Alarm,
+					typedConf.Limits,
+				)
 			}
 
-			w2vActions := public.NewAPIProxy(
+			var grd guard.ServiceGuard
+			switch typedConf.GuardType {
+			case guard.GuardTypeToken:
+				grd = token.NewGuard(
+					ctx,
+					fmt.Sprintf("/service/%d/wss", sid),
+					typedConf.TokenHeaderName,
+					typedConf.Limits,
+					typedConf.Tokens,
+					[]string{"/openapi"},
+				)
+			case guard.GuardTypeDflt:
+				grd = dflt.New(
+					ctx,
+					globalConf.CNCAuth.SessionCookieName,
+					typedConf.SessionValType,
+					typedConf.Limits,
+				)
+			default:
+				return fmt.Errorf("MQuery proxy does not support guard type `%s`", typedConf.GuardType)
+			}
+
+			wssActions, err := wss.NewWSServerProxy(
 				ctx,
-				coreProxy,
-				sid,
-				client,
-				analyzer.ExposeAsCounter(),
-				analyzer,
-				public.PublicAPIProxyOpts{
-					ServiceKey:       fmt.Sprintf("%d/w2v", sid),
-					ServicePath:      fmt.Sprintf("/service/%d/w2v", sid),
-					BackendURL:       backendURL,
-					FrontendURL:      frontendUrl,
-					AuthCookieName:   globalConf.CNCAuth.SessionCookieName,
-					UserIDHeaderName: typedConf.TrueUserIDHeader,
-					ReadTimeoutSecs:  globalConf.ServerReadTimeoutSecs,
+				&typedConf.ProxyConf,
+				&cnc.EnvironConf{
+					CNCAuthCookie:     globalConf.CNCAuth.SessionCookieName,
+					AuthTokenEntry:    authTokenEntry,
+					ServicePath:       fmt.Sprintf("/service/%d/wss", sid),
+					ServiceKey:        fmt.Sprintf("%d/wss", sid),
+					CNCPortalLoginURL: cncPortalLoginURL,
+					ReadTimeoutSecs:   globalConf.ServerReadTimeoutSecs,
+					IsStreamingMode:   globalConf.OperationMode == config.OperationModeStreaming,
+				},
+				grd,
+				engine,
+				wssReqCounter,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to initialize service %d (wss): %w", sid, err)
+			}
+
+			apiRoutes.Any(
+				fmt.Sprintf("/service/%d/wss/*path", sid),
+				func(ctx *gin.Context) {
+					if ctx.Param("path") == "/collocations-tt" && ctx.Request.Method == http.MethodPost {
+						wssActions.CollocationsTT(ctx)
+
+					} else {
+						wssActions.AnyPath(ctx)
+					}
 				},
 			)
-			apiRoutes.Any(
-				fmt.Sprintf("/service/%d/w2v/*path", sid),
-				w2vActions.AnyPath)
-			log.Info().Int("sid", sid).Msg("Proxy for w2v enabled")
+			log.Info().Int("sid", sid).Msg("Proxy for wss enabled")
 
 		// Scollex proxy
 		case "scollex":

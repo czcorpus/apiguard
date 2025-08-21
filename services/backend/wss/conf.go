@@ -59,11 +59,12 @@ type simpleCollocation struct {
 	SearchMatch lemmaInfo `json:"searchMatch"`
 	Collocate   lemmaInfo `json:"collocate"`
 	Deprel      string    `json:"deprel"`
-	LogDice     float64   `json:"logDice"`
-	TScore      float64   `json:"tscore"`
-	LMI         float64   `json:"lmi"`
-	RRF         float64   `json:"rrf"`
-	MutualDist  float64   `json:"mutualDist"`
+	LogDice     *float64  `json:"logDice"`
+	TScore      *float64  `json:"tscore"`
+	LMI         *float64  `json:"lmi"`
+	LL          *float64  `json:"ll"`
+	RRF         *float64  `json:"rrf"`
+	MutualDist  *float64  `json:"mutualDist"`
 }
 
 type collResponse struct {

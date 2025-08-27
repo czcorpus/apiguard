@@ -48,9 +48,16 @@ func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOp
 	return h.Sum(nil)
 }
 
-// IsCacheableProxying tests if the provided user request and response properties
+// ShouldReadFromCache tests if the provided request and options match
+// caching conditions for reading.
+func ShouldReadFromCache(req *http.Request, opts *CacheEntryOptions) bool {
+	return (req.Method == http.MethodGet || opts.CacheablePOST) &&
+		req.Header.Get("Cache-Control") != "no-cache"
+}
+
+// ShouldWriteToCache tests if the provided user request and response properties
 // make the response a valid candidate for caching.
-func IsCacheableProxying(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) bool {
+func ShouldWriteToCache(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) bool {
 	ans := (resp.GetStatusCode() == http.StatusOK || resp.GetStatusCode() == http.StatusCreated) &&
 		resp.GetError() == nil &&
 		(req.Method == http.MethodGet || opts.CacheablePOST) &&

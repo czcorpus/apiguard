@@ -33,6 +33,9 @@ func (rc *File) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (
 	for _, fn := range opts {
 		fn(optsFin)
 	}
+	if !proxy.ShouldReadFromCache(req, optsFin) {
+		return nil, proxy.ErrCacheMiss
+	}
 	filePath := rc.createItemPath(req, nil, optsFin)
 	isFile, err := fs.IsFile(filePath)
 	if err != nil {
@@ -75,7 +78,7 @@ func (frc *File) Set(req *http.Request, resp proxy.BackendResponse, opts ...func
 	for _, fn := range opts {
 		fn(optsFin)
 	}
-	if proxy.IsCacheableProxying(req, resp, optsFin) {
+	if proxy.ShouldWriteToCache(req, resp, optsFin) {
 		targetPath := frc.createItemPath(req, resp, optsFin)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		fw, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, 0644)

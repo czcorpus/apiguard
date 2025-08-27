@@ -40,6 +40,9 @@ func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions))
 	for _, fn := range opts {
 		fn(optsFin)
 	}
+	if !proxy.ShouldReadFromCache(req, optsFin) {
+		return nil, proxy.ErrCacheMiss
+	}
 	cacheID := rrc.createCacheID(req, nil, optsFin)
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
@@ -68,7 +71,7 @@ func (rrc *Redis) Set(req *http.Request, resp proxy.BackendResponse, opts ...fun
 	for _, fn := range opts {
 		fn(optsFin)
 	}
-	if proxy.IsCacheableProxying(req, resp, optsFin) {
+	if proxy.ShouldWriteToCache(req, resp, optsFin) {
 		cacheID := rrc.createCacheID(req, resp, optsFin)
 		var buffer bytes.Buffer
 		encoder := gob.NewEncoder(&buffer)

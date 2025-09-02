@@ -13,11 +13,11 @@ import (
 
 type NullCache struct{}
 
-func (rc *NullCache) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.BackendResponse, error) {
-	return nil, proxy.ErrCacheMiss
+func (rc *NullCache) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.CacheEntry, error) {
+	return proxy.CacheEntry{}, proxy.ErrCacheMiss
 }
 
-func (rc *NullCache) Set(req *http.Request, resp proxy.BackendResponse, opts ...func(*proxy.CacheEntryOptions)) error {
+func (rc *NullCache) Set(req *http.Request, value proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
 	return nil
 }
 

@@ -17,13 +17,14 @@ import (
 	"io"
 	"net/http"
 	"path"
+	"reflect"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
-func (kp *CoreProxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indirect *bool, cached *bool, created time.Time) {
+func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indirect *bool, cached *bool, created time.Time) {
 	if kp.reqCounter != nil {
 		kp.reqCounter <- guard.RequestInfo{
 			Created:     created,
@@ -44,11 +45,11 @@ func (kp *CoreProxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, in
 	)
 }
 
-func (kp *CoreProxy) MonitoringWrite(item reporting.Timescalable) {
+func (kp *Proxy) MonitoringWrite(item reporting.Timescalable) {
 	kp.tDBWriter.Write(item)
 }
 
-func (kp *CoreProxy) reqUsesMappedSession(req *http.Request) bool {
+func (kp *Proxy) reqUsesMappedSession(req *http.Request) bool {
 	if kp.conf.FrontendSessionCookieName == "" {
 		return false
 	}
@@ -56,7 +57,7 @@ func (kp *CoreProxy) reqUsesMappedSession(req *http.Request) bool {
 	return err == nil
 }
 
-func (kp *CoreProxy) ProcessReqHeaders(
+func (kp *Proxy) ProcessReqHeaders(
 	ctx *gin.Context,
 	humanID, userID common.UserID,
 	indirectAPICall *bool,
@@ -108,7 +109,7 @@ func (kp *CoreProxy) ProcessReqHeaders(
 	return nil
 }
 
-func (kp *CoreProxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEvaluation, bool) {
+func (kp *Proxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEvaluation, bool) {
 	reqProps := kp.guard.EvaluateRequest(ctx.Request, nil)
 	log.Debug().
 		Str("reqPath", ctx.Request.URL.Path).
@@ -130,31 +131,42 @@ func (kp *CoreProxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEv
 	return reqProps, true
 }
 
-func (kp *CoreProxy) MakeRequest(
+func (kp *Proxy) HandleRequest(
 	req *http.Request,
 	reqProps guard.ReqEvaluation,
-) proxy.BackendResponse {
+	useCache bool,
+) proxy.ResponseProcessor {
 	kp.debugLogRequest(req)
 	cacheApplCookies := make([]string, 0, 2)
 	if kp.conf.CachingPerSession {
 		cacheApplCookies = append(cacheApplCookies, kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName)
 	}
-	resp, err := kp.globalCtx.Cache.Get(
-		req,
-		proxy.CachingWithCookies(cacheApplCookies),
-	)
-	if err == proxy.ErrCacheMiss {
+	var respHandler proxy.ResponseProcessor
+	if useCache {
+		respHandler = kp.FromCache(
+			req,
+			proxy.CachingWithCookies(cacheApplCookies),
+		)
+
+	} else {
+		respHandler = proxy.NewDirectResponse(nil)
+	}
+
+	if respHandler.Error() != nil {
+		return respHandler
+	}
+	if respHandler.IsCacheMiss() {
 		if req.Body != nil {
 			// TODO without this, invalid Read on closed Body happens on merge-freqs
 			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
-				return &proxy.ProxiedResponse{Err: err}
+				return proxy.NewThroughCacheResponse(req, nil, err)
 			}
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
 		// ---------------------------------------------------------------------
 
-		resp = kp.apiProxy.Request(
+		resp := kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
 			req.URL.Query(),
@@ -162,51 +174,47 @@ func (kp *CoreProxy) MakeRequest(
 			req.Header,
 			req.Body,
 		)
-		kp.debugLogResponse(req, resp, err)
-		err = kp.globalCtx.Cache.Set(
-			req,
-			resp,
-			proxy.CachingWithCookies(cacheApplCookies),
-		)
-		if err != nil {
-			resp = &proxy.ProxiedResponse{Err: err}
+		if binder, ok := respHandler.(proxy.ResponseProcessorBinder); ok {
+			binder.BindResponse(resp)
 		}
-		return resp
+		kp.debugLogResponse(req, resp)
 	}
-	if err != nil {
-		return &proxy.ProxiedResponse{Err: err}
-	}
-	return resp
+	return respHandler
 }
 
-func (kp *CoreProxy) MakeStreamRequest(
+func (kp *Proxy) MakeStreamRequest(
 	req *http.Request,
 	reqProps guard.ReqEvaluation,
-) proxy.BackendResponse {
+) proxy.ResponseProcessor {
 	kp.debugLogRequest(req)
 	cacheApplCookies := make([]string, 0, 2)
 	if kp.conf.CachingPerSession {
 		cacheApplCookies = append(cacheApplCookies, kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName)
 	}
-	resp, err := kp.globalCtx.Cache.Get(
+	resp := kp.FromCache(
 		req,
 		proxy.CachingWithCookies(cacheApplCookies),
 	)
-	if err == proxy.ErrCacheMiss {
+	if resp.IsCacheMiss() {
 		if req.Body != nil {
 			// TODO without this, invalid Read on closed Body happens on merge-freqs
 			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
-				return &proxy.ProxiedStreamResponse{
+				tmp := &proxy.BackendProxiedStreamResponse{
 					BodyReader: proxy.EmptyReadCloser{},
 					Err:        err,
 				}
+				tResp, ok := resp.(proxy.ResponseProcessorBinder)
+				if ok {
+					tResp.BindResponse(tmp)
+				}
+				return resp
 			}
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
 		// ---------------------------------------------------------------------
 
-		resp = kp.apiProxy.Request(
+		backendResp := kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
 			req.URL.Query(),
@@ -214,24 +222,13 @@ func (kp *CoreProxy) MakeStreamRequest(
 			req.Header,
 			req.Body,
 		)
-		kp.debugLogResponse(req, resp, err)
-		err = kp.globalCtx.Cache.Set(
-			req,
-			resp,
-			proxy.CachingWithCookies(cacheApplCookies),
-		)
-		if err != nil {
-			resp = &proxy.ProxiedStreamResponse{
-				BodyReader: proxy.EmptyReadCloser{},
-				Err:        err,
-			}
-		}
-		return resp
-	}
-	if err != nil {
-		return &proxy.ProxiedStreamResponse{
-			BodyReader: proxy.EmptyReadCloser{},
-			Err:        err,
+		if cmResp, ok := resp.(proxy.ResponseProcessorBinder); ok {
+			cmResp.BindResponse(backendResp)
+
+		} else {
+			panic(fmt.Sprintf(
+				"MakeStreamRequest - cannot bind response - non-CachingResponseWriterInterceptor: %s",
+				reflect.TypeOf(resp)))
 		}
 	}
 	return resp
@@ -247,11 +244,11 @@ func (kp *CoreProxy) MakeStreamRequest(
 // in special occasions as it affects performance.
 //
 // In case the request is not POST, the method panics.
-func (kp *CoreProxy) MakeCacheablePOSTRequest(
+func (kp *Proxy) MakeCacheablePOSTRequest(
 	req *http.Request,
 	reqProps guard.ReqEvaluation,
 	reqBody []byte,
-) proxy.BackendResponse {
+) proxy.ResponseProcessor {
 	if req.Method != http.MethodPost {
 		panic("assertion in MakeCacheablePOSTRequest error: req is not POST")
 	}
@@ -260,14 +257,14 @@ func (kp *CoreProxy) MakeCacheablePOSTRequest(
 	if kp.conf.CachingPerSession {
 		cacheApplCookies = append(cacheApplCookies, kp.rConf.CNCAuthCookie, kp.conf.FrontendSessionCookieName)
 	}
-	resp, err := kp.globalCtx.Cache.Get(
+	resp := kp.FromCache(
 		req,
 		proxy.CachingWithCookies(cacheApplCookies),
 		proxy.CachingWithReqBody(reqBody),
 		proxy.CachingWithCacheablePOST(),
 	)
-	if err == proxy.ErrCacheMiss {
-		resp = kp.apiProxy.Request(
+	if resp.IsCacheMiss() {
+		backendResp := kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
 			req.URL.Query(),
@@ -275,21 +272,10 @@ func (kp *CoreProxy) MakeCacheablePOSTRequest(
 			req.Header,
 			req.Body,
 		)
-		kp.debugLogResponse(req, resp, err)
-		err = kp.globalCtx.Cache.Set(
-			req,
-			resp,
-			proxy.CachingWithCookies(cacheApplCookies),
-			proxy.CachingWithReqBody(reqBody),
-			proxy.CachingWithCacheablePOST(),
-		)
-		if err != nil {
-			resp = &proxy.ProxiedResponse{Err: err}
-		}
-		return resp
-	}
-	if err != nil {
-		return &proxy.ProxiedResponse{Err: err}
+		kp.debugLogResponse(req, backendResp)
+		cmResp := &proxy.ThroughCacheResponse{}
+		cmResp.BindResponse(backendResp)
+		resp = cmResp
 	}
 	return resp
 }

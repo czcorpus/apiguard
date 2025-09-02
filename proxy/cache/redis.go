@@ -30,49 +30,49 @@ type Redis struct {
 	redisContext context.Context
 }
 
-func (rrc *Redis) createCacheID(req *http.Request, resp proxy.BackendResponse, opts *proxy.CacheEntryOptions) string {
-	cacheID := proxy.GenerateCacheId(req, resp, opts)
+func (rrc *Redis) createCacheID(req *http.Request, opts *proxy.CacheEntryOptions) string {
+	cacheID := proxy.GenerateCacheId(req, opts)
 	return fmt.Sprintf("apiguard:cache:%x", cacheID)
 }
 
-func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.BackendResponse, error) {
+func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.CacheEntry, error) {
 	optsFin := new(proxy.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
 	if !proxy.ShouldReadFromCache(req, optsFin) {
-		return nil, proxy.ErrCacheMiss
+		return proxy.CacheEntry{}, proxy.ErrCacheMiss
 	}
-	cacheID := rrc.createCacheID(req, nil, optsFin)
+	cacheID := rrc.createCacheID(req, optsFin)
+	fmt.Println("============= CACHE ID: ", cacheID, " ===================================")
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
-		return nil, proxy.ErrCacheMiss
+		return proxy.CacheEntry{}, proxy.ErrCacheMiss
 
 	} else if err != nil {
-		return nil, fmt.Errorf("proxy cache access error: %w", err)
+		return proxy.CacheEntry{}, fmt.Errorf("proxy cache access error: %w", err)
 	}
 	_, err = rrc.redisClient.Expire(rrc.redisContext, cacheID, time.Duration(rrc.conf.TTLSecs)*time.Second).Result()
 	if err != nil {
-		return nil, fmt.Errorf("proxy cache access error: %w", err)
+		return proxy.CacheEntry{}, fmt.Errorf("proxy cache access error: %w", err)
 	}
 	reader := bytes.NewReader([]byte(val))
 	decoder := gob.NewDecoder(reader)
-	var ans proxy.BackendResponse
+	var ans proxy.CacheEntry
 	err = decoder.Decode(&ans)
 	if err == nil {
-		ans.MarkCached()
 		return ans, nil
 	}
-	return nil, fmt.Errorf("proxy cache access error: %w", err)
+	return ans, fmt.Errorf("proxy cache access error: %w", err)
 }
 
-func (rrc *Redis) Set(req *http.Request, resp proxy.BackendResponse, opts ...func(*proxy.CacheEntryOptions)) error {
+func (rrc *Redis) Set(req *http.Request, resp proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
 	optsFin := new(proxy.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
 	if proxy.ShouldWriteToCache(req, resp, optsFin) {
-		cacheID := rrc.createCacheID(req, resp, optsFin)
+		cacheID := rrc.createCacheID(req, optsFin)
 		var buffer bytes.Buffer
 		encoder := gob.NewEncoder(&buffer)
 		err := encoder.Encode(&resp)

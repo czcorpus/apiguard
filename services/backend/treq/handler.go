@@ -17,7 +17,6 @@ import (
 	"apiguard/services/cnc"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -61,7 +60,7 @@ func (args subsetArgs) ToQuery() url.Values {
 type subsetsReq map[string]subsetArgs
 
 type TreqProxy struct {
-	*cnc.CoreProxy
+	*cnc.Proxy
 	conf               *Conf
 	authFallbackCookie *http.Cookie
 	reauthSF           singleflight.Group
@@ -77,6 +76,7 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 }
 
 func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
+	fmt.Println("ANYPATH TREQ, req headers: ", ctx.Request.Header)
 	var cached, indirectAPICall bool
 	var clientID, humanID common.UserID
 	t0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
@@ -228,68 +228,29 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 	}
 
 	rt0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
-	serviceResp := tp.makeRequest(ctx.Request)
-	cached = serviceResp.IsCached()
+	serviceResp := tp.HandleRequest(ctx.Request, reqProps, true)
+	cached = !serviceResp.IsCacheMiss()
 	tp.WriteReport(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(tp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
-		Status:   serviceResp.GetStatusCode(),
+		Status:   serviceResp.Response().GetStatusCode(),
 		Service:  tp.EnvironConf().ServiceKey,
 		IsCached: cached,
 	})
-	if serviceResp.GetError() != nil {
-		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+	if serviceResp.Error() != nil {
+		log.Error().Err(serviceResp.Error()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 		http.Error(
 			ctx.Writer,
-			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
+			fmt.Sprintf("failed to proxy request: %s", serviceResp.Error()),
 			http.StatusInternalServerError,
 		)
 		return
 	}
 
-	for k, v := range serviceResp.GetHeaders() {
+	for k, v := range serviceResp.Response().GetHeaders() {
 		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
-	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	defer serviceResp.CloseBodyReader()
-	respBody, err := io.ReadAll(serviceResp.GetBodyReader())
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
-		http.Error(
-			ctx.Writer,
-			fmt.Sprintf("failed to proxy request: %s", err),
-			http.StatusInternalServerError,
-		)
-		return
-	}
-	ctx.Writer.Write(respBody)
-}
-
-func (tp *TreqProxy) makeRequest(req *http.Request) proxy.BackendResponse {
-	cacheApplCookies := []string{
-		tp.conf.FrontendSessionCookieName,
-		tp.EnvironConf().CNCAuthCookie,
-	}
-	resp, err := tp.GlobalCtx().Cache.Get(req, proxy.CachingWithCookies(cacheApplCookies))
-	if err == proxy.ErrCacheMiss {
-		path := req.URL.Path[len(tp.EnvironConf().ServicePath):]
-		resp = tp.ProxyRequest(
-			path,
-			req.URL.Query(),
-			req.Method,
-			req.Header,
-			req.Body,
-		)
-		err := tp.GlobalCtx().Cache.Set(req, resp, proxy.CachingWithCookies(cacheApplCookies))
-		if err != nil {
-			return &proxy.ProxiedResponse{Err: err}
-		}
-		return resp
-
-	} else if err != nil {
-		return &proxy.ProxiedResponse{Err: err}
-	}
-	return resp
+	serviceResp.WriteResponse(ctx.Writer)
 }
 
 func NewTreqProxy(
@@ -300,12 +261,12 @@ func NewTreqProxy(
 	httpEngine http.Handler,
 	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
+	proxy, err := cnc.NewProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KonText proxy: %w", err)
 	}
 	return &TreqProxy{
-		CoreProxy:  proxy,
+		Proxy:      proxy,
 		conf:       conf,
 		httpEngine: httpEngine,
 	}, nil

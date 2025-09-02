@@ -52,14 +52,14 @@ type PublicAPIProxyOpts struct {
 	AuthCookieName      string
 	UserIDHeaderName    string
 	ReadTimeoutSecs     int
-	ResponseInterceptor func(*proxy.ProxiedResponse)
+	ResponseInterceptor func(*proxy.BackendProxiedResponse)
 }
 
-// APIProxy is a service proxy which - in general - does not
+// Proxy is a service proxy which - in general - does not
 // forbid any user from accessing protected API. But it still
 // distinguishes between logged-in users and anonymous ones. And
 // it may throttle requests with some favouring of logged-in users.
-type APIProxy struct {
+type Proxy struct {
 	servicePath         string
 	serviceKey          string
 	BackendURL          *url.URL
@@ -69,12 +69,12 @@ type APIProxy struct {
 	readTimeoutSecs     int
 	client              *http.Client
 	cache               proxy.Cache
-	basicProxy          *proxy.APIProxy
+	basicProxy          *proxy.CoreProxy
 	clientCounter       chan<- common.ClientID
 	guard               guard.ServiceGuard
 	db                  *sql.DB
 	tzLocation          *time.Location
-	responseInterceptor func(resp *proxy.ProxiedResponse)
+	responseInterceptor func(resp *proxy.BackendProxiedResponse)
 	tDBWriter           reporting.ReportingWriter
 }
 
@@ -86,7 +86,7 @@ func mustParseURL(rawUrl string) *url.URL {
 	return u
 }
 
-func (prox *APIProxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
+func (prox *Proxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
 	cookie, err := req.Cookie(prox.authCookieName)
 	if err == http.ErrNoCookie {
 		return nil
@@ -94,12 +94,12 @@ func (prox *APIProxy) getUserCNCSessionCookie(req *http.Request) *http.Cookie {
 	return cookie
 }
 
-func (prox *APIProxy) getUserCNCSessionID(req *http.Request) session.HTTPSession {
+func (prox *Proxy) getUserCNCSessionID(req *http.Request) session.HTTPSession {
 	v := proxy.GetCookieValue(req, prox.authCookieName)
 	return session.CNCSessionValue{}.UpdatedFrom(v)
 }
 
-func (prox *APIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {
+func (prox *Proxy) RestrictResponseTime(ctx *gin.Context, clientID common.ClientID) error {
 	respDelay, err := prox.guard.CalcDelay(ctx.Request, clientID)
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
@@ -123,7 +123,7 @@ func (prox *APIProxy) RestrictResponseTime(ctx *gin.Context, clientID common.Cli
 	return nil
 }
 
-func (prox *APIProxy) determineTrueUserID(
+func (prox *Proxy) determineTrueUserID(
 	req *http.Request,
 ) (common.UserID, error) {
 
@@ -139,7 +139,19 @@ func (prox *APIProxy) determineTrueUserID(
 	return userID, nil
 }
 
-func (prox *APIProxy) AnyPath(ctx *gin.Context) {
+func (prox *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) proxy.ResponseProcessor {
+	data, err := prox.cache.Get(req, opts...)
+
+	if err == proxy.ErrCacheMiss {
+		return proxy.NewThroughCacheResponse(req, prox.cache, nil)
+
+	} else if err != nil {
+		return proxy.NewThroughCacheResponse(req, prox.cache, err)
+	}
+	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
+}
+
+func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	var humanID common.UserID
 	path := ctx.Request.URL.Path
 	rt0 := time.Now().In(prox.tzLocation)
@@ -197,15 +209,10 @@ func (prox *APIProxy) AnyPath(ctx *gin.Context) {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
 
-	resp, err := prox.cache.Get(ctx.Request)
-	if err != nil {
-		if err != proxy.ErrCacheMiss {
-			log.Error().
-				Err(err).
-				Str("serviceKey", prox.serviceKey).
-				Msg("unexpected caching error in PublicAPIProxy - this should be resolved")
-		}
-		resp = prox.basicProxy.Request(
+	respHandler := prox.FromCache(ctx.Request)
+	logging.AddLogEvent(ctx, "isCached", !respHandler.IsCacheMiss())
+	if respHandler.IsCacheMiss() {
+		resp := prox.basicProxy.Request(
 			// TODO use some path builder here
 			internalPath,
 			ctx.Request.URL.Query(),
@@ -213,41 +220,35 @@ func (prox *APIProxy) AnyPath(ctx *gin.Context) {
 			ctx.Request.Header,
 			ctx.Request.Body,
 		)
-		if resp.GetError() == nil {
-			if err := prox.cache.Set(ctx.Request, resp); err != nil {
-				log.Error().
-					Err(err).
-					Str("serviceKey", prox.serviceKey).
-					Msg("PublicAPIProxy failed to cache backend response")
-			}
+		tRespHandler, ok := respHandler.(proxy.ResponseProcessorBinder)
+		if ok {
+			tRespHandler.BindResponse(resp)
 		}
-		logging.AddLogEvent(ctx, "isCached", false)
-
-	} else {
-		logging.AddLogEvent(ctx, "isCached", true)
 	}
+
 	prox.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(prox.tzLocation),
 		ProcTime: time.Since(rt0).Seconds(),
-		Status:   resp.GetStatusCode(),
+		Status:   respHandler.Response().GetStatusCode(),
 		Service:  prox.serviceKey,
-		IsCached: resp.IsCached(),
+		IsCached: !respHandler.IsCacheMiss(),
 	})
-	pr, ok := resp.(*proxy.ProxiedResponse)
+	backendResp := respHandler.Response()
+	pr, ok := backendResp.(*proxy.BackendProxiedResponse)
 	if ok {
 		prox.responseInterceptor(pr)
 
 	} else {
 		log.Debug().
 			Str("req", ctx.Request.URL.String()).
-			Msg("cannot apply public proxy interceptor - not *ProxiedResponse type")
+			Msg("cannot apply public proxy interceptor - not *BackendProxiedResponse type")
 	}
-	for k, v := range resp.GetHeaders() {
+	for k, v := range respHandler.Response().GetHeaders() {
 		ctx.Writer.Header().Set(k, v[0])
 	}
-	ctx.Writer.WriteHeader(resp.GetStatusCode())
-	defer resp.GetBodyReader().Close()
-	body, err := io.ReadAll(resp.GetBodyReader())
+	ctx.Writer.WriteHeader(respHandler.Response().GetStatusCode())
+	defer respHandler.Response().GetBodyReader().Close()
+	body, err := io.ReadAll(respHandler.Response().GetBodyReader())
 	if err != nil {
 		ctx.AbortWithError(http.StatusInternalServerError, err)
 		return
@@ -255,27 +256,27 @@ func (prox *APIProxy) AnyPath(ctx *gin.Context) {
 	ctx.Writer.Write(body)
 }
 
-// NewAPIProxy
+// NewProxy
 // note: all the options in `opts` are indeed optional but most of the time,
 // reasonable custom values are preferred. Also, any non-filled option is
 // logged as a warning providing also a respective fallback value.
-func NewAPIProxy(
+func NewProxy(
 	globalCtx *globctx.Context,
-	basicProxy *proxy.APIProxy,
+	basicProxy *proxy.CoreProxy,
 	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
 	guard guard.ServiceGuard,
 	opts PublicAPIProxyOpts,
 
-) *APIProxy {
+) *Proxy {
 
 	respInt := opts.ResponseInterceptor
 	if respInt == nil {
-		respInt = func(pr *proxy.ProxiedResponse) {}
+		respInt = func(pr *proxy.BackendProxiedResponse) {}
 	}
 
-	p := &APIProxy{
+	p := &Proxy{
 		client:              client,
 		basicProxy:          basicProxy,
 		clientCounter:       clientCounter,

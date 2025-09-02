@@ -131,6 +131,7 @@ func (backend *PersistentCache) listenAndWriteAccesses(ctx context.Context) {
 					Msg("failed to update cache access stats")
 			}
 		case entry := <-backend.writes:
+			fmt.Println("______ CACHE WRITE ____")
 			// TODO remove old recs
 			if backend.isPingEntry(entry) {
 				log.Debug().Msgf("cache skipping PING entry: %s", string(entry.Data))

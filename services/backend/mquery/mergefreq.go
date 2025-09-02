@@ -101,19 +101,18 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		}
 		req.URL = parsedURL
 		req.Method = "GET"
-		resp := mp.MakeRequest(&req, reqProps)
-		if resp.GetError() != nil {
-			log.Error().Err(resp.GetError()).Msgf("failed to to get partial freqs %s", ctx.Request.URL.Path)
+		resp := mp.HandleRequest(&req, reqProps, false)
+		if resp.Error() != nil {
+			log.Error().Err(resp.Error()).Msgf("failed to to get partial freqs %s", ctx.Request.URL.Path)
 			http.Error(
 				ctx.Writer,
-				fmt.Sprintf("failed to get partial freqs: %s", resp.GetError()),
+				fmt.Sprintf("failed to get partial freqs: %s", resp.Error()),
 				http.StatusInternalServerError,
 			)
 			return
 		}
 
-		defer resp.GetBodyReader().Close()
-		body, err := io.ReadAll(resp.GetBodyReader())
+		body, err := resp.ExportResponse()
 		if err != nil {
 			http.Error(
 				ctx.Writer,
@@ -135,11 +134,11 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 			data.Error = freqPart.Error
 		}
 
-		for k, v := range resp.GetHeaders() {
+		for k, v := range resp.Response().GetHeaders() {
 			ctx.Writer.Header().Set(k, v[0])
 		}
-		statusCode = resp.GetStatusCode()
-		cached = cached && resp.IsCached()
+		statusCode = resp.Response().GetStatusCode()
+		cached = cached && !resp.IsCacheMiss()
 	}
 
 	mp.MonitoringWrite(&reporting.ProxyProcReport{

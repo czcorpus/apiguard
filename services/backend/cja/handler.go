@@ -13,7 +13,6 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -74,12 +73,11 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 		fmt.Sprintf("%s/e-cja/h/?doklad=%s", aa.conf.BaseURL, url.QueryEscape(query)),
 		ctx.Request,
 	)
-	if resp.GetError() != nil {
-		uniresp.RespondWithErrorJSON(ctx, resp.GetError(), 500)
+	if resp.Error() != nil {
+		uniresp.RespondWithErrorJSON(ctx, resp.Error(), 500)
 		return
 	}
-	defer resp.GetBodyReader().Close()
-	respBody, err := io.ReadAll(resp.GetBodyReader())
+	respBody, err := resp.ExportResponse()
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, 500)
 		return
@@ -94,24 +92,16 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, response)
 }
 
-func (aa *CJAActions) createSubRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := aa.globalCtx.Cache.Get(req)
-	if err == proxy.ErrCacheMiss {
-		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.globalCtx.Cache.Set(req, resp)
-		if err != nil {
-			return &proxy.SimpleResponse{Err: err}
-		}
-	}
-	return resp
+func (aa *CJAActions) createSubRequest(url string, req *http.Request) proxy.ResponseProcessor {
+	return proxy.UJCGetRequest(url, req.Header.Get("user-agent"), aa.globalCtx.Cache)
 }
 
-func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) proxy.BackendResponse {
+func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request) proxy.ResponseProcessor {
 	resp := aa.createSubRequest(url1, req)
-	if resp.GetError() != nil {
+	if resp.Error() != nil {
 		return resp
 	}
-	if resp.GetStatusCode() == 500 {
+	if resp.Response().GetStatusCode() == 500 {
 		return aa.createSubRequest(url2, req)
 	}
 	return resp

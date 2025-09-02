@@ -67,20 +67,8 @@ func (lga *LanguageGuideActions) createRequest(url string) (string, error) {
 	return string(body), nil
 }
 
-func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := lga.globalCtx.Cache.Get(req)
-	if err == proxy.ErrCacheMiss {
-		resp := proxy.GetRequest(url, lga.conf.ClientUserAgent)
-		err = lga.globalCtx.Cache.Set(req, resp)
-		if err != nil {
-			return &proxy.SimpleResponse{Err: err}
-		}
-		return resp
-
-	} else if err != nil {
-		return &proxy.SimpleResponse{Err: err}
-	}
-	return resp
+func (lga *LanguageGuideActions) createMainRequest(url string, req *http.Request) proxy.ResponseProcessor {
+	return proxy.UJCGetRequest(url, lga.conf.ClientUserAgent, lga.globalCtx.Cache)
 }
 
 func (lga *LanguageGuideActions) createResourceRequest(url string) error {
@@ -143,7 +131,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		return
 	}
 
-	var resp proxy.BackendResponse
+	var resp proxy.ResponseProcessor
 	direct := ctx.Request.URL.Query().Get("direct")
 	if direct == "1" {
 		resp = lga.createMainRequest(
@@ -161,8 +149,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
-	defer resp.GetBodyReader().Close()
-	respBody, err := io.ReadAll(resp.GetBodyReader())
+	respBody, err := resp.ExportResponse()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return

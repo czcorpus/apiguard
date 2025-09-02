@@ -46,9 +46,7 @@ type BackendResponse interface {
 	GetHeaders() http.Header
 	GetStatusCode() int
 	IsDataStream() bool
-	IsCached() bool
-	MarkCached()
-	GetError() error
+	Error() error
 }
 
 type CacheEntryOptions struct {
@@ -87,9 +85,19 @@ func CachingWithTag(tag string) func(*CacheEntryOptions) {
 	}
 }
 
+type CacheEntry struct {
+	Status  int
+	Data    []byte
+	Headers http.Header
+}
+
+func (ce CacheEntry) IsZero() bool {
+	return ce.Status == 0
+}
+
 type Cache interface {
-	Get(req *http.Request, opts ...func(*CacheEntryOptions)) (BackendResponse, error)
-	Set(req *http.Request, resp BackendResponse, opts ...func(*CacheEntryOptions)) error
+	Get(req *http.Request, opts ...func(*CacheEntryOptions)) (CacheEntry, error)
+	Set(req *http.Request, value CacheEntry, opts ...func(*CacheEntryOptions)) error
 }
 
 type GlobalContext struct {

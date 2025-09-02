@@ -281,34 +281,28 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 	}
 	req.Method = "GET"
 	req.Body = io.NopCloser(strings.NewReader(""))
+	req.URL.Path = "/"
+	resp := tp.HandleRequest(&req, reqProps, true)
 
-	serviceResp := tp.ProxyRequest(
-		"/",
-		req.URL.Query(),
-		req.Method,
-		req.Header,
-		req.Body,
-	)
-	cached = serviceResp.IsCached()
+	cached = !resp.IsCacheMiss()
 	tp.WriteReport(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(tp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
-		Status:   serviceResp.GetStatusCode(),
+		Status:   resp.Response().GetStatusCode(),
 		Service:  tp.EnvironConf().ServiceKey,
 		IsCached: cached,
 	})
-	if serviceResp.GetError() != nil {
-		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+	if resp.Error() != nil {
+		log.Error().Err(resp.Error()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 		http.Error(
 			ctx.Writer,
-			fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
+			fmt.Sprintf("failed to proxy request: %s", resp.Error()),
 			http.StatusInternalServerError,
 		)
 		return
 	}
 
-	defer serviceResp.CloseBodyReader()
-	translatResp, err := io.ReadAll(serviceResp.GetBodyReader())
+	translatResp, err := resp.ExportResponse()
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return

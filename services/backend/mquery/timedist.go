@@ -11,7 +11,6 @@ import (
 	"apiguard/guard"
 	"apiguard/reporting"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -109,7 +108,7 @@ func (lfargs *lemmaFreqDistArgs) toURLQuery() string {
 // ---------------------------------
 
 func (mp *MQueryProxy) createLemmaFreqsURL(corpusID string, args lemmaFreqDistArgs) (*url.URL, error) {
-	rawUrl2, err := url.JoinPath(mp.CoreProxy.BackendURL.String(), mp.EnvironConf().ServicePath, "freqs", corpusID)
+	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "freqs", corpusID)
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create streamed time dist. URL: %w", err)
 	}
@@ -122,7 +121,7 @@ func (mp *MQueryProxy) createLemmaFreqsURL(corpusID string, args lemmaFreqDistAr
 }
 
 func (mp *MQueryProxy) createTimeDistURL(corpusID string, args streamedFreqDistArgs) (*url.URL, error) {
-	rawUrl2, err := url.JoinPath(mp.CoreProxy.BackendURL.String(), mp.EnvironConf().ServicePath, "freqs-by-year-streamed", corpusID)
+	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "freqs-by-year-streamed", corpusID)
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create streamed time dist. URL: %w", err)
 	}
@@ -211,11 +210,10 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 	req1 := *ctx.Request
 	req1.URL = lemmaFreqURL
 	req1.Method = "GET"
-	serviceResp := mp.MakeRequest(&req1, reqProps)
+	serviceResp := mp.HandleRequest(&req1, reqProps, true)
 
 	var lemmaData lemmaFreqResponse
-	defer serviceResp.GetBodyReader().Close()
-	resp1Body, err := io.ReadAll(serviceResp.GetBodyReader())
+	resp1Body, err := serviceResp.ExportResponse()
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx, fmt.Errorf("failed to process: %w", err), http.StatusInternalServerError)
@@ -261,14 +259,14 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 	req2.URL = url2
 	req2.Method = "GET"
 	resp2 := mp.MakeStreamRequest(&req2, reqProps)
-	statusCode = resp2.GetStatusCode()
+	statusCode = resp2.Response().GetStatusCode()
 
-	ctx.Writer.Header().Set("Content-Type", resp2.GetHeaders().Get("Content-Type"))
-	ctx.Writer.WriteHeader(resp2.GetStatusCode())
+	ctx.Writer.Header().Set("Content-Type", resp2.Response().GetHeaders().Get("Content-Type"))
+	ctx.Writer.WriteHeader(resp2.Response().GetStatusCode())
 
 	buffer := make([]byte, 4096)
 	for {
-		n, err := resp2.GetBodyReader().Read(buffer)
+		n, err := resp2.Response().GetBodyReader().Read(buffer)
 		if n > 0 {
 			_, writeErr := ctx.Writer.Write(buffer[:n])
 			if writeErr != nil {

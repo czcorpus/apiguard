@@ -11,7 +11,6 @@ import (
 	"apiguard/guard"
 	"apiguard/reporting"
 	"fmt"
-	"io"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -117,7 +116,7 @@ func (mp *MQueryProxy) createConcMqueryURL(
 	reqArgs concordanceRequestArgs,
 ) (*url.URL, error) {
 	rawUrl2, err := url.JoinPath(
-		mp.CoreProxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", corpusID)
+		mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", corpusID)
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
 	}
@@ -134,7 +133,7 @@ func (mp *MQueryProxy) createTokenContextMqueryURL(
 	reqArgs tokenContextRequestArgs,
 ) (*url.URL, error) {
 	rawUrl2, err := url.JoinPath(
-		mp.CoreProxy.BackendURL.String(), mp.EnvironConf().ServicePath, "token-context", corpusID)
+		mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "token-context", corpusID)
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create token-context URL: %w", err)
 	}
@@ -239,13 +238,13 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 	req1 := *ctx.Request
 	req1.URL = req1URL
 	req1.Method = "GET"
-	serviceResp := mp.MakeRequest(&req1, reqProps)
-	statusCode = serviceResp.GetStatusCode()
-	if err := serviceResp.GetError(); err != nil {
+	serviceResp := mp.HandleRequest(&req1, reqProps, true)
+	statusCode = serviceResp.Response().GetStatusCode()
+	if err := serviceResp.Error(); err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, statusCode)
 		return
 	}
-	resp1Body, err := io.ReadAll(serviceResp.GetBodyReader())
+	resp1Body, err := serviceResp.ExportResponse()
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("failed to query concordance: %s", err), http.StatusInternalServerError)
 		return
@@ -287,15 +286,15 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 	req2 := *ctx.Request
 	req2.URL = req2URL
 	req2.Method = "GET"
-	serviceResp = mp.MakeRequest(&req2, reqProps)
-	statusCode = serviceResp.GetStatusCode()
-	if err := serviceResp.GetError(); err != nil {
+	serviceResp = mp.HandleRequest(&req2, reqProps, true)
+	statusCode = serviceResp.Response().GetStatusCode()
+	if err := serviceResp.Error(); err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, statusCode)
 		return
 	}
 
-	ctx.Status(serviceResp.GetStatusCode())
-	respBody, err := io.ReadAll(serviceResp.GetBodyReader())
+	ctx.Status(serviceResp.Response().GetStatusCode())
+	respBody, err := serviceResp.ExportResponse()
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, err, statusCode)
 		return

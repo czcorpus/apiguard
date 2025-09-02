@@ -27,7 +27,7 @@ import (
 )
 
 type KonTextProxy struct {
-	*cnc.CoreProxy
+	*cnc.Proxy
 	conf *Conf
 }
 
@@ -149,29 +149,29 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 	req1.Body = io.NopCloser(bytes.NewBuffer(rawReq1Body))
 
 	serviceResp := kp.MakeCacheablePOSTRequest(&req1, reqProps, rawReq1Body)
-	cached = serviceResp.IsCached()
+	cached = !serviceResp.IsCacheMiss()
 	kp.MonitoringWrite(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
-		Status:   serviceResp.GetStatusCode(),
+		Status:   serviceResp.Response().GetStatusCode(),
 		Service:  kp.EnvironConf().ServiceKey,
 		IsCached: cached,
 	})
-	if serviceResp.GetError() != nil {
-		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy query_submit %s", ctx.Request.URL.Path)
+	if serviceResp.Error() != nil {
+		log.Error().Err(serviceResp.Error()).Msgf("failed to proxy query_submit %s", ctx.Request.URL.Path)
 		http.Error(
 			ctx.Writer,
-			fmt.Sprintf("failed to proxy query_submit: %s", serviceResp.GetError()),
+			fmt.Sprintf("failed to proxy query_submit: %s", serviceResp.Error()),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-	defer serviceResp.GetBodyReader().Close()
-	resp1Body, err := io.ReadAll(serviceResp.GetBodyReader())
+	defer serviceResp.Response().GetBodyReader().Close()
+	resp1Body, err := io.ReadAll(serviceResp.Response().GetBodyReader())
 	if err != nil {
 		http.Error(
 			ctx.Writer,
-			fmt.Sprintf("failed to proxy query_submit: %s", serviceResp.GetError()),
+			fmt.Sprintf("failed to proxy query_submit: %s", serviceResp.Response().Error()),
 			http.StatusInternalServerError,
 		)
 		return
@@ -198,14 +198,15 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 	req2 := *ctx.Request
 	req2.URL = req2URL
 	req2.Method = "GET"
-	serviceResp = kp.MakeRequest(&req2, reqProps)
+	serviceResp = kp.HandleRequest(&req2, reqProps, true)
 
-	for k, v := range serviceResp.GetHeaders() {
+	for k, v := range serviceResp.Response().GetHeaders() {
 		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
 	}
-	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	defer serviceResp.GetBodyReader().Close()
-	body2, err := io.ReadAll(serviceResp.GetBodyReader())
+	ctx.Writer.WriteHeader(serviceResp.Response().GetStatusCode())
+	defer serviceResp.Response().GetBodyReader().Close()
+
+	body2, err := serviceResp.ExportResponse()
 	if err != nil {
 		http.Error(
 			ctx.Writer,
@@ -224,12 +225,12 @@ func NewKontextProxy(
 	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*KonTextProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
+	proxy, err := cnc.NewProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KonText proxy: %w", err)
 	}
 	return &KonTextProxy{
-		CoreProxy: proxy,
-		conf:      conf,
+		Proxy: proxy,
+		conf:  conf,
 	}, nil
 }

@@ -28,7 +28,7 @@ import (
 //
 
 type WSServerProxy struct {
-	*cnc.CoreProxy
+	*cnc.Proxy
 	httpEngine http.Handler
 }
 
@@ -130,20 +130,19 @@ func (proxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		reqURL.RawQuery = urlArgs.Encode()
 		req.URL = reqURL
 		req.Method = "GET"
-		resp := proxy.MakeRequest(&req, reqProps)
+		resp := proxy.HandleRequest(&req, reqProps, false)
 
-		if resp.GetError() != nil {
-			log.Error().Err(resp.GetError()).Msgf("failed to to get partial tt-colls %s", reqURL.String())
+		if resp.Error() != nil {
+			log.Error().Err(resp.Error()).Msgf("failed to to get partial tt-colls %s", reqURL.String())
 			http.Error(
 				ctx.Writer,
-				fmt.Sprintf("failed to get partial tt-colls: %s", resp.GetError()),
+				fmt.Sprintf("failed to get partial tt-colls: %s", resp.Error()),
 				http.StatusInternalServerError,
 			)
 			return
 		}
 
-		defer resp.GetBodyReader().Close()
-		body, err := io.ReadAll(resp.GetBodyReader())
+		body, err := resp.ExportResponse()
 		if err != nil {
 			http.Error(
 				ctx.Writer,
@@ -200,12 +199,12 @@ func NewWSServerProxy(
 	httpEngine http.Handler,
 	reqCounter chan<- guard.RequestInfo,
 ) (*WSServerProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)
+	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MQuery proxy: %w", err)
 	}
 	return &WSServerProxy{
-		CoreProxy:  proxy,
+		Proxy:      proxy,
 		httpEngine: httpEngine,
 	}, nil
 }

@@ -261,9 +261,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					ctx.Writer.Flush()
 				}
 			case *PingResp:
-				_, err := ctx.Writer.WriteString(
-					fmt.Sprintf("data: %d\n\n", tResponse.TS.Unix()),
-				)
+				_, err := fmt.Fprintf(ctx.Writer, "data: %d\n\n", tResponse.TS.Unix())
 				if err != nil {
 					// not much we can do here
 					log.Error().Err(err).Msg("failed to write EventSource data")

@@ -123,11 +123,7 @@ func createGlobalCtx(
 	cncdb := openCNCDatabase(&conf.CNCDB)
 
 	var cacheBackend proxy.Cache
-	if conf.OperationMode == config.OperationModeStreaming {
-		cacheBackend = cache.NewNullCache()
-		log.Warn().Msg("streaming mode, individual service handlers won't use caching")
-
-	} else if conf.Cache.FileRootPath != "" {
+	if conf.Cache.FileRootPath != "" {
 		cacheBackend = cache.NewFileCache(conf.Cache)
 		log.Info().Msgf("using file response cache (path: %s)", conf.Cache.FileRootPath)
 		log.Warn().Msg("caching respects the Cache-Control header")
@@ -155,8 +151,8 @@ func createGlobalCtx(
 }
 
 func init() {
-	gob.Register(&proxy.SimpleResponse{})
-	gob.Register(&proxy.ProxiedResponse{})
+	gob.Register(&proxy.BackendSimpleResponse{})
+	gob.Register(&proxy.BackendProxiedResponse{})
 }
 
 func determineConfigPath(argPos int) string {

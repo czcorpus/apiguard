@@ -13,7 +13,6 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -85,8 +84,7 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
 	}
-	defer resp.GetBodyReader().Close()
-	respBody, err := io.ReadAll(resp.GetBodyReader())
+	respBody, err := resp.ExportResponse()
 	if err != nil {
 		uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 		return
@@ -100,20 +98,8 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, Response{Entries: entries})
 }
 
-func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := aa.globalCtx.Cache.Get(req)
-	if err == proxy.ErrCacheMiss {
-		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.globalCtx.Cache.Set(req, resp)
-		if err != nil {
-			return &proxy.SimpleResponse{Err: err}
-		}
-		return resp
-
-	} else if err != nil {
-		return &proxy.SimpleResponse{Err: err}
-	}
-	return resp
+func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.ResponseProcessor {
+	return proxy.UJCGetRequest(url, aa.conf.ClientUserAgent, aa.globalCtx.Cache)
 }
 
 func NewNeomatActions(

@@ -210,23 +210,10 @@ func initProxyEngine(
 func initWagStreamingEngine(
 	conf *config.Configuration,
 	actionHandler *wagstream.Actions,
-	streamingCache wagstream.StreamingCache,
-	cacheWrites chan<- wagstream.CacheWriteChunkReq,
 ) http.Handler {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
-	engine.Use(func(ctx *gin.Context) {
-		ctx.Writer = &wagstream.MainRespWriter{
-			ResponseWriter: ctx.Writer,
-			CacheWrites:    cacheWrites,
-			// CacheKey must be set later, in a corresponding wstream handler,
-			// once it decodes stream properies
-
-		}
-		ctx.Next()
-	})
-
 	engine.NoMethod(uniresp.NoMethodHandler)
 	engine.NoRoute(uniresp.NotFoundHandler)
 
@@ -274,27 +261,17 @@ func runService(conf *config.Configuration) {
 		engine = initProxyEngine(conf, globalCtx, alarm, false)
 		log.Info().Msg("running in the PROXY mode")
 	case config.OperationModeStreaming:
-		cacheWrites := make(chan wagstream.CacheWriteChunkReq, 100)
-		var cache wagstream.StreamingCache
-		if conf.DisableStreamingModeCache {
-			cache = wagstream.NewNullCache(ctx, cacheWrites)
-			log.Warn().Msg("wag streaming cache disabled in config")
-
-		} else {
-			cache = wagstream.NewCache(ctx, cacheWrites, globalCtx.CNCDB)
-		}
 		apiEngine := initProxyEngine(conf, globalCtx, alarm, true)
 		// note that in streaming mode, caching for individual backend
 		// handlers is set to Null cache and only possible caching
 		// is centralized here
 
-		actionsHandler, err := wagstream.NewActions(
-			ctx, cache, apiEngine, conf.WagTilesConfDir)
+		actionsHandler, err := wagstream.NewActions(ctx, apiEngine, conf.WagTilesConfDir)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to start")
 			return
 		}
-		engine = initWagStreamingEngine(conf, actionsHandler, cache, cacheWrites)
+		engine = initWagStreamingEngine(conf, actionsHandler)
 		log.Info().Msg("running in the STREAMING mode")
 	default:
 		engine = nil

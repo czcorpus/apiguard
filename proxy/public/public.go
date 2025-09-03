@@ -151,6 +151,14 @@ func (prox *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOp
 	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
 }
 
+func (kp *Proxy) ToCache(req *http.Request, data proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
+	return kp.cache.Set(
+		req,
+		data,
+		opts...,
+	)
+}
+
 func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	var humanID common.UserID
 	path := ctx.Request.URL.Path

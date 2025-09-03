@@ -46,7 +46,6 @@ type Proxy struct {
 func (kp *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) proxy.ResponseProcessor {
 	data, err := kp.globalCtx.Cache.Get(req, opts...)
 	if err == proxy.ErrCacheMiss {
-		fmt.Println("WE HAVE CACHE MISS ______________")
 		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
 
 	} else if err != nil {
@@ -54,6 +53,14 @@ func (kp *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOpti
 	}
 
 	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
+}
+
+func (kp *Proxy) ToCache(req *http.Request, data proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
+	return kp.globalCtx.Cache.Set(
+		req,
+		data,
+		opts...,
+	)
 }
 
 func (kp *Proxy) DeleteCookie(req *http.Request, name string) {

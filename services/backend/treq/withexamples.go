@@ -281,7 +281,7 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 	}
 	req.Method = "GET"
 	req.Body = io.NopCloser(strings.NewReader(""))
-	req.URL.Path = "/"
+	req.URL.Path, _ = url.JoinPath(tp.EnvironConf().ServicePath, "/")
 	resp := tp.HandleRequest(&req, reqProps, true)
 
 	cached = !resp.IsCacheMiss()
@@ -328,6 +328,10 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 	}
 	var ansEditLock sync.Mutex
 	var wg sync.WaitGroup
+	sseEvent := ""
+	if tp.EnvironConf().IsStreamingMode {
+		sseEvent = fmt.Sprintf(" DataTile-%s.%d", ctx.Query("tileId"), 0)
+	}
 
 	for i, translation := range translations.Lines {
 		wg.Add(1)
@@ -403,9 +407,9 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 				return
 			}
 
-			_, err = ctx.Writer.WriteString(
-				fmt.Sprintf(
-					"event: DataTile-%s.%d\ndata: %s\n\n", ctx.Query("tileId"), 0, rawAns),
+			_, err = fmt.Fprintf(
+				ctx.Writer,
+				"event:%s\ndata: %s\n\n", sseEvent, rawAns,
 			)
 			if err != nil {
 				// not much we can do here

@@ -9,6 +9,8 @@ package proxy
 import (
 	"crypto/sha1"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -37,8 +39,16 @@ func GenerateCacheId(req *http.Request, opts *CacheEntryOptions) []byte {
 		}
 		sort.Strings(hashCookies)
 		h.Write([]byte(strings.Join(hashCookies, ";")))
+
 	}
-	if len(opts.RequestBody) > 0 {
+	if opts.CacheablePOST {
+		reqData, err := io.ReadAll(req.Body)
+		if err != nil {
+			panic(fmt.Errorf("generateCacheId failed: %s (make sure request body can be read repeatedly if needed)", err))
+		}
+		h.Write(reqData)
+
+	} else if len(opts.RequestBody) > 0 {
 		h.Write(opts.RequestBody)
 	}
 	return h.Sum(nil)

@@ -14,7 +14,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
 	"sync"
 	"time"
 
@@ -32,7 +31,6 @@ const (
 type Actions struct {
 	apiRoutes  http.Handler
 	streams    *streams
-	cache      StreamingCache
 	confLoader wagConfLoader
 }
 
@@ -95,30 +93,6 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 	// may interfere with how individual events are sent and the output
 	// may pause in the middle of already available event data.
 	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
-
-	cachingWriter, ok := ctx.Writer.(*MainRespWriter)
-	if !ok {
-		panic(fmt.Errorf("expected MainRespWriter in /wstream, found %s", reflect.TypeOf(ctx.Writer)))
-	}
-	defer cachingWriter.FinishCaching()
-	cacheKey := args.ToCacheKey()
-	data, err := actions.cache.Get(args)
-	if err == nil {
-		ctx.Writer.WriteString(data)
-		ctx.Writer.Flush()
-		return
-
-	} else if err == ErrCacheMiss {
-		// we set the cache writing key to configure writer
-		// to store data to cache
-		cachingWriter.CacheWriteKey = cacheKey
-		cachingWriter.CacheTag = args.Tag
-
-	} else {
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("failed to use wstream cache: %w", err), http.StatusInternalServerError)
-		return
-	}
 
 	responseCh := make(chan any, len(args.Requests)*2)
 	var wg sync.WaitGroup
@@ -296,7 +270,6 @@ func (actions *Actions) TileConf(ctx *gin.Context) {
 
 func NewActions(
 	ctx context.Context,
-	cache StreamingCache,
 	apiRoutes http.Handler,
 	wagTilesConfDir string,
 ) (*Actions, error) {
@@ -315,7 +288,6 @@ func NewActions(
 
 	a := &Actions{
 		apiRoutes:  apiRoutes,
-		cache:      cache,
 		streams:    newStreams(),
 		confLoader: confLoader,
 	}

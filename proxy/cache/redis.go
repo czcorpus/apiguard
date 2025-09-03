@@ -44,7 +44,6 @@ func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions))
 		return proxy.CacheEntry{}, proxy.ErrCacheMiss
 	}
 	cacheID := rrc.createCacheID(req, optsFin)
-	fmt.Println("============= CACHE ID: ", cacheID, " ===================================")
 	val, err := rrc.redisClient.Get(rrc.redisContext, cacheID).Result()
 	if err == redis.Nil {
 		return proxy.CacheEntry{}, proxy.ErrCacheMiss

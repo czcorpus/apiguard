@@ -151,13 +151,13 @@ func (kp *Proxy) HandleRequest(
 	} else {
 		respHandler = proxy.NewDirectResponse(nil)
 	}
-
 	if respHandler.Error() != nil {
 		return respHandler
 	}
-	if respHandler.IsCacheMiss() {
+	if binder, ok := respHandler.(proxy.ResponseProcessorBinder); ok {
 		if req.Body != nil {
 			// TODO without this, invalid Read on closed Body happens on merge-freqs
+			// TODO 2: we should re-evaluate TODO 1 as with modified caching, this may not be an issue anymore
 			bodyBytes, err := io.ReadAll(req.Body)
 			if err != nil {
 				return proxy.NewThroughCacheResponse(req, nil, err)
@@ -165,7 +165,6 @@ func (kp *Proxy) HandleRequest(
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
 		// ---------------------------------------------------------------------
-
 		resp := kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
@@ -174,9 +173,8 @@ func (kp *Proxy) HandleRequest(
 			req.Header,
 			req.Body,
 		)
-		if binder, ok := respHandler.(proxy.ResponseProcessorBinder); ok {
-			binder.BindResponse(resp)
-		}
+
+		binder.BindResponse(resp)
 		kp.debugLogResponse(req, resp)
 	}
 	return respHandler

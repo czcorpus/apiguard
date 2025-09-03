@@ -54,6 +54,17 @@ type CachedResponse struct {
 	data    []byte
 }
 
+func (cw *CachedResponse) String() string {
+	headers := http.Header{}
+	if cw.headers != nil {
+		headers = cw.headers
+	}
+	return fmt.Sprintf(
+		"CachedResponse{status: %d, content-type: %s, data len: %d}",
+		cw.status, headers.Get("content-type"), len(cw.data),
+	)
+}
+
 func (cw *CachedResponse) WriteResponse(w http.ResponseWriter) {
 	for hdName, hdValue := range cw.headers {
 		w.Header().Set(hdName, hdValue[len(hdValue)-1])
@@ -102,6 +113,18 @@ type ThroughCacheResponse struct {
 	cache     Cache
 	boundResp BackendResponse
 	opts      []func(*CacheEntryOptions)
+}
+
+func (ncw *ThroughCacheResponse) String() string {
+	isDataStream := ncw.boundResp != nil && ncw.boundResp.IsDataStream()
+	reqUrl := "??"
+	if ncw.req != nil {
+		reqUrl = ncw.req.URL.String()
+	}
+	return fmt.Sprintf(
+		"ThroughCacheResponse{req: %s, bound: %t, isDataStream: %t}",
+		reqUrl, ncw.boundResp != nil, isDataStream,
+	)
 }
 
 func (ncw *ThroughCacheResponse) ExportResponse() ([]byte, error) {
@@ -235,6 +258,14 @@ type DirectResponse struct {
 	boundResp BackendResponse
 }
 
+func (ncw *DirectResponse) String() string {
+	isDataStream := ncw.boundResp != nil && ncw.boundResp.IsDataStream()
+	return fmt.Sprintf(
+		"DirectResponse{err: %s, bound: %t, isDataStream: %t}",
+		ncw.error, ncw.boundResp != nil, isDataStream,
+	)
+}
+
 func (ncw *DirectResponse) ExportResponse() ([]byte, error) {
 	data, err := io.ReadAll(ncw.boundResp.GetBodyReader())
 	if err != nil {
@@ -289,8 +320,8 @@ func (ncw *DirectResponse) BindResponse(resp BackendResponse) {
 	ncw.boundResp = resp
 }
 
-func NewDirectResponse(err error) *ThroughCacheResponse {
-	return &ThroughCacheResponse{
+func NewDirectResponse(err error) *DirectResponse {
+	return &DirectResponse{
 		error: err,
 	}
 }

@@ -32,6 +32,8 @@ func (m Limit) NormLimitPerSec() rate.Limit {
 	return rate.Limit(float64(m.ReqPerTimeThreshold) / float64(m.ReqCheckingIntervalSecs))
 }
 
+// --------------------------
+
 type GeneralProxyConf struct {
 	BackendURL          string
 	FrontendURL         string
@@ -39,6 +41,8 @@ type GeneralProxyConf struct {
 	IdleConnTimeoutSecs int
 	Limits              []Limit
 }
+
+// ---------------------------
 
 type BackendResponse interface {
 	GetBodyReader() io.ReadCloser
@@ -48,6 +52,8 @@ type BackendResponse interface {
 	IsDataStream() bool
 	Error() error
 }
+
+// ---------------------------
 
 type CacheEntryOptions struct {
 	RespectCookies []string
@@ -70,6 +76,12 @@ func CachingWithReqBody(body []byte) func(*CacheEntryOptions) {
 	}
 }
 
+// CachingWithCacheable POST will allow for caching post requests.
+// It will also include POST request body to generate a cache entry key.
+// Please note this should be used only for requests which are really
+// GET-like requests (i.e. they do not change resources on the server side
+// and POST is used only because the args cannot fit from one reason on
+// another to URL query).
 func CachingWithCacheablePOST() func(*CacheEntryOptions) {
 	return func(opts *CacheEntryOptions) {
 		opts.CacheablePOST = true
@@ -85,6 +97,8 @@ func CachingWithTag(tag string) func(*CacheEntryOptions) {
 	}
 }
 
+// ------------------------------
+
 type CacheEntry struct {
 	Status  int
 	Data    []byte
@@ -95,15 +109,23 @@ func (ce CacheEntry) IsZero() bool {
 	return ce.Status == 0
 }
 
+// -----------------------------
+
 type Cache interface {
 	Get(req *http.Request, opts ...func(*CacheEntryOptions)) (CacheEntry, error)
 	Set(req *http.Request, value CacheEntry, opts ...func(*CacheEntryOptions)) error
 }
 
+// -----------------------------
+
 type GlobalContext struct {
 	TimezoneLocation *time.Location
 }
 
+// -----------------------------
+
+// ExtractClientIP
+// Deprecated: Gin offers a better solution for this
 func ExtractClientIP(req *http.Request) string {
 	ip := req.Header.Get("x-forwarded-for")
 	if ip != "" {
@@ -115,6 +137,8 @@ func ExtractClientIP(req *http.Request) string {
 	}
 	return strings.Split(req.RemoteAddr, ":")[0]
 }
+
+// -------------------------------
 
 func WriteError(ctx *gin.Context, err error, status int) {
 	if ctx.Request.Header.Get("content-type") == "application/json" ||
@@ -132,4 +156,30 @@ func WriteError(ctx *gin.Context, err error, status int) {
 			status,
 		)
 	}
+}
+
+// --------------------------------
+
+type MultiStatusCode []int
+
+// Result provides a single HTTP status code
+// based on particular status codes of some sub-requests
+func (msc MultiStatusCode) Result() int {
+	var maxCode int
+	var has200 bool
+	for _, v := range msc {
+		if v == http.StatusOK {
+			has200 = true
+		}
+		if v > maxCode {
+			maxCode = v
+		}
+	}
+	if has200 && maxCode < 500 {
+		return http.StatusOK
+	}
+	if maxCode >= 500 {
+		return http.StatusBadGateway
+	}
+	return maxCode
 }

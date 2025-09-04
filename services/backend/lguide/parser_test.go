@@ -25,11 +25,6 @@ func loadTestingFile(relativePath string, t *testing.T) string {
 	return string(content)
 }
 
-// TODO to be removed
-func TestNull(t *testing.T) {
-	assert.Equal(t, 1, 1)
-}
-
 func TestParserNounResponse(t *testing.T) {
 	content := loadTestingFile("testdata/lguide/noun_response.html", t)
 	ans := Parse(content)

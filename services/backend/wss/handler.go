@@ -130,6 +130,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 
 	// TODO this is debatable:
 	// here we write empty data so the stream handler
+	// which has already written `event: ....`,
 	// fills in data for "data: ..." and then we continue
 	// writing true data with both "event" and "data"
 	// But we have to make sure this cannot fail in strange ways
@@ -137,8 +138,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	if wssProxy.EnvironConf().IsStreamingMode {
 		_, err = fmt.Fprint(ctx.Writer, "{}\n\n")
 		if err != nil {
-			log.Error().Err(err).Msg("failed to write response")
-			// TODO
+			log.Error().Err(err).Msg("failed to write SSE response")
 		}
 	}
 

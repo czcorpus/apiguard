@@ -7,6 +7,7 @@
 package wagstream
 
 import (
+	"apiguard/interop"
 	"apiguard/wagstream/tileconf"
 	loader "apiguard/wagstream/tileconf"
 	"bytes"
@@ -14,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -159,11 +161,13 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					}
 					wg.Done()
 				}()
+				req.Header.Add(interop.TileIdHeader, strconv.Itoa(tiles[0].TileID))
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
 
 			} else {
 				apiWriter := NewAPIWriter()
 
+				req.Header.Add(interop.TileIdHeader, strconv.Itoa(tiles[0].TileID))
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
 				var data []byte
 				if rd.Base64EncodeResult {

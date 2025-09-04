@@ -93,6 +93,10 @@ func (kp *Proxy) EnvironConf() *EnvironConf {
 	return kp.rConf
 }
 
+func (kp *Proxy) Conf() *ProxyConf {
+	return kp.conf
+}
+
 func (kp *Proxy) CountRequest(ctx *gin.Context, created time.Time, serviceKey string, userID common.UserID) {
 	if kp.reqCounter != nil {
 		kp.reqCounter <- guard.RequestInfo{

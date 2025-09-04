@@ -21,8 +21,7 @@ type Conf struct {
 }
 
 type mergeFreqsArgs struct {
-	URLs   []string `json:"urls"`
-	TileID int      `json:"tileId"`
+	URLs []string `json:"urls"`
 }
 
 type FreqDistribItemList []*FreqDistribItem

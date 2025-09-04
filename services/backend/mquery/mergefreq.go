@@ -9,6 +9,7 @@ package mquery
 import (
 	"apiguard/common"
 	"apiguard/guard"
+	"apiguard/interop"
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"bytes"
@@ -96,6 +97,25 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 
 	rt0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
+	var tileID int
+
+	if mp.EnvironConf().IsStreamingMode {
+		_, err = fmt.Fprint(ctx.Writer, "{}\n\n")
+		if err != nil {
+			log.Error().Err(err).Msg("failed to write SSE response")
+		}
+		var err error
+		tileID, err = interop.TileIdFromReq(ctx.Request)
+		if err != nil {
+			http.Error(
+				ctx.Writer,
+				err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+	}
+
 	// For this endpoint/action we cache the whole request
 	// (i.e. all sub-requests in a single shot). This requires
 	// more low-level access to cache functions.
@@ -126,7 +146,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		toCache := new(bytes.Buffer)
 		sseEvent := ""
 		if mp.EnvironConf().IsStreamingMode {
-			sseEvent = fmt.Sprintf(" DataTile-%d.%d", args.TileID, 0)
+			sseEvent = fmt.Sprintf(" DataTile-%d.%d", tileID, 0)
 		}
 
 		for _, u := range args.URLs {

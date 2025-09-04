@@ -110,7 +110,9 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	// the sub-requests processing is a bit complicated here as we want
 	// to cache finished data at once (and not the particular responses)
 
-	// let's try cache for whole request (i.e. all sub-requests in a single shot)
+	// For this endpoint/action we cache the whole request
+	// (i.e. all sub-requests in a single shot). This requires
+	// more low-level access to cache functions.
 	cacheApplCookies := make([]string, 0, 2)
 	if wssProxy.conf.CachingPerSession {
 		cacheApplCookies = append(
@@ -141,32 +143,21 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	}
 
 	if !respProc.IsCacheMiss() {
-		cached = false
+		cached = true
 		respProc.WriteResponse(ctx.Writer)
 
 	} else {
-		cached = true
+		cached = false
 		data := streamResponse{
 			Parts: make(map[string]collResponse),
 		}
-
 		toCache := new(bytes.Buffer)
-		statusCodes := make(proxy.MultiStatusCode, len(args.TextTypes))
-		if err != nil {
-			http.Error(
-				ctx.Writer,
-				fmt.Sprintf("Failed to process tt-collocations args: %s", err),
-				http.StatusBadRequest,
-			)
-			return
-		}
-
 		sseEvent := ""
 		if wssProxy.EnvironConf().IsStreamingMode {
 			sseEvent = fmt.Sprintf(" DataTile-%d.%d", args.TileID, 0)
 		}
 
-		for reqIdx, textType := range args.TextTypes {
+		for _, textType := range args.TextTypes {
 			req := *ctx.Request
 			var reqURL *url.URL
 			if args.PoS != "" {
@@ -185,7 +176,6 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 			req.URL = reqURL
 			req.Method = "GET"
 			resp := wssProxy.HandleRequest(&req, reqProps, false)
-			statusCodes[reqIdx] = resp.Response().GetStatusCode()
 
 			if resp.Error() != nil {
 				log.Error().Err(resp.Error()).Msgf("failed to to get partial tt-colls %s", reqURL.String())
@@ -237,7 +227,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		wssProxy.ToCache(
 			ctx.Request,
 			proxy.CacheEntry{
-				Status: statusCodes.Result(),
+				Status: http.StatusOK,
 				Data:   toCache.Bytes(),
 				Headers: http.Header{
 					"Content-Type": []string{"text/event-stream"},

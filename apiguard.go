@@ -129,7 +129,7 @@ func createGlobalCtx(
 		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else if conf.Cache.RedisAddr != "" {
-		cacheBackend = cache.NewRedisCache(conf.Cache)
+		cacheBackend = cache.NewRedisCache(ctx, conf.Cache)
 		log.Info().Msgf("using redis response cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
 		log.Warn().Msg("caching respects the Cache-Control header")
 

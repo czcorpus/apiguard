@@ -13,8 +13,6 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"time"
 
@@ -79,17 +77,17 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 
 	var data *dataStruct
 	for _, query := range queries {
-		response := aa.createMainRequest(
+		response := proxy.UJCGetRequest(
 			fmt.Sprintf("%s/heslo/%s/", aa.conf.BaseURL, url.QueryEscape(query)),
-			ctx.Request,
+			aa.conf.ClientUserAgent,
+			aa.globalCtx.Cache,
 		)
-		cached = cached || response.IsCached()
+		cached = cached || response.IsCacheHit()
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
 		}
-		defer response.GetBodyReader().Close()
-		respBody, err := io.ReadAll(response.GetBodyReader())
+		respBody, err := response.ExportResponse()
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
@@ -106,21 +104,6 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 		}
 	}
 	uniresp.WriteJSONResponse(ctx.Writer, data)
-}
-
-func (aa *ASSCActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := aa.globalCtx.Cache.Get(req)
-	if err == proxy.ErrCacheMiss {
-		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.globalCtx.Cache.Set(req, resp)
-		if err != nil {
-			return &proxy.SimpleResponse{Err: err}
-		}
-
-	} else if err != nil {
-		return &proxy.SimpleResponse{Err: err}
-	}
-	return resp
 }
 
 func NewASSCActions(

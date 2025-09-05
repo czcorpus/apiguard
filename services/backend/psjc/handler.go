@@ -13,7 +13,6 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -79,13 +78,8 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
 			ctx.Request,
 		)
-		cached = cached || resp.IsCached()
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-			return
-		}
-		defer resp.CloseBodyReader()
-		respBody, err := io.ReadAll(resp.GetBodyReader())
+		cached = cached || resp.IsCacheHit()
+		respBody, err := resp.ExportResponse()
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
@@ -107,20 +101,8 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 	})
 }
 
-func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := aa.globalCtx.Cache.Get(req)
-	if err == proxy.ErrCacheMiss {
-		resp := proxy.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.globalCtx.Cache.Set(req, resp)
-		if err != nil {
-			return &proxy.SimpleResponse{Err: err}
-		}
-		return resp
-
-	} else if err != nil {
-		return &proxy.SimpleResponse{Err: err}
-	}
-	return resp
+func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.ResponseProcessor {
+	return proxy.UJCGetRequest(url, aa.conf.ClientUserAgent, aa.globalCtx.Cache)
 }
 
 func NewPSJCActions(

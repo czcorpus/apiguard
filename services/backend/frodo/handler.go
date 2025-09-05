@@ -14,7 +14,7 @@ import (
 )
 
 type FrodoProxy struct {
-	*cnc.CoreProxy
+	*cnc.Proxy
 }
 
 func NewFrodoProxy(
@@ -24,11 +24,11 @@ func NewFrodoProxy(
 	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*FrodoProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)
+	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Frodo proxy: %w", err)
 	}
 	return &FrodoProxy{
-		CoreProxy: proxy,
+		Proxy: proxy,
 	}, nil
 }

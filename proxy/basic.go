@@ -7,7 +7,6 @@
 package proxy
 
 import (
-	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,46 +41,17 @@ func LogCookies(req *http.Request, target *zerolog.Event) *zerolog.Event {
 	return target
 }
 
-func GetRequest(url, userAgent string) *SimpleResponse {
-	transport := &http.Transport{
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
-	}
-	client := &http.Client{Transport: transport}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return &SimpleResponse{
-			Err: err,
-		}
-	}
-	req.Header.Set("User-Agent", userAgent)
-	resp, err := client.Do(req)
-	if err != nil {
-		return &SimpleResponse{
-			Err: err,
-		}
-	}
-	if err != nil {
-		return &SimpleResponse{
-			Err: err,
-		}
-	}
-	return &SimpleResponse{
-		StatusCode: resp.StatusCode,
-		BodyReader: resp.Body,
-	}
-}
-
-// APIProxy is a minimum common functionality needed
+// CoreProxy is a minimum common functionality needed
 // to proxy requests to APIGuard to different backends/APIs.
 // It has only methods for performing request and request stream
 // (Server-side events).
-type APIProxy struct {
+type CoreProxy struct {
 	BackendURL  *url.URL
 	FrontendURL *url.URL
 	client      *http.Client
 }
 
-func (proxy *APIProxy) transformRedirect(headers http.Header) error {
+func (proxy *CoreProxy) transformRedirect(headers http.Header) error {
 	for name, vals := range headers {
 		if name == "Location" {
 			redirectURL, err := url.Parse(vals[0])
@@ -103,19 +73,19 @@ func (proxy *APIProxy) transformRedirect(headers http.Header) error {
 	return nil
 }
 
-func (proxy *APIProxy) Request(
+func (proxy *CoreProxy) Request(
 	urlPath string,
 	args url.Values,
 	method string,
 	headers http.Header,
 	rbody io.Reader,
-) *ProxiedResponse {
+) *BackendProxiedResponse {
 
 	targetURL := proxy.BackendURL.JoinPath(urlPath)
 	targetURL.RawQuery = args.Encode()
 	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
-		return &ProxiedResponse{
+		return &BackendProxiedResponse{
 			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
@@ -125,7 +95,7 @@ func (proxy *APIProxy) Request(
 	req.Header = headers
 	resp, err := proxy.client.Do(req)
 	if err != nil {
-		return &ProxiedResponse{
+		return &BackendProxiedResponse{
 			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
@@ -140,7 +110,7 @@ func (proxy *APIProxy) Request(
 
 	ansHeaders := resp.Header
 	proxy.transformRedirect(ansHeaders)
-	return &ProxiedResponse{
+	return &BackendProxiedResponse{
 		BodyReader: resp.Body,
 		Headers:    ansHeaders,
 		StatusCode: resp.StatusCode,
@@ -148,19 +118,19 @@ func (proxy *APIProxy) Request(
 	}
 }
 
-func (proxy *APIProxy) RequestStream(
+func (proxy *CoreProxy) RequestStream(
 	urlPath string,
 	args url.Values,
 	method string,
 	headers http.Header,
 	rbody io.Reader,
-) *ProxiedStreamResponse {
+) *BackendProxiedStreamResponse {
 
 	targetURL := proxy.BackendURL.JoinPath(urlPath)
 	targetURL.RawQuery = args.Encode()
 	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
-		return &ProxiedStreamResponse{
+		return &BackendProxiedStreamResponse{
 			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
@@ -170,7 +140,7 @@ func (proxy *APIProxy) RequestStream(
 	req.Header = headers
 	resp, err := proxy.client.Do(req)
 	if err != nil {
-		return &ProxiedStreamResponse{
+		return &BackendProxiedStreamResponse{
 			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
@@ -185,7 +155,7 @@ func (proxy *APIProxy) RequestStream(
 
 	ansHeaders := resp.Header
 	proxy.transformRedirect(ansHeaders)
-	return &ProxiedStreamResponse{
+	return &BackendProxiedStreamResponse{
 		BodyReader: resp.Body,
 		Headers:    ansHeaders,
 		StatusCode: resp.StatusCode,
@@ -193,7 +163,7 @@ func (proxy *APIProxy) RequestStream(
 	}
 }
 
-func NewAPIProxy(conf GeneralProxyConf) (*APIProxy, error) {
+func NewCoreProxy(conf GeneralProxyConf) (*CoreProxy, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = httpclient.TransportMaxIdleConns
 	transport.MaxConnsPerHost = httpclient.TransportMaxConnsPerHost
@@ -207,7 +177,7 @@ func NewAPIProxy(conf GeneralProxyConf) (*APIProxy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create APIProxy: %w", err)
 	}
-	return &APIProxy{
+	return &CoreProxy{
 		BackendURL:  backendURL,
 		FrontendURL: frontendURL,
 		client: &http.Client{

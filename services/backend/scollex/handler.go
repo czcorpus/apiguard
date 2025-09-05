@@ -14,7 +14,7 @@ import (
 )
 
 type ScollexProxy struct {
-	*cnc.CoreProxy
+	*cnc.Proxy
 }
 
 func NewScollexProxy(
@@ -24,11 +24,11 @@ func NewScollexProxy(
 	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*ScollexProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)
+	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Scollex proxy: %w", err)
 	}
 	return &ScollexProxy{
-		CoreProxy: proxy,
+		Proxy: proxy,
 	}, nil
 }

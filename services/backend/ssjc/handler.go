@@ -13,7 +13,6 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -84,15 +83,10 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 			fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)),
 			ctx.Request,
 		)
-		cached = cached || resp.IsCached()
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-			return
-		}
+		cached = cached || resp.IsCacheHit()
 
 		// check if there are multiple results
-		defer resp.CloseBodyReader()
-		respBody, err := io.ReadAll(resp.GetBodyReader())
+		respBody, err := resp.ExportResponse()
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return
@@ -109,11 +103,7 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 					fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI),
 					ctx.Request,
 				)
-				cached = cached || resp.IsCached()
-				if err != nil {
-					uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-					return
-				}
+				cached = cached || resp.IsCacheHit()
 				payload, err := parseData(string(respBody))
 				if err != nil {
 					uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
@@ -146,26 +136,8 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, response)
 }
 
-func (aa *SSJCActions) createMainRequest(url string, req *http.Request) proxy.BackendResponse {
-	resp, err := aa.globalCtx.Cache.Get(req)
-	if err == proxy.ErrCacheMiss {
-		resp = proxy.GetRequest(url, aa.conf.ClientUserAgent)
-		err = aa.globalCtx.Cache.Set(req, resp)
-		if err != nil {
-			return &proxy.SimpleResponse{
-				BodyReader: proxy.EmptyReadCloser{},
-				Err:        err,
-			}
-		}
-		return resp
-
-	} else if err != nil {
-		return &proxy.SimpleResponse{
-			BodyReader: proxy.EmptyReadCloser{},
-			Err:        err,
-		}
-	}
-	return resp
+func (aa *SSJCActions) createMainRequest(url string, req *http.Request) proxy.ResponseProcessor {
+	return proxy.UJCGetRequest(url, aa.conf.ClientUserAgent, aa.globalCtx.Cache)
 }
 
 func NewSSJCActions(

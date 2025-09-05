@@ -28,7 +28,7 @@ type Conf = cnc.ProxyConf
 // The function searches for specific Location in headers where the
 // URL contains a message that the word was not found. In such case
 // we rewrite the response to provide an empty result.
-func Interceptor(pr *proxy.ProxiedResponse) {
+func Interceptor(pr *proxy.BackendProxiedResponse) {
 	// we must find and handle the following redirect:
 	// index.php?msg=Nenalezeny žádné výsledky pro dotaz 'rouhat'
 	// ... to prevent infinite redirect loop and make sure something

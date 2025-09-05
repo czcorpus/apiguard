@@ -76,6 +76,18 @@ func (c *ProxyConf) Validate(context string) error {
 	if err := c.SessionValType.Validate(); err != nil {
 		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
 	}
+	for i, limit := range c.Limits {
+		if limit.BurstLimit == 0 {
+			log.Warn().
+				Int("default", limit.ReqPerTimeThreshold).
+				Msgf("%s.limits[%d].burstLimit not set, using reqPerTimeThreshold", context, i)
+			c.Limits[i] = proxy.Limit{
+				ReqPerTimeThreshold:     limit.ReqPerTimeThreshold,
+				ReqCheckingIntervalSecs: limit.ReqCheckingIntervalSecs,
+				BurstLimit:              limit.ReqPerTimeThreshold,
+			}
+		}
+	}
 	return nil
 }
 

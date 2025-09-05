@@ -7,10 +7,7 @@
 package wagstream
 
 import (
-	"crypto/sha1"
-	"encoding/hex"
 	"fmt"
-	"strings"
 )
 
 // request is a single API request which we pack into
@@ -91,7 +88,6 @@ func (req *request) groupingKey() string {
 // to APIGuard's data streaming API proxy.
 type StreamRequestJSON struct {
 	Requests []*request `json:"requests"`
-	Tag      *CacheTag  `json:"tag"`
 }
 
 func (srj *StreamRequestJSON) ApplyDefaults() {
@@ -103,21 +99,4 @@ func (srj *StreamRequestJSON) ApplyDefaults() {
 			v.ContentType = "application/json"
 		}
 	}
-}
-
-// ToCacheKey produces a deterministic cache key
-// of the request. In case the request has the attribute
-// Tag empty, empty string is returned which means "no caching"
-func (srj *StreamRequestJSON) ToCacheKey() string {
-	if srj.Tag == nil {
-		return ""
-	}
-	var buff strings.Builder
-	for _, req := range srj.Requests {
-		buff.WriteString(req.Method)
-		buff.WriteString(req.URL)
-		buff.WriteString(req.Body)
-	}
-	sum := sha1.Sum([]byte(buff.String()))
-	return hex.EncodeToString(sum[:])
 }

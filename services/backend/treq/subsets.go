@@ -160,11 +160,11 @@ func (tp *TreqProxy) Subsets(ctx *gin.Context) {
 				req.Header,
 				req.Body,
 			)
-			if serviceResp.GetError() != nil {
-				log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+			if serviceResp.Error() != nil {
+				log.Error().Err(serviceResp.Error()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 				http.Error(
 					ctx.Writer,
-					fmt.Sprintf("failed to proxy request: %s", serviceResp.GetError()),
+					fmt.Sprintf("failed to proxy request: %s", serviceResp.Error()),
 					http.StatusInternalServerError,
 				)
 				return

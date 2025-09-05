@@ -13,7 +13,6 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/session"
-	"bufio"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,13 +25,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type CoreProxy struct {
+type Proxy struct {
 	globalCtx    *globctx.Context
 	BackendURL   *url.URL
 	conf         *ProxyConf
 	rConf        *EnvironConf
 	guard        guard.ServiceGuard
-	apiProxy     *proxy.APIProxy
+	apiProxy     *proxy.CoreProxy
 	tDBWriter    reporting.ReportingWriter
 	frontendHost string
 
@@ -44,7 +43,27 @@ type CoreProxy struct {
 	sessionValFactory func() session.HTTPSession
 }
 
-func (kp *CoreProxy) DeleteCookie(req *http.Request, name string) {
+func (kp *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) proxy.ResponseProcessor {
+	data, err := kp.globalCtx.Cache.Get(req, opts...)
+	if err == proxy.ErrCacheMiss {
+		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
+
+	} else if err != nil {
+		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, err)
+	}
+
+	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
+}
+
+func (kp *Proxy) ToCache(req *http.Request, data proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
+	return kp.globalCtx.Cache.Set(
+		req,
+		data,
+		opts...,
+	)
+}
+
+func (kp *Proxy) DeleteCookie(req *http.Request, name string) {
 	cookies := req.Cookies()
 	var cookieStrings []string
 
@@ -62,19 +81,23 @@ func (kp *CoreProxy) DeleteCookie(req *http.Request, name string) {
 	}
 }
 
-func (kp *CoreProxy) GlobalCtx() *globctx.Context {
+func (kp *Proxy) GlobalCtx() *globctx.Context {
 	return kp.globalCtx
 }
 
-func (kp *CoreProxy) Guard() guard.ServiceGuard {
+func (kp *Proxy) Guard() guard.ServiceGuard {
 	return kp.guard
 }
 
-func (kp *CoreProxy) EnvironConf() *EnvironConf {
+func (kp *Proxy) EnvironConf() *EnvironConf {
 	return kp.rConf
 }
 
-func (kp *CoreProxy) CountRequest(ctx *gin.Context, created time.Time, serviceKey string, userID common.UserID) {
+func (kp *Proxy) Conf() *ProxyConf {
+	return kp.conf
+}
+
+func (kp *Proxy) CountRequest(ctx *gin.Context, created time.Time, serviceKey string, userID common.UserID) {
 	if kp.reqCounter != nil {
 		kp.reqCounter <- guard.RequestInfo{
 			Created:     created,
@@ -86,13 +109,13 @@ func (kp *CoreProxy) CountRequest(ctx *gin.Context, created time.Time, serviceKe
 	}
 }
 
-func (kp *CoreProxy) ProxyRequest(
+func (kp *Proxy) ProxyRequest(
 	path string,
 	args url.Values,
 	method string,
 	headers http.Header,
 	rbody io.Reader,
-) *proxy.ProxiedResponse {
+) *proxy.BackendProxiedResponse {
 	return kp.apiProxy.Request(
 		path,
 		args,
@@ -107,7 +130,7 @@ func (kp *CoreProxy) ProxyRequest(
 // To be able to recognize users logged in via CNC cookie (which is the
 // one e.g. WaG does not use intentionally) we must actually make two
 // tests - 1. frontend cookie, 2. backend cookie
-func (kp *CoreProxy) Preflight(ctx *gin.Context) {
+func (kp *Proxy) Preflight(ctx *gin.Context) {
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	userId := common.InvalidUserID
 
@@ -145,13 +168,12 @@ func (kp *CoreProxy) Preflight(ctx *gin.Context) {
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{})
 }
 
-func (kp *CoreProxy) WriteReport(report *reporting.ProxyProcReport) {
+func (kp *Proxy) WriteReport(report *reporting.ProxyProcReport) {
 	kp.tDBWriter.Write(report)
 }
 
 // AnyPath is the main handler for KonText API actions.
-func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
-
+func (kp *Proxy) AnyPath(ctx *gin.Context) {
 	var userID, humanID common.UserID
 	var cached, indirectAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
@@ -200,72 +222,32 @@ func (kp *CoreProxy) AnyPath(ctx *gin.Context) {
 	}
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
-	serviceResp := kp.MakeRequest(ctx.Request, reqProps)
-	cached = serviceResp.IsCached()
+	serviceResp := kp.HandleRequest(ctx.Request, reqProps, true)
+	cached = serviceResp.IsCacheHit()
 	kp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),
-		Status:   serviceResp.GetStatusCode(),
+		Status:   serviceResp.Response().GetStatusCode(),
 		Service:  kp.rConf.ServiceKey,
 		IsCached: cached,
 	})
-	if serviceResp.GetError() != nil {
-		log.Error().Err(serviceResp.GetError()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
+	if serviceResp.Error() != nil {
+		log.Error().Err(serviceResp.Error()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 
 		proxy.WriteError(
 			ctx,
-			fmt.Errorf("failed to proxy request: %s", serviceResp.GetError()),
+			fmt.Errorf("failed to proxy request: %s", serviceResp.Error()),
 			http.StatusInternalServerError,
 		)
 		return
 	}
-
-	for k, v := range serviceResp.GetHeaders() {
-		ctx.Writer.Header().Add(k, v[0]) // TODO duplicated headers for content-type
-	}
-	ctx.Writer.WriteHeader(serviceResp.GetStatusCode())
-	defer serviceResp.CloseBodyReader()
-
-	if serviceResp.IsDataStream() {
-		scanner := bufio.NewScanner(serviceResp.GetBodyReader())
-		var eventChunk []string
-		for scanner.Scan() {
-			line := scanner.Text()
-			if line == "" {
-				if len(eventChunk) > 0 {
-					completeEvent := strings.Join(eventChunk, "\n") + "\n\n"
-					ctx.Writer.Write([]byte(completeEvent))
-					eventChunk = eventChunk[:0]
-				}
-
-			} else {
-				eventChunk = append(eventChunk, line)
-			}
-		}
-		if len(eventChunk) > 0 {
-			completeEvent := strings.Join(eventChunk, "\n") + "\n\n"
-			ctx.Writer.Write([]byte(completeEvent))
-		}
-
-	} else {
-		respBody, err := io.ReadAll(serviceResp.GetBodyReader())
-		if err != nil {
-			log.Error().Err(err).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
-			proxy.WriteError(
-				ctx,
-				fmt.Errorf("failed to proxy request: %s", err),
-				http.StatusInternalServerError,
-			)
-			return
-		}
-		ctx.Writer.Write([]byte(respBody))
-	}
+	serviceResp.WriteResponse(ctx.Writer)
 }
 
-func (kp *CoreProxy) debugLogResponse(req *http.Request, res proxy.BackendResponse, err error) {
+func (kp *Proxy) debugLogResponse(req *http.Request, res proxy.BackendResponse) {
 	evt := log.Debug()
 	evt.Str("url", req.URL.String())
-	evt.Err(err)
+	evt.Err(res.Error())
 	for hk, hv := range res.GetHeaders() {
 		if len(hv) > 0 {
 			evt.Str(hk, hv[0])
@@ -274,7 +256,7 @@ func (kp *CoreProxy) debugLogResponse(req *http.Request, res proxy.BackendRespon
 	evt.Msg("received proxied response")
 }
 
-func (kp *CoreProxy) debugLogRequest(req *http.Request) {
+func (kp *Proxy) debugLogRequest(req *http.Request) {
 	evt := log.Debug()
 	evt.Str("url", req.URL.String())
 	for hk, hv := range req.Header {
@@ -285,14 +267,14 @@ func (kp *CoreProxy) debugLogRequest(req *http.Request) {
 	evt.Msg("about to proxy received request")
 }
 
-func NewCoreProxy(
+func NewProxy(
 	globalCtx *globctx.Context,
 	conf *ProxyConf,
 	gConf *EnvironConf,
 	grd guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
-) (*CoreProxy, error) {
-	proxy, err := proxy.NewAPIProxy(conf.GetCoreConf())
+) (*Proxy, error) {
+	proxy, err := proxy.NewCoreProxy(conf.GetCoreConf())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}
@@ -304,7 +286,7 @@ func NewCoreProxy(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}
-	return &CoreProxy{
+	return &Proxy{
 		globalCtx:         globalCtx,
 		conf:              conf,
 		rConf:             gConf,

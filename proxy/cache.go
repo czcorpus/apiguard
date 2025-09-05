@@ -9,6 +9,8 @@ package proxy
 import (
 	"crypto/sha1"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"sort"
 	"strings"
@@ -18,18 +20,14 @@ import (
 
 var ErrCacheMiss = errors.New("cache miss")
 
-func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) []byte {
+func GenerateCacheId(req *http.Request, opts *CacheEntryOptions) []byte {
 	h := sha1.New()
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))
 	if len(opts.RespectCookies) > 0 {
 		hashCookies := make([]string, 0)
-		respParams := http.Request{}
-		if resp != nil {
-			respParams.Header = resp.GetHeaders()
-		}
 		for _, respectCookie := range opts.RespectCookies {
-			respCookie, err := respParams.Cookie(respectCookie)
+			respCookie, err := req.Cookie(respectCookie)
 			if err == nil {
 				hashCookies = append(hashCookies, respCookie.Name+"="+respCookie.Value)
 				continue
@@ -41,8 +39,16 @@ func GenerateCacheId(req *http.Request, resp BackendResponse, opts *CacheEntryOp
 		}
 		sort.Strings(hashCookies)
 		h.Write([]byte(strings.Join(hashCookies, ";")))
+
 	}
-	if len(opts.RequestBody) > 0 {
+	if opts.CacheablePOST {
+		reqData, err := io.ReadAll(req.Body)
+		if err != nil {
+			panic(fmt.Errorf("generateCacheId failed: %s (make sure request body can be read repeatedly if needed)", err))
+		}
+		h.Write(reqData)
+
+	} else if len(opts.RequestBody) > 0 {
 		h.Write(opts.RequestBody)
 	}
 	return h.Sum(nil)
@@ -57,9 +63,8 @@ func ShouldReadFromCache(req *http.Request, opts *CacheEntryOptions) bool {
 
 // ShouldWriteToCache tests if the provided user request and response properties
 // make the response a valid candidate for caching.
-func ShouldWriteToCache(req *http.Request, resp BackendResponse, opts *CacheEntryOptions) bool {
-	ans := (resp.GetStatusCode() == http.StatusOK || resp.GetStatusCode() == http.StatusCreated) &&
-		resp.GetError() == nil &&
+func ShouldWriteToCache(req *http.Request, value CacheEntry, opts *CacheEntryOptions) bool {
+	ans := (value.Status == http.StatusOK || value.Status == http.StatusCreated) &&
 		(req.Method == http.MethodGet || opts.CacheablePOST) &&
 		req.Header.Get("Cache-Control") != "no-cache"
 	log.Debug().

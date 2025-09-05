@@ -14,7 +14,6 @@ import (
 	"apiguard/session"
 	"database/sql"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -75,7 +74,7 @@ type Proxy struct {
 	db                  *sql.DB
 	tzLocation          *time.Location
 	responseInterceptor func(resp *proxy.BackendProxiedResponse)
-	tDBWriter           reporting.ReportingWriter
+	monitoring          reporting.ReportingWriter
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -178,7 +177,6 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 			ctx, fmt.Errorf("unknown service path (expected %s)", prox.servicePath), http.StatusNotFound)
 		return
 	}
-	internalPath := strings.TrimPrefix(path, prox.servicePath)
 
 	var err error
 	if prox.userIDHeaderName != "" {
@@ -218,50 +216,27 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	}
 
 	respHandler := prox.FromCache(ctx.Request)
-	logging.AddLogEvent(ctx, "isCached", !respHandler.IsCacheMiss())
-	if respHandler.IsCacheMiss() {
-		resp := prox.basicProxy.Request(
-			// TODO use some path builder here
+	logging.AddCustomEntry(ctx, "isCached", respHandler.IsCacheHit())
+	respHandler.HandleCacheMiss(func() proxy.BackendResponse {
+		internalPath := strings.TrimPrefix(path, prox.servicePath)
+		bResp := prox.basicProxy.Request(
 			internalPath,
 			ctx.Request.URL.Query(),
 			ctx.Request.Method,
 			ctx.Request.Header,
 			ctx.Request.Body,
 		)
-		tRespHandler, ok := respHandler.(proxy.ResponseProcessorBinder)
-		if ok {
-			tRespHandler.BindResponse(resp)
-		}
-	}
-
-	prox.tDBWriter.Write(&reporting.ProxyProcReport{
+		prox.responseInterceptor(bResp)
+		return bResp
+	})
+	respHandler.WriteResponse(ctx.Writer)
+	prox.monitoring.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(prox.tzLocation),
 		ProcTime: time.Since(rt0).Seconds(),
 		Status:   respHandler.Response().GetStatusCode(),
 		Service:  prox.serviceKey,
-		IsCached: !respHandler.IsCacheMiss(),
+		IsCached: respHandler.IsCacheHit(),
 	})
-	backendResp := respHandler.Response()
-	pr, ok := backendResp.(*proxy.BackendProxiedResponse)
-	if ok {
-		prox.responseInterceptor(pr)
-
-	} else {
-		log.Debug().
-			Str("req", ctx.Request.URL.String()).
-			Msg("cannot apply public proxy interceptor - not *BackendProxiedResponse type")
-	}
-	for k, v := range respHandler.Response().GetHeaders() {
-		ctx.Writer.Header().Set(k, v[0])
-	}
-	ctx.Writer.WriteHeader(respHandler.Response().GetStatusCode())
-	defer respHandler.Response().GetBodyReader().Close()
-	body, err := io.ReadAll(respHandler.Response().GetBodyReader())
-	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-	ctx.Writer.Write(body)
 }
 
 // NewProxy
@@ -292,7 +267,7 @@ func NewProxy(
 		guard:               guard,
 		db:                  globalCtx.CNCDB,
 		responseInterceptor: respInt,
-		tDBWriter:           globalCtx.ReportingWriter,
+		monitoring:          globalCtx.ReportingWriter,
 		tzLocation:          globalCtx.TimezoneLocation,
 	}
 

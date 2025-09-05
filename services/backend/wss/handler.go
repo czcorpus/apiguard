@@ -132,9 +132,10 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	// here we write empty data so the stream handler
 	// which has already written `event: ....`,
 	// fills in data for "data: ..." and then we continue
-	// writing true data with both "event" and "data"
-	// But we have to make sure this cannot fail in strange ways
-	// This also means, client has to know how to handle the {} response
+	// writing true data with both "event" and "data" from here.
+	//
+	// This solution requires a client to know how to handle the {} response
+	// (maybe we should use null here)
 	if wssProxy.EnvironConf().IsStreamingMode {
 		_, err = fmt.Fprint(ctx.Writer, "{}\n\n")
 		if err != nil {
@@ -142,7 +143,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		}
 	}
 
-	if !respProc.IsCacheMiss() {
+	if respProc.IsCacheHit() {
 		cached = true
 		respProc.WriteResponse(ctx.Writer)
 

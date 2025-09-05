@@ -19,24 +19,42 @@ import (
 )
 
 // ResponseProcessor is an abstraction for handling cache-aware response processing.
+// It is a key component in how APIGuard handles proxied actions where it is expected
+// that each handler will first try to look into cache and then - based on the result
+// either return data or perform actual backend request. The advantage of ResponseProcessor
+// is in the fact, that the logic of deciding is hidden and interface consumer - in a typical
+// situation - calls just three methods without any branching:
+// resp := myProxy.FromCache(req, opts)
+// resp.HandleCacheMiss(func() { ... actual backend request; return response })
+// resp.WriteResponse()
+//
+// It is returned by high-level cache functions provided by proxy implementations.
 type ResponseProcessor interface {
+
+	// Response should just return a bound response (or nil if nothing is bound)
 	Response() BackendResponse
+
+	// Error shoudl return any error that occurred either during backend
+	// response obtanining or during caching etc. operations
 	Error() error
-	IsCacheMiss() bool
+
+	//HandleCacheMiss is a core function that should be callable
+	// no matter if there was cache hit or miss but it should perform
+	// actual operations only if there was a cache miss or some specific
+	// implementation's logic requires.
+	//
+	// Typically, the fn should perform actual backend request.
+	HandleCacheMiss(fn func() BackendResponse)
+
+	IsCacheHit() bool
+
+	// WriteResponse is other core function which must be used instead
+	// of direct ctx.Writer. This ensures that data are cached if needed.
 	WriteResponse(w http.ResponseWriter)
+
+	// ExportResponse is used in special situations where we
+	// need direct access to a response body.
 	ExportResponse() ([]byte, error)
-}
-
-// ResponseProcessorBinder specifies a general response processor
-// which allows for attaching a backend response to itself. This is
-// typically used on cache miss, when we need first send a request
-// to a backend and attach the raw respose to a generalized response
-// object for later use.
-type ResponseProcessorBinder interface {
-
-	// BindResponse attaches the response from a backend
-	// to the value
-	BindResponse(resp BackendResponse)
 }
 
 // -----
@@ -91,8 +109,12 @@ func (cw *CachedResponse) Error() error {
 	return nil
 }
 
-func (cw *CachedResponse) IsCacheMiss() bool {
-	return false
+func (cw *CachedResponse) IsCacheHit() bool {
+	return true
+}
+
+func (cw *CachedResponse) HandleCacheMiss(func() BackendResponse) {
+	// NO-OP
 }
 
 func NewCachedResponse(status int, headers http.Header, data []byte) *CachedResponse {
@@ -233,12 +255,12 @@ func (ncw *ThroughCacheResponse) Error() error {
 	return nil
 }
 
-func (ncw *ThroughCacheResponse) IsCacheMiss() bool {
-	return true
+func (ncw *ThroughCacheResponse) IsCacheHit() bool {
+	return false
 }
 
-func (ncw *ThroughCacheResponse) BindResponse(resp BackendResponse) {
-	ncw.boundResp = resp
+func (ncw *ThroughCacheResponse) HandleCacheMiss(fn func() BackendResponse) {
+	ncw.boundResp = fn()
 }
 
 func NewThroughCacheResponse(req *http.Request, cache Cache, err error) *ThroughCacheResponse {
@@ -312,12 +334,12 @@ func (ncw *DirectResponse) Error() error {
 	return nil
 }
 
-func (ncw *DirectResponse) IsCacheMiss() bool {
-	return true
+func (ncw *DirectResponse) IsCacheHit() bool {
+	return false
 }
 
-func (ncw *DirectResponse) BindResponse(resp BackendResponse) {
-	ncw.boundResp = resp
+func (ncw *DirectResponse) HandleCacheMiss(fn func() BackendResponse) {
+	ncw.boundResp = fn()
 }
 
 func NewDirectResponse(err error) *DirectResponse {

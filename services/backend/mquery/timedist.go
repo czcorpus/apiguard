@@ -264,21 +264,7 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Content-Type", resp2.Response().GetHeaders().Get("Content-Type"))
 	ctx.Writer.WriteHeader(resp2.Response().GetStatusCode())
 
-	buffer := make([]byte, 4096)
-	for {
-		n, err := resp2.Response().GetBodyReader().Read(buffer)
-		if n > 0 {
-			_, writeErr := ctx.Writer.Write(buffer[:n])
-			if writeErr != nil {
-				return
-			}
-		}
-		if err != nil {
-			// for any kind of error (incl. io.EOF),
-			// there is nothing we can do here
-			break
-		}
-	}
+	resp2.WriteResponse(ctx.Writer)
 
 	mp.MonitoringWrite(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(mp.GlobalCtx().TimezoneLocation),

@@ -78,11 +78,7 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_ps=ps&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
 			ctx.Request,
 		)
-		cached = cached || !resp.IsCacheMiss()
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-			return
-		}
+		cached = cached || resp.IsCacheHit()
 		respBody, err := resp.ExportResponse()
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)

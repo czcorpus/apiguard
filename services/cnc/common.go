@@ -12,12 +12,9 @@ import (
 	"apiguard/proxy"
 	"apiguard/reporting"
 	"apiguard/services/backend"
-	"bytes"
 	"fmt"
-	"io"
 	"net/http"
 	"path"
-	"reflect"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -154,17 +151,7 @@ func (kp *Proxy) HandleRequest(
 	if respHandler.Error() != nil {
 		return respHandler
 	}
-	if binder, ok := respHandler.(proxy.ResponseProcessorBinder); ok {
-		if req.Body != nil {
-			// TODO without this, invalid Read on closed Body happens on merge-freqs
-			// TODO 2: we should re-evaluate TODO 1 as with modified caching, this may not be an issue anymore
-			bodyBytes, err := io.ReadAll(req.Body)
-			if err != nil {
-				return proxy.NewThroughCacheResponse(req, nil, err)
-			}
-			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		}
-		// ---------------------------------------------------------------------
+	respHandler.HandleCacheMiss(func() proxy.BackendResponse {
 		resp := kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
@@ -173,10 +160,9 @@ func (kp *Proxy) HandleRequest(
 			req.Header,
 			req.Body,
 		)
-
-		binder.BindResponse(resp)
 		kp.debugLogResponse(req, resp)
-	}
+		return resp
+	})
 	return respHandler
 }
 
@@ -193,26 +179,8 @@ func (kp *Proxy) MakeStreamRequest(
 		req,
 		proxy.CachingWithCookies(cacheApplCookies),
 	)
-	if resp.IsCacheMiss() {
-		if req.Body != nil {
-			// TODO without this, invalid Read on closed Body happens on merge-freqs
-			bodyBytes, err := io.ReadAll(req.Body)
-			if err != nil {
-				tmp := &proxy.BackendProxiedStreamResponse{
-					BodyReader: proxy.EmptyReadCloser{},
-					Err:        err,
-				}
-				tResp, ok := resp.(proxy.ResponseProcessorBinder)
-				if ok {
-					tResp.BindResponse(tmp)
-				}
-				return resp
-			}
-			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-		}
-		// ---------------------------------------------------------------------
-
-		backendResp := kp.apiProxy.Request(
+	resp.HandleCacheMiss(func() proxy.BackendResponse {
+		return kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
 			req.URL.Query(),
@@ -220,15 +188,7 @@ func (kp *Proxy) MakeStreamRequest(
 			req.Header,
 			req.Body,
 		)
-		if cmResp, ok := resp.(proxy.ResponseProcessorBinder); ok {
-			cmResp.BindResponse(backendResp)
-
-		} else {
-			panic(fmt.Sprintf(
-				"MakeStreamRequest - cannot bind response - non-CachingResponseWriterInterceptor: %s",
-				reflect.TypeOf(resp)))
-		}
-	}
+	})
 	return resp
 }
 
@@ -261,7 +221,7 @@ func (kp *Proxy) MakeCacheablePOSTRequest(
 		proxy.CachingWithReqBody(reqBody),
 		proxy.CachingWithCacheablePOST(),
 	)
-	if resp.IsCacheMiss() {
+	resp.HandleCacheMiss(func() proxy.BackendResponse {
 		backendResp := kp.apiProxy.Request(
 			// TODO use some path builder here
 			path.Join("/", req.URL.Path[len(kp.rConf.ServicePath):]),
@@ -271,9 +231,7 @@ func (kp *Proxy) MakeCacheablePOSTRequest(
 			req.Body,
 		)
 		kp.debugLogResponse(req, backendResp)
-		cmResp := &proxy.ThroughCacheResponse{}
-		cmResp.BindResponse(backendResp)
-		resp = cmResp
-	}
+		return backendResp
+	})
 	return resp
 }

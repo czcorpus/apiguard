@@ -149,7 +149,7 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 	req1.Body = io.NopCloser(bytes.NewBuffer(rawReq1Body))
 
 	serviceResp := kp.MakeCacheablePOSTRequest(&req1, reqProps, rawReq1Body)
-	cached = !serviceResp.IsCacheMiss()
+	cached = serviceResp.IsCacheHit()
 	kp.MonitoringWrite(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),

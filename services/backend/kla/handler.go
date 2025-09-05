@@ -89,11 +89,7 @@ func (aa *KLAActions) Query(ctx *gin.Context) {
 			fmt.Sprintf("%s/search.php?hledej=Hledej&heslo=%s&where=hesla&zobraz_cards=cards&pocet_karet=100&not_initial=1", aa.conf.BaseURL, url.QueryEscape(query)),
 			ctx.Request,
 		)
-		cached = cached || !resp.IsCacheMiss()
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-			return
-		}
+		cached = cached || resp.IsCacheHit()
 		body, err := resp.ExportResponse()
 		if err != nil {
 			uniresp.RespondWithErrorJSON(ctx, err, 500)

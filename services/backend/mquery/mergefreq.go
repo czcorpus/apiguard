@@ -134,7 +134,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 	}
 	respProc := mp.FromCache(ctx.Request, cachingOpts...)
 
-	if !respProc.IsCacheMiss() {
+	if respProc.IsCacheHit() {
 		cached = true
 		respProc.WriteResponse(ctx.Writer)
 

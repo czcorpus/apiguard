@@ -223,7 +223,7 @@ func (kp *Proxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	serviceResp := kp.HandleRequest(ctx.Request, reqProps, true)
-	cached = !serviceResp.IsCacheMiss()
+	cached = serviceResp.IsCacheHit()
 	kp.tDBWriter.Write(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(kp.globalCtx.TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),

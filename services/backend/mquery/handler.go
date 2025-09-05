@@ -14,7 +14,7 @@ import (
 )
 
 type MQueryProxy struct {
-	*cnc.CoreProxy
+	*cnc.Proxy
 }
 
 func NewMQueryProxy(
@@ -24,11 +24,11 @@ func NewMQueryProxy(
 	guard guard.ServiceGuard,
 	reqCounter chan<- guard.RequestInfo,
 ) (*MQueryProxy, error) {
-	proxy, err := cnc.NewCoreProxy(globalCtx, conf, gConf, guard, reqCounter)
+	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create MQuery proxy: %w", err)
 	}
 	return &MQueryProxy{
-		CoreProxy: proxy,
+		Proxy: proxy,
 	}, nil
 }

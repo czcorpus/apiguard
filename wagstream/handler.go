@@ -7,6 +7,7 @@
 package wagstream
 
 import (
+	"apiguard/interop"
 	"apiguard/wagstream/tileconf"
 	loader "apiguard/wagstream/tileconf"
 	"bytes"
@@ -14,7 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"reflect"
+	"strconv"
 	"sync"
 	"time"
 
@@ -32,7 +33,6 @@ const (
 type Actions struct {
 	apiRoutes  http.Handler
 	streams    *streams
-	cache      StreamingCache
 	confLoader wagConfLoader
 }
 
@@ -95,30 +95,6 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 	// may interfere with how individual events are sent and the output
 	// may pause in the middle of already available event data.
 	ctx.Writer.Header().Set("X-Accel-Buffering", "no")
-
-	cachingWriter, ok := ctx.Writer.(*MainRespWriter)
-	if !ok {
-		panic(fmt.Errorf("expected MainRespWriter in /wstream, found %s", reflect.TypeOf(ctx.Writer)))
-	}
-	defer cachingWriter.FinishCaching()
-	cacheKey := args.ToCacheKey()
-	data, err := actions.cache.Get(args)
-	if err == nil {
-		ctx.Writer.WriteString(data)
-		ctx.Writer.Flush()
-		return
-
-	} else if err == ErrCacheMiss {
-		// we set the cache writing key to configure writer
-		// to store data to cache
-		cachingWriter.CacheWriteKey = cacheKey
-		cachingWriter.CacheTag = args.Tag
-
-	} else {
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("failed to use wstream cache: %w", err), http.StatusInternalServerError)
-		return
-	}
 
 	responseCh := make(chan any, len(args.Requests)*2)
 	var wg sync.WaitGroup
@@ -185,11 +161,13 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					}
 					wg.Done()
 				}()
+				req.Header.Add(interop.TileIdHeader, strconv.Itoa(tiles[0].TileID))
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
 
 			} else {
 				apiWriter := NewAPIWriter()
 
+				req.Header.Add(interop.TileIdHeader, strconv.Itoa(tiles[0].TileID))
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
 				var data []byte
 				if rd.Base64EncodeResult {
@@ -261,9 +239,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					ctx.Writer.Flush()
 				}
 			case *PingResp:
-				_, err := ctx.Writer.WriteString(
-					fmt.Sprintf("data: %d\n\n", tResponse.TS.Unix()),
-				)
+				_, err := fmt.Fprintf(ctx.Writer, "data: %d\n\n", tResponse.TS.Unix())
 				if err != nil {
 					// not much we can do here
 					log.Error().Err(err).Msg("failed to write EventSource data")
@@ -298,7 +274,6 @@ func (actions *Actions) TileConf(ctx *gin.Context) {
 
 func NewActions(
 	ctx context.Context,
-	cache StreamingCache,
 	apiRoutes http.Handler,
 	wagTilesConfDir string,
 ) (*Actions, error) {
@@ -317,7 +292,6 @@ func NewActions(
 
 	a := &Actions{
 		apiRoutes:  apiRoutes,
-		cache:      cache,
 		streams:    newStreams(),
 		confLoader: confLoader,
 	}

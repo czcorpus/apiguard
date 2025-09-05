@@ -73,7 +73,7 @@ func (resp loginResponse) isInvalidCredentials() bool {
 	return resp.message == "Invalid credentials"
 }
 
-func (kp *CoreProxy) LoginWithToken(token string) loginResponse {
+func (kp *Proxy) LoginWithToken(token string) loginResponse {
 	postData := url.Values{}
 	postData.Set(kp.rConf.AuthTokenEntry, token)
 	req2, err := http.NewRequest(
@@ -129,7 +129,7 @@ func (kp *CoreProxy) LoginWithToken(token string) loginResponse {
 // loginFromCtx performs an HTTP request with
 // CNC login based on current ctx (where we're
 // interested mainly in user's request properties).
-func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
+func (kp *Proxy) loginFromCtx(ctx *gin.Context) loginResponse {
 	return kp.LoginWithToken(ctx.Request.FormValue(kp.rConf.AuthTokenEntry))
 }
 
@@ -137,7 +137,7 @@ func (kp *CoreProxy) loginFromCtx(ctx *gin.Context) loginResponse {
 // from a login request. The method does not care whether the
 // response represents a successful login or not.
 // The method also tries to find matching user ID and sets
-func (kp *CoreProxy) applyLoginRespCookies(
+func (kp *Proxy) applyLoginRespCookies(
 	ctx *gin.Context,
 	resp loginResponse,
 ) (userID common.UserID) {
@@ -169,7 +169,7 @@ func (kp *CoreProxy) applyLoginRespCookies(
 // hidden user visible. So our proxy action will rename a respective
 // cookie and will allow a custom web application (e.g. WaG)
 // to use this special cookie.
-func (kp *CoreProxy) Login(ctx *gin.Context) {
+func (kp *Proxy) Login(ctx *gin.Context) {
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 	userId := common.InvalidUserID
 

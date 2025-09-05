@@ -557,6 +557,11 @@ func InitServices(
 				httpclient.WithInsecureSkipVerify(),
 				httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
 			)
+
+			if typedConf.GuardType != guard.GuardTypeDflt {
+				return fmt.Errorf("failed to initialize service %d (kwords): unsupported guard type %s (supported: dflt)", sid, typedConf.GuardType)
+			}
+
 			analyzer := dflt.New(
 				ctx,
 				globalConf.CNCAuth.SessionCookieName,
@@ -572,12 +577,12 @@ func InitServices(
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (kwords): %w", sid, err)
 			}
-			coreProxy, err := proxy.NewAPIProxy(typedConf.GetCoreConf())
+			coreProxy, err := proxy.NewCoreProxy(typedConf.GetCoreConf())
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (kwords): %w", sid, err)
 			}
 
-			kwordsActions := public.NewAPIProxy(
+			kwordsActions := public.NewProxy(
 				ctx,
 				coreProxy,
 				sid,
@@ -595,7 +600,7 @@ func InitServices(
 				},
 			)
 			apiRoutes.Any(
-				"/service/kwords/*path",
+				fmt.Sprintf("/service/%d/kwords/*path", sid),
 				kwordsActions.AnyPath)
 			log.Info().Int("sid", sid).Msg("Proxy for KWords enabled")
 
@@ -628,11 +633,11 @@ func InitServices(
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (gunstick): %w", sid, err)
 			}
-			coreProxy, err := proxy.NewAPIProxy(typedConf.GetCoreConf())
+			coreProxy, err := proxy.NewCoreProxy(typedConf.GetCoreConf())
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (gunstick): %w", sid, err)
 			}
-			gunstickActions := public.NewAPIProxy(
+			gunstickActions := public.NewProxy(
 				ctx,
 				coreProxy,
 				sid,
@@ -682,11 +687,11 @@ func InitServices(
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (hex): %w", sid, err)
 			}
-			coreProxy, err := proxy.NewAPIProxy(typedConf.GetCoreConf())
+			coreProxy, err := proxy.NewCoreProxy(typedConf.GetCoreConf())
 			if err != nil {
 				return fmt.Errorf("failed to initialize service %d (hex): %w", sid, err)
 			}
-			hexActions := public.NewAPIProxy(
+			hexActions := public.NewProxy(
 				ctx,
 				coreProxy,
 				sid,

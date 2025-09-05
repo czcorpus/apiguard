@@ -82,7 +82,7 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 			aa.conf.ClientUserAgent,
 			aa.globalCtx.Cache,
 		)
-		cached = cached || !response.IsCacheMiss()
+		cached = cached || response.IsCacheHit()
 		if err != nil {
 			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
 			return

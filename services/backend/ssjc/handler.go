@@ -83,11 +83,7 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 			fmt.Sprintf("%s/search.php?hledej=Hledat&heslo=%s&where=hesla&hsubstr=no", aa.conf.BaseURL, url.QueryEscape(query)),
 			ctx.Request,
 		)
-		cached = cached || !resp.IsCacheMiss()
-		if err != nil {
-			uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-			return
-		}
+		cached = cached || resp.IsCacheHit()
 
 		// check if there are multiple results
 		respBody, err := resp.ExportResponse()
@@ -107,11 +103,7 @@ func (aa *SSJCActions) Query(ctx *gin.Context) {
 					fmt.Sprintf("%s/search.php?hledej=Hledat&sti=%d&where=hesla&hsubstr=no", aa.conf.BaseURL, STI),
 					ctx.Request,
 				)
-				cached = cached || !resp.IsCacheMiss()
-				if err != nil {
-					uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)
-					return
-				}
+				cached = cached || resp.IsCacheHit()
 				payload, err := parseData(string(respBody))
 				if err != nil {
 					uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), 500)

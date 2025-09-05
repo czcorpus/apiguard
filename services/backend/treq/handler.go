@@ -229,7 +229,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 
 	rt0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
 	serviceResp := tp.HandleRequest(ctx.Request, reqProps, true)
-	cached = !serviceResp.IsCacheMiss()
+	cached = serviceResp.IsCacheHit()
 	tp.WriteReport(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(tp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),

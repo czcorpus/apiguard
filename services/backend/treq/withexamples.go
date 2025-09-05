@@ -284,7 +284,7 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 	req.URL.Path, _ = url.JoinPath(tp.EnvironConf().ServicePath, "/")
 	resp := tp.HandleRequest(&req, reqProps, true)
 
-	cached = !resp.IsCacheMiss()
+	cached = resp.IsCacheHit()
 	tp.WriteReport(&reporting.ProxyProcReport{
 		DateTime: time.Now().In(tp.GlobalCtx().TimezoneLocation),
 		ProcTime: time.Since(rt0).Seconds(),

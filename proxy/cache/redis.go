@@ -156,7 +156,7 @@ func (rrc *Redis) Set(req *http.Request, resp proxy.CacheEntry, opts ...func(*pr
 // goroutine for processing asynchronous write operations.
 func NewRedisCache(ctx context.Context, conf *proxy.CacheConf) *Redis {
 	addr := conf.RedisAddr
-	addrElms := strings.Split(":", addr)
+	addrElms := strings.Split(addr, ":")
 	if len(addrElms) == 1 {
 		addr = fmt.Sprintf("%s:%d", addr, defaultRedisPort)
 		log.Warn().Msgf("Caching: Redis port not specified, using %d", defaultRedisPort)

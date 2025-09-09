@@ -27,6 +27,10 @@ func LogServiceRequest(
 		Bool("isIndirect", bReq.IndirectCall).
 		Str("ipAddress", unireq.ClientIP(req).String()).
 		Str("userAgent", req.UserAgent())
+	if bReq.IsCached {
+		event.Str("path", req.URL.Path).
+			Interface("queryParams", req.URL.Query())
+	}
 	if bReq.UserID.IsValid() {
 		event.Int("userId", int(bReq.UserID))
 	}

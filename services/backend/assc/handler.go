@@ -37,6 +37,7 @@ type ASSCActions struct {
 	globalCtx       *globctx.Context
 	conf            *Conf
 	readTimeoutSecs int
+	serviceKey      string
 	guard           guard.ServiceGuard
 }
 
@@ -44,7 +45,7 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(
+		aa.globalCtx.BackendLoggers[aa.serviceKey].Log(
 			ctx.Request,
 			ServiceName,
 			time.Since(t0),
@@ -108,12 +109,14 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 
 func NewASSCActions(
 	globalCtx *globctx.Context,
+	serviceKey string,
 	conf *Conf,
 	guard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *ASSCActions {
 	return &ASSCActions{
 		globalCtx:       globalCtx,
+		serviceKey:      serviceKey,
 		conf:            conf,
 		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,

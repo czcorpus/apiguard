@@ -45,7 +45,7 @@ func (tp *TreqProxy) Subsets(ctx *gin.Context) {
 			tp.EnvironConf().ServiceKey,
 			*loggedUserID,
 		)
-		tp.GlobalCtx().BackendLogger.Log(
+		tp.GlobalCtx().BackendLoggers.Get(tp.EnvironConf().ServiceKey).Log(
 			ctx.Request,
 			tp.EnvironConf().ServiceKey,
 			time.Since(t0),

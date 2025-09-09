@@ -112,7 +112,10 @@ func createTDBWriter(
 }
 
 func createGlobalCtx(
-	ctx context.Context, conf *config.Configuration, tDBWriter reporting.ReportingWriter) *globctx.Context {
+	ctx context.Context,
+	conf *config.Configuration,
+	tDBWriter reporting.ReportingWriter,
+) (*globctx.Context, error) {
 	ans := globctx.NewGlobalContext(ctx)
 
 	tDBWriter.AddTableWriter(reporting.AlarmMonitoringTable)
@@ -140,14 +143,26 @@ func createGlobalCtx(
 
 	ans.TimezoneLocation = conf.TimezoneLocation()
 	ans.ReportingWriter = tDBWriter
-	ans.BackendLogger = globctx.NewBackendLogger(tDBWriter)
+	ans.BackendLoggers = make(map[string]*globctx.BackendLogger)
+	for i, backendConf := range conf.Services {
+		var err error
+		ans.BackendLoggers[fmt.Sprintf("%d/%s", i, backendConf.Type)], err = globctx.NewBackendLogger(tDBWriter, backendConf.LogPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create global ctx: %w", err)
+		}
+	}
+	var err error
+	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create global ctx: %w", err)
+	}
 	ans.CNCDB = cncdb
 	ans.Cache = cacheBackend
 	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
 
 	// delay stats writer and telemetry analyzer
 	ans.TelemetryDB = telemetry.NewDelayStats(ans.CNCDB, conf.TimezoneLocation())
-	return ans
+	return ans, nil
 }
 
 func init() {
@@ -215,13 +230,21 @@ func main() {
 		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
 		ctx := context.TODO()
 		tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-		globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
+		globalCtx, err := createGlobalCtx(ctx, conf, tDBWriter)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
+			os.Exit(1)
+		}
 		runStatus(globalCtx, conf, flag.Arg(1))
 	case "learn":
 		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
 		ctx := context.TODO()
 		tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-		globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
+		globalCtx, err := createGlobalCtx(ctx, conf, tDBWriter)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
+			os.Exit(1)
+		}
 		runLearn(globalCtx, conf)
 	case "generate-token":
 		id := uuid.New()

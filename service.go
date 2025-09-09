@@ -109,7 +109,7 @@ func initProxyEngine(
 	apiRoutes.GET("/service/ping", func(ctx *gin.Context) {
 		t0 := time.Now()
 		defer func() {
-			globalCtx.BackendLogger.Log(
+			globalCtx.BackendLoggers.Get("ping").Log(
 				ctx.Request,
 				"ping",
 				time.Since(t0),
@@ -231,7 +231,11 @@ func runService(conf *config.Configuration) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-	globalCtx := createGlobalCtx(ctx, conf, tDBWriter)
+	globalCtx, err := createGlobalCtx(ctx, conf, tDBWriter)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
+		os.Exit(1)
+	}
 	reloadChan := make(chan bool)
 
 	// alarm

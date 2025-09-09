@@ -174,7 +174,7 @@ func (kp *Proxy) Login(ctx *gin.Context) {
 	userId := common.InvalidUserID
 
 	defer func(currUserID *common.UserID) {
-		kp.globalCtx.BackendLogger.Log(
+		kp.globalCtx.BackendLoggers.Get(kp.EnvironConf().ServiceKey).Log(
 			ctx.Request,
 			kp.rConf.ServiceKey,
 			time.Since(t0),

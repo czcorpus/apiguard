@@ -27,6 +27,7 @@ const (
 
 type PSJCActions struct {
 	globalCtx       *globctx.Context
+	serviceKey      string
 	conf            *Conf
 	readTimeoutSecs int
 	guard           guard.ServiceGuard
@@ -41,7 +42,7 @@ func (aa *PSJCActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(
+		aa.globalCtx.BackendLoggers.Get(aa.serviceKey).Log(
 			ctx.Request,
 			ServiceName,
 			time.Since(t0),
@@ -107,12 +108,14 @@ func (aa *PSJCActions) createMainRequest(url string, req *http.Request) proxy.Re
 
 func NewPSJCActions(
 	globalCtx *globctx.Context,
+	serviceKey string,
 	conf *Conf,
 	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *PSJCActions {
 	return &PSJCActions{
 		globalCtx:       globalCtx,
+		serviceKey:      serviceKey,
 		conf:            conf,
 		guard:           analyzer,
 		readTimeoutSecs: readTimeoutSecs,

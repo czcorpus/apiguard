@@ -28,6 +28,7 @@ const (
 
 type NeomatActions struct {
 	globalCtx       *globctx.Context
+	serviceKey      string
 	conf            *Conf
 	readTimeoutSecs int
 	analyzer        guard.ServiceGuard
@@ -41,7 +42,7 @@ func (aa *NeomatActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(
+		aa.globalCtx.BackendLoggers.Get(aa.serviceKey).Log(
 			ctx.Request,
 			ServiceName,
 			time.Since(t0),
@@ -104,12 +105,14 @@ func (aa *NeomatActions) createMainRequest(url string, req *http.Request) proxy.
 
 func NewNeomatActions(
 	globalCtx *globctx.Context,
+	serviceKey string,
 	conf *Conf,
 	analyzer guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *NeomatActions {
 	return &NeomatActions{
 		globalCtx:       globalCtx,
+		serviceKey:      serviceKey,
 		conf:            conf,
 		analyzer:        analyzer,
 		readTimeoutSecs: readTimeoutSecs,

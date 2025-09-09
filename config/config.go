@@ -40,8 +40,9 @@ const (
 )
 
 type GeneralServiceConf struct {
-	Type string          `json:"type"`
-	Conf json.RawMessage `json:"conf"`
+	Type    string          `json:"type"`
+	LogPath string          `json:"logPath"`
+	Conf    json.RawMessage `json:"conf"`
 }
 
 type CNCAuthConf struct {

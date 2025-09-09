@@ -39,6 +39,7 @@ const (
 
 type LanguageGuideActions struct {
 	globalCtx       *globctx.Context
+	serviceKey      string
 	conf            *Conf
 	readTimeoutSecs int
 	watchdog        *Watchdog[*logging.LGRequestRecord]
@@ -103,7 +104,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(lga.globalCtx.TimezoneLocation)
 	defer func() {
-		lga.globalCtx.BackendLogger.Log(
+		lga.globalCtx.BackendLoggers.Get(lga.serviceKey).Log(
 			ctx.Request,
 			ServiceName,
 			time.Since(t0),
@@ -182,6 +183,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 
 func NewLanguageGuideActions(
 	globalCtx *globctx.Context,
+	serviceKey string,
 	conf *Conf,
 	botwatchConf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
@@ -191,6 +193,7 @@ func NewLanguageGuideActions(
 	wdog := NewLGWatchdog(botwatchConf, telemetryConf, globalCtx.TelemetryDB)
 	return &LanguageGuideActions{
 		globalCtx:       globalCtx,
+		serviceKey:      serviceKey,
 		conf:            conf,
 		readTimeoutSecs: readTimeoutSecs,
 		watchdog:        wdog,

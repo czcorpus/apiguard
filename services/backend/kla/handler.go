@@ -28,6 +28,7 @@ const (
 
 type KLAActions struct {
 	globalCtx       *globctx.Context
+	serviceKey      string
 	conf            *Conf
 	readTimeoutSecs int
 	guard           guard.ServiceGuard
@@ -42,7 +43,7 @@ func (aa *KLAActions) Query(ctx *gin.Context) {
 	var cached bool
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(
+		aa.globalCtx.BackendLoggers.Get(aa.serviceKey).Log(
 			ctx.Request,
 			ServiceName,
 			time.Since(t0),
@@ -117,12 +118,14 @@ func (aa *KLAActions) createMainRequest(url string, req *http.Request) proxy.Res
 
 func NewKLAActions(
 	globalCtx *globctx.Context,
+	serviceKey string,
 	conf *Conf,
 	guard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *KLAActions {
 	return &KLAActions{
 		globalCtx:       globalCtx,
+		serviceKey:      serviceKey,
 		conf:            conf,
 		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,

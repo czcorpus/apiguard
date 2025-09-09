@@ -16,6 +16,16 @@ import (
 	"time"
 )
 
+type BackendLoggers map[string]*BackendLogger
+
+func (bl BackendLoggers) Get(serviceKey string) *BackendLogger {
+	lg, ok := bl[serviceKey]
+	if ok {
+		return lg
+	}
+	return bl["default"]
+}
+
 // Context provides access to shared resources and information needed by different
 // part of the application. It is OK to pass it by value as the properties of the struct
 // are pointers themselves (if needed).
@@ -23,7 +33,7 @@ import (
 // context.
 type Context struct {
 	TimezoneLocation *time.Location
-	BackendLogger    *BackendLogger
+	BackendLoggers   BackendLoggers
 	CNCDB            *sql.DB
 	TelemetryDB      telemetry.Storage
 	ReportingWriter  reporting.ReportingWriter

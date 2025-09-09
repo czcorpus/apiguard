@@ -27,6 +27,7 @@ const (
 
 type CJAActions struct {
 	globalCtx       *globctx.Context
+	serviceKey      string
 	conf            *Conf
 	readTimeoutSecs int
 	guard           guard.ServiceGuard
@@ -43,7 +44,7 @@ func (aa *CJAActions) Query(ctx *gin.Context) {
 	t0 := time.Now().In(aa.globalCtx.TimezoneLocation)
 	var cached bool
 	defer func() {
-		aa.globalCtx.BackendLogger.Log(
+		aa.globalCtx.BackendLoggers.Get(aa.serviceKey).Log(
 			ctx.Request,
 			ServiceName,
 			time.Since(t0),
@@ -109,12 +110,14 @@ func (aa *CJAActions) createRequests(url1 string, url2 string, req *http.Request
 
 func NewCJAActions(
 	globalCtx *globctx.Context,
+	serviceKey string,
 	conf *Conf,
 	guard guard.ServiceGuard,
 	readTimeoutSecs int,
 ) *CJAActions {
 	return &CJAActions{
 		globalCtx:       globalCtx,
+		serviceKey:      serviceKey,
 		conf:            conf,
 		guard:           guard,
 		readTimeoutSecs: readTimeoutSecs,

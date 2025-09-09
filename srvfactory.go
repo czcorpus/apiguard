@@ -83,6 +83,7 @@ func InitServices(
 			}
 			langGuideActions := lguide.NewLanguageGuideActions(
 				ctx,
+				fmt.Sprintf("%d/language-guide", sid),
 				&typedConf,
 				&globalConf.Botwatch,
 				globalConf.Telemetry,
@@ -110,6 +111,7 @@ func InitServices(
 			}
 			asscActions := assc.NewASSCActions(
 				ctx,
+				fmt.Sprintf("%d/assc", sid),
 				&typedConf,
 				guard,
 				globalConf.ServerReadTimeoutSecs,
@@ -135,6 +137,7 @@ func InitServices(
 			}
 			ssjcActions := ssjc.NewSSJCActions(
 				ctx,
+				fmt.Sprintf("%d/ssjc", sid),
 				&typedConf,
 				guard,
 				globalConf.ServerReadTimeoutSecs,
@@ -160,6 +163,7 @@ func InitServices(
 			}
 			psjcActions := psjc.NewPSJCActions(
 				ctx,
+				fmt.Sprintf("%d/psjc", sid),
 				&typedConf,
 				guard,
 				globalConf.ServerReadTimeoutSecs,
@@ -185,6 +189,7 @@ func InitServices(
 			}
 			klaActions := kla.NewKLAActions(
 				ctx,
+				fmt.Sprintf("%d/kla", sid),
 				&typedConf,
 				guard,
 				globalConf.ServerReadTimeoutSecs,
@@ -210,6 +215,7 @@ func InitServices(
 			}
 			neomatActions := neomat.NewNeomatActions(
 				ctx,
+				fmt.Sprintf("%d/neomat", sid),
 				&typedConf,
 				guard,
 				globalConf.ServerReadTimeoutSecs,
@@ -235,6 +241,7 @@ func InitServices(
 			}
 			cjaActions := cja.NewCJAActions(
 				ctx,
+				fmt.Sprintf("%d/cja", sid),
 				&typedConf,
 				guard,
 				globalConf.ServerReadTimeoutSecs,

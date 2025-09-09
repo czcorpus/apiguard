@@ -133,7 +133,7 @@ func (tp *TreqProxy) WithExamples(ctx *gin.Context) {
 			tp.EnvironConf().ServiceKey,
 			*loggedUserID,
 		)
-		tp.GlobalCtx().BackendLogger.Log(
+		tp.GlobalCtx().BackendLoggers[tp.EnvironConf().ServiceKey].Log(
 			ctx.Request,
 			tp.EnvironConf().ServiceKey,
 			time.Since(t0),

@@ -31,7 +31,7 @@ func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indire
 			IP:          ctx.ClientIP(),
 		}
 	}
-	kp.globalCtx.BackendLogger.Log(
+	kp.globalCtx.BackendLoggers[kp.EnvironConf().ServiceKey].Log(
 		ctx.Request,
 		kp.rConf.ServiceKey,
 		time.Since(created),

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
@@ -36,8 +37,9 @@ func exportURLArgs(req *http.Request) map[string]any {
 }
 
 type BackendLogger struct {
-	tDBWriter  reporting.ReportingWriter
-	fileLogger zerolog.Logger
+	tDBWriter     reporting.ReportingWriter
+	fileLogger    zerolog.Logger
+	reqPathPrefix string
 }
 
 // Log logs a service backend (e.g. KonText, Treq, some UJC server) access
@@ -66,7 +68,6 @@ func (b *BackendLogger) Log(
 		ActionType:   actionType,
 	}
 	b.tDBWriter.Write(bReq)
-
 	// Also log to the custom file logger
 	event := b.fileLogger.Info().
 		Bool("accessLog", true).
@@ -78,6 +79,7 @@ func (b *BackendLogger) Log(
 		Str("actionType", string(bReq.ActionType)).
 		Str("ipAddress", unireq.ClientIP(req).String()).
 		Str("userAgent", req.UserAgent()).
+		Str("requestPath", strings.TrimPrefix(req.URL.Path, b.reqPathPrefix)).
 		Any("args", exportURLArgs(req))
 	if bReq.UserID.IsValid() {
 		event.Int("userId", int(bReq.UserID))
@@ -86,12 +88,17 @@ func (b *BackendLogger) Log(
 }
 
 // NewBackendLogger creates a new backend access logging service
-func NewBackendLogger(tDBWriter reporting.ReportingWriter, logPath string) (*BackendLogger, error) {
-	// Use default logger if logPath is empty
+func NewBackendLogger(
+	tDBWriter reporting.ReportingWriter,
+	logPath string,
+	reqPathPrefix string,
+) (*BackendLogger, error) {
+
 	if logPath == "" {
 		return &BackendLogger{
-			tDBWriter:  tDBWriter,
-			fileLogger: log.Logger,
+			tDBWriter:     tDBWriter,
+			fileLogger:    log.Logger,
+			reqPathPrefix: reqPathPrefix,
 		}, nil
 	}
 
@@ -105,7 +112,8 @@ func NewBackendLogger(tDBWriter reporting.ReportingWriter, logPath string) (*Bac
 	fileLogger := zerolog.New(file).With().Timestamp().Logger()
 
 	return &BackendLogger{
-		tDBWriter:  tDBWriter,
-		fileLogger: fileLogger,
+		tDBWriter:     tDBWriter,
+		fileLogger:    fileLogger,
+		reqPathPrefix: reqPathPrefix,
 	}, nil
 }

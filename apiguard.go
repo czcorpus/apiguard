@@ -146,13 +146,18 @@ func createGlobalCtx(
 	ans.BackendLoggers = make(map[string]*globctx.BackendLogger)
 	for i, backendConf := range conf.Services {
 		var err error
-		ans.BackendLoggers[fmt.Sprintf("%d/%s", i, backendConf.Type)], err = globctx.NewBackendLogger(tDBWriter, backendConf.LogPath)
+		serviceKey := fmt.Sprintf("%d/%s", i, backendConf.Type)
+		ans.BackendLoggers[serviceKey], err = globctx.NewBackendLogger(
+			tDBWriter,
+			backendConf.LogPath,
+			fmt.Sprintf("/service/%s", serviceKey),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create global ctx: %w", err)
 		}
 	}
 	var err error
-	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "")
+	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "", "")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global ctx: %w", err)
 	}

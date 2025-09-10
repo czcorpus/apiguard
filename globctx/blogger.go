@@ -9,15 +9,31 @@ package globctx
 import (
 	"apiguard/common"
 	"apiguard/reporting"
-	"apiguard/services/logging"
 	"fmt"
 	"net/http"
 	"os"
 	"time"
 
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
+
+func exportURLArgs(req *http.Request) map[string]any {
+	ans := make(map[string]any)
+	for k, v := range req.URL.Query() {
+		if len(v) == 0 || v[0] == "" {
+			continue
+		}
+		if len(v) == 1 {
+			ans[k] = v[0]
+
+		} else {
+			ans[k] = v
+		}
+	}
+	return ans
+}
 
 type BackendLogger struct {
 	tDBWriter  reporting.ReportingWriter
@@ -50,7 +66,6 @@ func (b *BackendLogger) Log(
 		ActionType:   actionType,
 	}
 	b.tDBWriter.Write(bReq)
-	logging.LogServiceRequest(req, bReq)
 
 	// Also log to the custom file logger
 	event := b.fileLogger.Info().
@@ -60,7 +75,10 @@ func (b *BackendLogger) Log(
 		Float64("procTime", bReq.ProcTime).
 		Bool("isCached", bReq.IsCached).
 		Bool("isIndirect", bReq.IndirectCall).
-		Str("actionType", string(bReq.ActionType))
+		Str("actionType", string(bReq.ActionType)).
+		Str("ipAddress", unireq.ClientIP(req).String()).
+		Str("userAgent", req.UserAgent()).
+		Any("args", exportURLArgs(req))
 	if bReq.UserID.IsValid() {
 		event.Int("userId", int(bReq.UserID))
 	}

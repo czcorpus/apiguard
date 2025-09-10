@@ -40,17 +40,17 @@ type wagConfLoader interface {
 	GetConf(id string) ([]byte, error)
 }
 
-func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID int, err error) {
+func (actions *Actions) writeStreamingError(ctx *gin.Context, tileID, queryIdx int, err error) {
 	messageJSON, err2 := sonic.Marshal(streamingError{err.Error()})
-	if err2 != nil {
-		ctx.String(http.StatusInternalServerError, "Internal Server Error")
-		return
+	if err2 != nil { // this is a bit extreme situation - but we still have to keep the stream
+		log.Error().Err(err2).Msg("failed to marshal streaming error")
+		messageJSON = []byte(`{"error": "failed to marshal streaming error"}`)
 	}
 	// We use status 200 here deliberately as we don't want to trigger
 	// the error handler.
 	ctx.String(
 		http.StatusOK,
-		fmt.Sprintf("event: DataTile-%d\ndata: %s\n\n", tileID, messageJSON),
+		fmt.Sprintf("event: DataTile-%d.%d\ndata: %s\n\n", tileID, queryIdx, messageJSON),
 	)
 }
 
@@ -225,7 +225,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					ctx.Writer.WriteHeader(http.StatusOK)
 					_, err := ctx.Writer.Write(tResponse.Data)
 					if err != nil {
-						actions.writeStreamingError(ctx, tResponse.TileID, err)
+						actions.writeStreamingError(ctx, tResponse.TileID, tResponse.QueryIdx, err)
 						ctx.Writer.Flush()
 						return
 					}
@@ -234,6 +234,7 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					actions.writeStreamingError(
 						ctx,
 						tResponse.TileID,
+						tResponse.QueryIdx,
 						fmt.Errorf("received error response from backend (status: %d)", tResponse.Status),
 					)
 					ctx.Writer.Flush()

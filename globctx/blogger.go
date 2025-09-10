@@ -61,6 +61,10 @@ func (b *BackendLogger) Log(
 		Bool("isCached", bReq.IsCached).
 		Bool("isIndirect", bReq.IndirectCall).
 		Str("actionType", string(bReq.ActionType))
+	if bReq.IsCached {
+		event.Str("path", req.URL.Path).
+			Interface("queryParams", req.URL.Query())
+	}
 	if bReq.UserID.IsValid() {
 		event.Int("userId", int(bReq.UserID))
 	}

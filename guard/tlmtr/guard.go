@@ -1,6 +1,6 @@
-// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
-// Copyright 2022 Department of Linguistics,
+// Copyright 2025 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2025 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2025 Department of Linguistics,
 //                Faculty of Arts, Charles University
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,18 +15,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cja
+//go:build closed
 
-import "fmt"
+package tlmtr
 
-type Conf struct {
-	BaseURL         string `json:"baseURL"`
-	ClientUserAgent string `json:"clientUserAgent"`
-}
+import (
+	"apiguard/botwatch"
+	"apiguard/globctx"
+	"apiguard/guard"
+	"apiguard/guard/null"
+	"apiguard/telemetry"
+)
 
-func (c *Conf) Validate(context string) error {
-	if c.BaseURL == "" {
-		return fmt.Errorf("%s.baseURL is missing/empty", context)
-	}
-	return nil
+func New(
+	globalCtx *globctx.Context,
+	conf *botwatch.Conf,
+	telemetryConf *telemetry.Conf,
+) (guard.ServiceGuard, error) {
+	return &null.Guard{}, nil
 }

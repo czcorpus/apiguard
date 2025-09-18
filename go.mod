@@ -6,6 +6,7 @@ require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/bytedance/sonic v1.12.9
 	github.com/czcorpus/cnc-gokit v0.13.0
+	github.com/czcorpus/apiguard-ext v0.0.1
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/mquery-common v0.5.4
 	github.com/fsnotify/fsnotify v1.9.0

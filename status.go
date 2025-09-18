@@ -1,8 +1,19 @@
 // Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
 // Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
-// Copyright 2022 Charles University - Faculty of Arts,
-//                Institute of the Czech National Corpus
-// All rights reserved.
+// Copyright 2022 Department of Linguistics,
+//                Faculty of Arts, Charles University
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package main
 
@@ -10,12 +21,14 @@ import (
 	"apiguard/common"
 	"apiguard/config"
 	"apiguard/globctx"
+	"apiguard/guard"
 	"apiguard/guard/tlmtr"
 	"apiguard/services/logging"
 	"apiguard/telemetry"
 	"fmt"
 	"net"
 	"net/http"
+	"reflect"
 	"time"
 
 	"github.com/rs/zerolog/log"
@@ -67,17 +80,27 @@ func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident str
 		if err != nil {
 			log.Fatal().Err(err).Send()
 		}
-		botScore, err := telemetryAnalyzer.BotScore(fakeReq)
-		if err != nil {
-			log.Fatal().Err(err).Send()
+		botAnalyzer, ok := telemetryAnalyzer.(guard.BotAnalyzer)
+		if ok {
+			botScore, err := botAnalyzer.BotScore(fakeReq)
+			if err != nil {
+				log.Fatal().Err(err).Send()
+			}
+			fmt.Printf(
+				"\nSession: %s"+
+					"\nbot score: %01.2f"+
+					"\nreq. delay: %v"+
+					"\n",
+				sessionID, botScore, delay,
+			)
+
+		} else {
+			log.Fatal().
+				Msgf(
+					"telemetryAnalyzer %s does not implement BotAnalyzer interface",
+					reflect.TypeOf(telemetryAnalyzer),
+				)
 		}
-		fmt.Printf(
-			"\nSession: %s"+
-				"\nbot score: %01.2f"+
-				"\nreq. delay: %v"+
-				"\n",
-			sessionID, botScore, delay,
-		)
 
 	} else {
 		ipStats, err := delayLog.LoadIPStats(ip.String(), conf.Telemetry.MaxAgeSecsRelevant)

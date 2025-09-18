@@ -10,6 +10,9 @@ all: test build
 build:
 	go build -o apiguard ${LDFLAGS}
 
+build-ext:
+	go build -tags closed -o apiguard ${LDFLAGS}
+
 install:
 	go install -o apiguard ${LDFLAGS}
 

@@ -18,9 +18,6 @@
 package mquery
 
 import (
-	"apiguard/common"
-	"apiguard/guard"
-	"apiguard/reporting"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -28,6 +25,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"

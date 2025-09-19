@@ -1,6 +1,6 @@
-// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
-// Copyright 2022 Department of Linguistics,
+// Copyright 2025 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2025 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2025 Department of Linguistics,
 //                Faculty of Arts, Charles University
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +15,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package backend
+//go:build closed
+
+package tstorage
 
 import (
-	"errors"
+	"database/sql"
+	"time"
+
+	"github.com/czcorpus/apiguard-ext/storage"
+	"github.com/czcorpus/apiguard/telemetry"
 )
 
-var ErrUnknownClient = errors.New("unknown client")
+func Open(db *sql.DB, location *time.Location) telemetry.Storage {
+	return storage.NewDelayStats(db, location)
+}

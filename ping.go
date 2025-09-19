@@ -18,9 +18,10 @@
 package main
 
 import (
-	"apiguard/reporting"
 	"encoding/json"
 	"time"
+
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/hltscl"
 )

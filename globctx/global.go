@@ -18,13 +18,14 @@
 package globctx
 
 import (
-	"apiguard/common"
-	"apiguard/proxy"
-	"apiguard/reporting"
-	"apiguard/telemetry"
 	"context"
 	"database/sql"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/telemetry"
 )
 
 type BackendLoggers map[string]*BackendLogger

@@ -18,10 +18,11 @@
 package kontext
 
 import (
-	"apiguard/config"
-	"apiguard/services/cnc"
 	"fmt"
 	"net/url"
+
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/rs/zerolog/log"
 )

@@ -18,10 +18,11 @@
 package main
 
 import (
-	"apiguard/config"
 	"path"
 	"runtime"
 	"strings"
+
+	"github.com/czcorpus/apiguard/config"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"

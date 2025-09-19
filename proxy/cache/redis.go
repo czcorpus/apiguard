@@ -18,7 +18,6 @@
 package cache
 
 import (
-	"apiguard/proxy"
 	"bytes"
 	"context"
 	"encoding/gob"
@@ -26,6 +25,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/rs/zerolog/log"

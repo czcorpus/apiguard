@@ -18,8 +18,9 @@
 package guard
 
 import (
-	"apiguard/session"
 	"fmt"
+
+	"github.com/czcorpus/apiguard/session"
 )
 
 func CreateSessionValFactory(st session.SessionType) func() session.HTTPSession {

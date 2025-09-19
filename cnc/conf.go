@@ -18,10 +18,11 @@
 package cnc
 
 import (
-	"apiguard/common"
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"

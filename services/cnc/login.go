@@ -18,9 +18,6 @@
 package cnc
 
 import (
-	"apiguard/common"
-	"apiguard/guard"
-	"apiguard/reporting"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -29,6 +26,10 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"

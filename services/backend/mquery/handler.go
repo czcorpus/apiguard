@@ -18,10 +18,11 @@
 package mquery
 
 import (
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/services/cnc"
 	"fmt"
+
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/services/cnc"
 )
 
 type MQueryProxy struct {

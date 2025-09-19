@@ -1,12 +1,11 @@
-module apiguard
+module github.com/czcorpus/apiguard
 
-go 1.23.0
+go 1.23.4
 
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/bytedance/sonic v1.12.9
-	github.com/czcorpus/cnc-gokit v0.13.0
-	github.com/czcorpus/apiguard-ext v0.0.1
+	github.com/czcorpus/cnc-gokit v0.17.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/mquery-common v0.5.4
 	github.com/fsnotify/fsnotify v1.9.0
@@ -16,12 +15,15 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.5.5
 	github.com/patrikeh/go-deep v0.0.0-20220129152125-82b8db494fe5
-	github.com/rs/zerolog v1.29.1
+	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.14.0
 	golang.org/x/time v0.7.0
+	github.com/czcorpus/apiguard-ext v0.0.1
 )
+
+replace github.com/czcorpus/apiguard-ext => /home/tomas/work/korpus/tools/apiguard-ext
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect

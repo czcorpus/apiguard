@@ -18,9 +18,6 @@
 package treq
 
 import (
-	"apiguard/common"
-	"apiguard/proxy"
-	"apiguard/reporting"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -29,6 +26,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"

@@ -18,8 +18,9 @@
 package logging
 
 import (
-	"apiguard/reporting"
 	"net/http"
+
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/rs/zerolog/log"

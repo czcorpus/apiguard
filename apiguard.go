@@ -32,15 +32,15 @@ import (
 	"strings"
 	"time"
 
-	"apiguard/cnc"
-	"apiguard/config"
-	"apiguard/globctx"
-	"apiguard/guard/token"
-	"apiguard/proxy"
-	"apiguard/proxy/cache"
-	"apiguard/reporting"
-	"apiguard/services"
-	"apiguard/telemetry"
+	"github.com/czcorpus/apiguard/cnc"
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard/token"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/services"
+	"github.com/czcorpus/apiguard/telemetry/tstorage"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/hltscl"
@@ -177,7 +177,7 @@ func createGlobalCtx(
 	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
 
 	// delay stats writer and telemetry analyzer
-	ans.TelemetryDB = telemetry.NewDelayStats(ans.CNCDB, conf.TimezoneLocation())
+	ans.TelemetryDB = tstorage.Open(ans.CNCDB, ans.TimezoneLocation)
 	return ans, nil
 }
 

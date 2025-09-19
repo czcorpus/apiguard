@@ -18,18 +18,19 @@
 package config
 
 import (
-	"apiguard/botwatch"
-	"apiguard/cnc"
-	"apiguard/monitoring"
-	"apiguard/proxy"
-	"apiguard/reporting"
-	"apiguard/session"
-	"apiguard/telemetry"
 	"encoding/json"
 	"fmt"
 	"net"
 	"os"
 	"time"
+
+	"github.com/czcorpus/apiguard/botwatch"
+	"github.com/czcorpus/apiguard/cnc"
+	"github.com/czcorpus/apiguard/monitoring"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/session"
+	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"

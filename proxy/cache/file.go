@@ -18,13 +18,14 @@
 package cache
 
 import (
-	"apiguard/proxy"
 	"encoding/gob"
 	"fmt"
 	"net/http"
 	"os"
 	"path"
 	"time"
+
+	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 )

@@ -18,9 +18,10 @@
 package treq
 
 import (
-	"apiguard/proxy"
-	"apiguard/services/cnc"
 	"fmt"
+
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/rs/zerolog/log"
 )

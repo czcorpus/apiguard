@@ -18,18 +18,19 @@
 package public
 
 import (
-	"apiguard/common"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/proxy"
-	"apiguard/reporting"
-	"apiguard/session"
 	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/session"
 
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/czcorpus/cnc-gokit/uniresp"

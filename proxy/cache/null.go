@@ -18,8 +18,9 @@
 package cache
 
 import (
-	"apiguard/proxy"
 	"net/http"
+
+	"github.com/czcorpus/apiguard/proxy"
 )
 
 type NullCache struct{}

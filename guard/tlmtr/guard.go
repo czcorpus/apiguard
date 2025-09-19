@@ -20,17 +20,18 @@
 package tlmtr
 
 import (
-	"apiguard/botwatch"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/guard/null"
-	"apiguard/telemetry"
+	"github.com/czcorpus/apiguard/botwatch"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/telemetry"
+
+	"github.com/czcorpus/apiguard-ext/aeguard"
 )
 
 func New(
-	globalCtx *globctx.Context,
+	ctx *globctx.Context,
 	conf *botwatch.Conf,
 	telemetryConf *telemetry.Conf,
 ) (guard.ServiceGuard, error) {
-	return &null.Guard{}, nil
+	return aeguard.New(ctx, conf, telemetryConf)
 }

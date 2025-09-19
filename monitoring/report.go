@@ -18,15 +18,16 @@
 package monitoring
 
 import (
-	"apiguard/common"
-	"apiguard/guard"
-	"apiguard/proxy"
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/google/uuid"
 )

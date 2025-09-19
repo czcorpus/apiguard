@@ -18,14 +18,6 @@
 package lguide
 
 import (
-	"apiguard/botwatch"
-	"apiguard/common"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/proxy"
-	"apiguard/reporting"
-	"apiguard/services/logging"
-	"apiguard/telemetry"
 	"crypto/tls"
 	"fmt"
 	"io"
@@ -34,6 +26,15 @@ import (
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/czcorpus/apiguard/botwatch"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/services/logging"
+	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"

@@ -18,16 +18,17 @@
 package monitoring
 
 import (
-	"apiguard/common"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/proxy"
-	"apiguard/reporting"
 	"context"
 	"fmt"
 	"math/rand"
 	"net/url"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/datetime"

@@ -18,11 +18,12 @@
 package main
 
 import (
-	"apiguard/config"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/guard/tlmtr"
 	"reflect"
+
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/tlmtr"
 
 	"github.com/rs/zerolog/log"
 )

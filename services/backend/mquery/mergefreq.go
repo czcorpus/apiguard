@@ -18,11 +18,6 @@
 package mquery
 
 import (
-	"apiguard/common"
-	"apiguard/guard"
-	"apiguard/interop"
-	"apiguard/proxy"
-	"apiguard/reporting"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -31,6 +26,12 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/interop"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"

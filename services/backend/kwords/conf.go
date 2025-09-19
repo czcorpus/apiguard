@@ -17,6 +17,6 @@
 
 package kwords
 
-import "apiguard/services/cnc"
+import "github.com/czcorpus/apiguard/services/cnc"
 
 type Conf = cnc.ProxyConf

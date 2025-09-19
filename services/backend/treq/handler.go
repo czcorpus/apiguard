@@ -18,20 +18,21 @@
 package treq
 
 import (
-	"apiguard/common"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/guard/cncauth"
-	"apiguard/proxy"
-	"apiguard/reporting"
-	"apiguard/services/backend"
-	"apiguard/services/cnc"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/cncauth"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/services/backend"
+	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/gin-gonic/gin"

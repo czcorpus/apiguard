@@ -18,11 +18,12 @@
 package monitoring
 
 import (
-	"apiguard/common"
-	"apiguard/guard"
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 )

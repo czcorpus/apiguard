@@ -18,9 +18,10 @@
 package reporting
 
 import (
-	"apiguard/common"
 	"encoding/json"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
 
 	"github.com/czcorpus/hltscl"
 )

@@ -18,9 +18,6 @@
 package wagstream
 
 import (
-	"apiguard/interop"
-	"apiguard/wagstream/tileconf"
-	loader "apiguard/wagstream/tileconf"
 	"bytes"
 	"context"
 	"fmt"
@@ -29,6 +26,10 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/czcorpus/apiguard/interop"
+	"github.com/czcorpus/apiguard/wagstream/tileconf"
+	loader "github.com/czcorpus/apiguard/wagstream/tileconf"
 
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"

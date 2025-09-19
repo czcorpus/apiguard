@@ -18,15 +18,6 @@
 package main
 
 import (
-	"apiguard/common"
-	"apiguard/config"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/monitoring"
-	"apiguard/proxy"
-	"apiguard/reporting"
-	"apiguard/services/tstorage"
-	"apiguard/wagstream"
 	"context"
 	"fmt"
 	"net"
@@ -37,6 +28,16 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/monitoring"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/services/tstorage"
+	"github.com/czcorpus/apiguard/wagstream"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/logging"

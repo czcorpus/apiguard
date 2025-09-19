@@ -18,13 +18,14 @@
 package globctx
 
 import (
-	"apiguard/common"
-	"apiguard/reporting"
 	"fmt"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/rs/zerolog"

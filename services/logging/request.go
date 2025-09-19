@@ -18,11 +18,12 @@
 package logging
 
 import (
-	"apiguard/proxy"
 	"fmt"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/rs/zerolog/log"
 )

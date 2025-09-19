@@ -18,11 +18,12 @@
 package cnc
 
 import (
-	"apiguard/guard"
-	"apiguard/monitoring"
-	"apiguard/proxy"
-	"apiguard/session"
 	"fmt"
+
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/monitoring"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/session"
 
 	"github.com/rs/zerolog/log"
 )

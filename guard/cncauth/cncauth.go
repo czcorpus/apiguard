@@ -18,19 +18,20 @@
 package cncauth
 
 import (
-	"apiguard/common"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/proxy"
-	"apiguard/services/logging"
-	"apiguard/session"
-	"apiguard/telemetry"
 	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/services/logging"
+	"github.com/czcorpus/apiguard/session"
+	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"

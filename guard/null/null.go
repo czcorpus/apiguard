@@ -18,10 +18,11 @@
 package null
 
 import (
-	"apiguard/common"
-	"apiguard/guard"
 	"net/http"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
 )
 
 // Null guard implements no restrictions

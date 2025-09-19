@@ -18,9 +18,10 @@
 package monitoring
 
 import (
-	"apiguard/common"
 	"bytes"
 	"encoding/gob"
+
+	"github.com/czcorpus/apiguard/common"
 )
 
 // serviceEntry keeps all the information about watched service

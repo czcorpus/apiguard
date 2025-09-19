@@ -18,9 +18,10 @@
 package guard
 
 import (
-	"apiguard/common"
-	"apiguard/session"
 	"database/sql"
+
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/session"
 )
 
 // FindUserBySession searches for user session in CNC database.

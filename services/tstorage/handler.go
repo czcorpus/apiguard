@@ -18,12 +18,13 @@
 package tstorage
 
 import (
-	"apiguard/services/logging"
-	"apiguard/telemetry"
 	"encoding/json"
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/czcorpus/apiguard/services/logging"
+	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"

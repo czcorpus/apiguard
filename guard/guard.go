@@ -18,10 +18,11 @@
 package guard
 
 import (
-	"apiguard/common"
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/czcorpus/apiguard/common"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"

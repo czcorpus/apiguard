@@ -18,8 +18,9 @@
 package guard
 
 import (
-	"apiguard/common"
 	"database/sql"
+
+	"github.com/czcorpus/apiguard/common"
 )
 
 // GetAllowlistUsers returns a list of user IDs excluded from

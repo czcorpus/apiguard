@@ -18,24 +18,25 @@
 package main
 
 import (
-	"apiguard/common"
-	"apiguard/config"
-	"apiguard/globctx"
-	"apiguard/guard"
-	"apiguard/guard/tlmtr"
-	"apiguard/services/logging"
-	"apiguard/telemetry"
 	"fmt"
 	"net"
 	"net/http"
 	"reflect"
 	"time"
 
+	"github.com/czcorpus/apiguard-ext/storage"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/tlmtr"
+	"github.com/czcorpus/apiguard/services/logging"
+
 	"github.com/rs/zerolog/log"
 )
 
 func runStatus(globalCtx *globctx.Context, conf *config.Configuration, ident string) {
-	delayLog := telemetry.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
+	delayLog := storage.NewDelayStats(globalCtx.CNCDB, conf.TimezoneLocation())
 	ip := net.ParseIP(ident)
 	var sessionID string
 	if ip == nil {

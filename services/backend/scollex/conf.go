@@ -18,10 +18,11 @@
 package scollex
 
 import (
-	"apiguard/guard"
-	"apiguard/guard/token"
-	"apiguard/services/cnc"
 	"fmt"
+
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/token"
+	"github.com/czcorpus/apiguard/services/cnc"
 )
 
 type Conf struct {

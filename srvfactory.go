@@ -24,8 +24,9 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/globctx"
+	iGuard "github.com/czcorpus/apiguard-common/guard"
 	"github.com/czcorpus/apiguard/config"
-	"github.com/czcorpus/apiguard/globctx"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/guard/cncauth"
 	"github.com/czcorpus/apiguard/guard/dflt"
@@ -273,7 +274,7 @@ func InitServices(
 			if err := typedConf.Validate(fmt.Sprintf("%d/kontext", sid)); err != nil {
 				return fmt.Errorf("failed to initialize service %d (kontext): %w", sid, err)
 			}
-			var cncGuard guard.ServiceGuard
+			var cncGuard iGuard.ServiceGuard
 			switch typedConf.SessionValType {
 			case session.SessionTypeNone:
 				cncGuard = &null.Guard{}
@@ -359,7 +360,7 @@ func InitServices(
 					typedConf.Limits,
 				)
 			}
-			var grd guard.ServiceGuard
+			var grd iGuard.ServiceGuard
 			switch typedConf.GuardType {
 			case guard.GuardTypeToken:
 				grd = token.NewGuard(
@@ -449,7 +450,7 @@ func InitServices(
 					typedConf.Limits,
 				)
 			}
-			var grd guard.ServiceGuard
+			var grd iGuard.ServiceGuard
 			switch typedConf.GuardType {
 			case guard.GuardTypeToken:
 				grd = token.NewGuard(
@@ -758,7 +759,7 @@ func InitServices(
 				)
 			}
 
-			var grd guard.ServiceGuard
+			var grd iGuard.ServiceGuard
 			switch typedConf.GuardType {
 			case guard.GuardTypeToken:
 				grd = token.NewGuard(
@@ -832,7 +833,7 @@ func InitServices(
 					typedConf.Limits,
 				)
 			}
-			var grd guard.ServiceGuard
+			var grd iGuard.ServiceGuard
 			switch typedConf.GuardType {
 			case guard.GuardTypeToken:
 				grd = token.NewGuard(

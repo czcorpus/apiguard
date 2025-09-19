@@ -30,10 +30,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/backend"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"

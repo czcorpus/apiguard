@@ -32,15 +32,18 @@ import (
 	"strings"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/cnc"
 	"github.com/czcorpus/apiguard/config"
-	"github.com/czcorpus/apiguard/globctx"
 	"github.com/czcorpus/apiguard/guard/token"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/proxy/cache"
-	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/proxy/cache/file"
+	nullCache "github.com/czcorpus/apiguard/proxy/cache/null"
+	"github.com/czcorpus/apiguard/proxy/cache/redis"
 	"github.com/czcorpus/apiguard/services"
-	"github.com/czcorpus/apiguard/telemetry/tstorage"
+	"github.com/czcorpus/apiguard/tstorage"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/hltscl"
@@ -136,19 +139,19 @@ func createGlobalCtx(
 
 	cncdb := openCNCDatabase(&conf.CNCDB)
 
-	var cacheBackend proxy.Cache
+	var cacheBackend cache.Cache
 	if conf.Cache.FileRootPath != "" {
-		cacheBackend = cache.NewFileCache(conf.Cache)
+		cacheBackend = file.New(conf.Cache)
 		log.Info().Msgf("using file response cache (path: %s)", conf.Cache.FileRootPath)
 		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else if conf.Cache.RedisAddr != "" {
-		cacheBackend = cache.NewRedisCache(ctx, conf.Cache)
+		cacheBackend = redis.New(ctx, conf.Cache)
 		log.Info().Msgf("using redis response cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
 		log.Warn().Msg("caching respects the Cache-Control header")
 
 	} else {
-		cacheBackend = cache.NewNullCache()
+		cacheBackend = nullCache.New()
 		log.Warn().Msg("using NULL cache (neither fs path nor Redis props are specified)")
 	}
 

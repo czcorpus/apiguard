@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
@@ -144,9 +145,9 @@ func NewCachedResponse(status int, headers http.Header, data []byte) *CachedResp
 type ThroughCacheResponse struct {
 	error     error
 	req       *http.Request
-	cache     Cache
+	cache     cache.Cache
 	boundResp BackendResponse
-	opts      []func(*CacheEntryOptions)
+	opts      []func(*cache.CacheEntryOptions)
 }
 
 func (ncw *ThroughCacheResponse) String() string {
@@ -202,7 +203,7 @@ func (ncw *ThroughCacheResponse) writeSSEResponse(w http.ResponseWriter) {
 	if isCacheableStatusCode(ncw.boundResp.GetStatusCode()) {
 		ncw.cache.Set(
 			ncw.req,
-			CacheEntry{
+			cache.CacheEntry{
 				Status:  http.StatusOK,
 				Data:    toCache.Bytes(),
 				Headers: ncw.boundResp.GetHeaders(),
@@ -233,7 +234,7 @@ func (ncw *ThroughCacheResponse) WriteResponse(w http.ResponseWriter) {
 		if isCacheableStatusCode(ncw.boundResp.GetStatusCode()) {
 			if err := ncw.cache.Set(
 				ncw.req,
-				CacheEntry{
+				cache.CacheEntry{
 					Status:  http.StatusOK,
 					Data:    data,
 					Headers: w.Header(),
@@ -275,7 +276,7 @@ func (ncw *ThroughCacheResponse) HandleCacheMiss(fn func() BackendResponse) {
 	ncw.boundResp = fn()
 }
 
-func NewThroughCacheResponse(req *http.Request, cache Cache, err error) *ThroughCacheResponse {
+func NewThroughCacheResponse(req *http.Request, cache cache.Cache, err error) *ThroughCacheResponse {
 	return &ThroughCacheResponse{
 		req:   req,
 		cache: cache,

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package file
 
 import (
 	"encoding/gob"
@@ -25,6 +25,7 @@ import (
 	"path"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/czcorpus/cnc-gokit/fs"
@@ -34,50 +35,50 @@ type File struct {
 	conf *proxy.CacheConf
 }
 
-func (frc *File) createItemPath(req *http.Request, opts *proxy.CacheEntryOptions) string {
+func (frc *File) createItemPath(req *http.Request, opts *cache.CacheEntryOptions) string {
 	cacheID := proxy.GenerateCacheId(req, opts)
 	bs := fmt.Sprintf("%x.gob", cacheID)
 	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
 }
 
-func (rc *File) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.CacheEntry, error) {
-	optsFin := new(proxy.CacheEntryOptions)
+func (rc *File) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
+	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
 	if !proxy.ShouldReadFromCache(req, optsFin) {
-		return proxy.CacheEntry{}, proxy.ErrCacheMiss
+		return cache.CacheEntry{}, proxy.ErrCacheMiss
 	}
 	filePath := rc.createItemPath(req, optsFin)
 	isFile, err := fs.IsFile(filePath)
 	if err != nil {
-		return proxy.CacheEntry{}, err
+		return cache.CacheEntry{}, err
 	}
 	if !isFile {
-		return proxy.CacheEntry{}, proxy.ErrCacheMiss
+		return cache.CacheEntry{}, proxy.ErrCacheMiss
 	}
 	mtime, err := fs.GetFileMtime(filePath)
 	if err != nil {
-		return proxy.CacheEntry{}, fmt.Errorf("failed to obtain file mtime: %w", err)
+		return cache.CacheEntry{}, fmt.Errorf("failed to obtain file mtime: %w", err)
 	}
 	if time.Since(mtime) > time.Duration(rc.conf.TTLSecs)*time.Second {
 		err := fs.DeleteFile(filePath)
 		if err != nil {
-			return proxy.CacheEntry{}, err
+			return cache.CacheEntry{}, err
 		}
-		return proxy.CacheEntry{}, proxy.ErrCacheMiss
+		return cache.CacheEntry{}, proxy.ErrCacheMiss
 	}
 	newTime := time.Now()
 	err = os.Chtimes(filePath, newTime, newTime)
 	if err != nil {
-		return proxy.CacheEntry{}, err
+		return cache.CacheEntry{}, err
 	}
 	fr, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if err != nil {
-		return proxy.CacheEntry{}, err
+		return cache.CacheEntry{}, err
 	}
 	decoder := gob.NewDecoder(fr)
-	var ans proxy.CacheEntry
+	var ans cache.CacheEntry
 	err = decoder.Decode(&ans)
 	if err == nil {
 		return ans, nil
@@ -85,8 +86,8 @@ func (rc *File) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (
 	return ans, fmt.Errorf("proxy cache access error: %w", err)
 }
 
-func (frc *File) Set(req *http.Request, value proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
-	optsFin := new(proxy.CacheEntryOptions)
+func (frc *File) Set(req *http.Request, value cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
+	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
@@ -103,7 +104,7 @@ func (frc *File) Set(req *http.Request, value proxy.CacheEntry, opts ...func(*pr
 	return nil
 }
 
-func NewFileCache(conf *proxy.CacheConf) *File {
+func New(conf *proxy.CacheConf) *File {
 	return &File{
 		conf: conf,
 	}

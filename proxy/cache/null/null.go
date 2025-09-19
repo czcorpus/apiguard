@@ -15,24 +15,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package null
 
 import (
 	"net/http"
 
+	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard/proxy"
 )
 
 type NullCache struct{}
 
-func (rc *NullCache) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.CacheEntry, error) {
-	return proxy.CacheEntry{}, proxy.ErrCacheMiss
+func (rc *NullCache) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
+	return cache.CacheEntry{}, proxy.ErrCacheMiss
 }
 
-func (rc *NullCache) Set(req *http.Request, value proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
+func (rc *NullCache) Set(req *http.Request, value cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	return nil
 }
 
-func NewNullCache() *NullCache {
+func New() *NullCache {
 	return &NullCache{}
 }

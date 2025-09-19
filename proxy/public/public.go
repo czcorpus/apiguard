@@ -25,11 +25,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	iGuard "github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/session"
 
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -80,10 +82,10 @@ type Proxy struct {
 	userIDHeaderName    string
 	readTimeoutSecs     int
 	client              *http.Client
-	cache               proxy.Cache
+	cache               cache.Cache
 	basicProxy          *proxy.CoreProxy
 	clientCounter       chan<- common.ClientID
-	guard               guard.ServiceGuard
+	guard               iGuard.ServiceGuard
 	db                  *sql.DB
 	tzLocation          *time.Location
 	responseInterceptor func(resp *proxy.BackendProxiedResponse)
@@ -151,7 +153,7 @@ func (prox *Proxy) determineTrueUserID(
 	return userID, nil
 }
 
-func (prox *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) proxy.ResponseProcessor {
+func (prox *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
 	data, err := prox.cache.Get(req, opts...)
 
 	if err == proxy.ErrCacheMiss {
@@ -163,7 +165,7 @@ func (prox *Proxy) FromCache(req *http.Request, opts ...func(*proxy.CacheEntryOp
 	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
 }
 
-func (kp *Proxy) ToCache(req *http.Request, data proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
+func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	return kp.cache.Set(
 		req,
 		data,
@@ -262,7 +264,7 @@ func NewProxy(
 	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
-	guard guard.ServiceGuard,
+	guard iGuard.ServiceGuard,
 	opts PublicAPIProxyOpts,
 
 ) *Proxy {

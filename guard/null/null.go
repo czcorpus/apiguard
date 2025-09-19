@@ -21,8 +21,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/guard"
 )
 
 // Null guard implements no restrictions

@@ -26,12 +26,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/rs/zerolog/log"
 )
 
 var ErrCacheMiss = errors.New("cache miss")
 
-func GenerateCacheId(req *http.Request, opts *CacheEntryOptions) []byte {
+func GenerateCacheId(req *http.Request, opts *cache.CacheEntryOptions) []byte {
 	h := sha1.New()
 	h.Write([]byte(req.URL.Path))
 	h.Write([]byte(req.URL.Query().Encode()))
@@ -67,14 +68,14 @@ func GenerateCacheId(req *http.Request, opts *CacheEntryOptions) []byte {
 
 // ShouldReadFromCache tests if the provided request and options match
 // caching conditions for reading.
-func ShouldReadFromCache(req *http.Request, opts *CacheEntryOptions) bool {
+func ShouldReadFromCache(req *http.Request, opts *cache.CacheEntryOptions) bool {
 	return (req.Method == http.MethodGet || opts.CacheablePOST) &&
 		req.Header.Get("Cache-Control") != "no-cache"
 }
 
 // ShouldWriteToCache tests if the provided user request and response properties
 // make the response a valid candidate for caching.
-func ShouldWriteToCache(req *http.Request, value CacheEntry, opts *CacheEntryOptions) bool {
+func ShouldWriteToCache(req *http.Request, value cache.CacheEntry, opts *cache.CacheEntryOptions) bool {
 	ans := (value.Status == http.StatusOK || value.Status == http.StatusCreated) &&
 		(req.Method == http.MethodGet || opts.CacheablePOST) &&
 		req.Header.Get("Cache-Control") != "no-cache"

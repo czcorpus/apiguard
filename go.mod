@@ -5,6 +5,8 @@ go 1.23.4
 require (
 	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/bytedance/sonic v1.12.9
+	github.com/czcorpus/apiguard-common v0.0.2
+	github.com/czcorpus/apiguard-ext v0.16.0
 	github.com/czcorpus/cnc-gokit v0.17.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/mquery-common v0.5.4
@@ -14,16 +16,12 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.5.5
-	github.com/patrikeh/go-deep v0.0.0-20220129152125-82b8db494fe5
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.14.0
 	golang.org/x/time v0.7.0
-	github.com/czcorpus/apiguard-ext v0.15.0
 )
-
-replace github.com/czcorpus/apiguard-ext => /home/tomas/work/korpus/tools/apiguard-ext
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
@@ -52,6 +50,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
 	github.com/onsi/gomega v1.24.1 // indirect
+	github.com/patrikeh/go-deep v0.0.0-20220129152125-82b8db494fe5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.2 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect

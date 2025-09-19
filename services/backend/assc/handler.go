@@ -22,11 +22,13 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
+
+	guardImpl "github.com/czcorpus/apiguard/guard"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -82,7 +84,7 @@ func (aa *ASSCActions) Query(ctx *gin.Context) {
 		IP: ctx.RemoteIP(),
 		ID: common.InvalidUserID,
 	}
-	err := guard.RestrictResponseTime(
+	err := guardImpl.RestrictResponseTime(
 		ctx.Writer, ctx.Request, aa.readTimeoutSecs, aa.guard, clientID)
 	if err != nil {
 		return

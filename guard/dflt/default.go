@@ -24,14 +24,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/logging"
+	"github.com/czcorpus/apiguard-common/telemetry"
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/services/logging"
 	"github.com/czcorpus/apiguard/session"
-	"github.com/czcorpus/apiguard/telemetry"
-
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
 )
@@ -93,7 +93,7 @@ func (sra *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 }
 
 func (sra *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
-	clientIP := proxy.ExtractClientIP(req)
+	clientIP := logging.ExtractClientIP(req)
 	if len(sra.confLimits) > 0 {
 		sra.rateLimitersMu.Lock()
 		defer sra.rateLimitersMu.Unlock()
@@ -158,6 +158,6 @@ func New(
 		anonymousUsers:    globalCtx.AnonymousUserIDs,
 		confLimits:        confLimits,
 		rateLimiters:      make(map[string]*rate.Limiter),
-		sessionValFactory: guard.CreateSessionValFactory(sessionType),
+		sessionValFactory: guardImpl.CreateSessionValFactory(sessionType),
 	}
 }

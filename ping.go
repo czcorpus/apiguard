@@ -21,7 +21,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard-common/reporting"
 
 	"github.com/czcorpus/hltscl"
 )

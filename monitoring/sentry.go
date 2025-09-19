@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"encoding/gob"
 
-	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard-common/common"
 )
 
 // serviceEntry keeps all the information about watched service

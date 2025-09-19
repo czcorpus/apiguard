@@ -27,10 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
-	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/reporting"
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/bytedance/sonic"
@@ -137,7 +138,7 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 		ID: humanID,
 	}
 
-	if err := guard.RestrictResponseTime(
+	if err := guardImpl.RestrictResponseTime(
 		ctx.Writer, ctx.Request, kp.EnvironConf().ReadTimeoutSecs, kp.Guard(), clientID,
 	); err != nil {
 		return
@@ -235,7 +236,7 @@ func NewKontextProxy(
 	conf *Conf,
 	gConf *cnc.EnvironConf,
 	guard guard.ServiceGuard,
-	reqCounter chan<- guard.RequestInfo,
+	reqCounter chan<- guardImpl.RequestInfo,
 ) (*KonTextProxy, error) {
 	proxy, err := cnc.NewProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
 	if err != nil {

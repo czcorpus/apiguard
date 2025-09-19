@@ -28,11 +28,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/reporting"
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/bytedance/sonic"
@@ -100,7 +102,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		ID: humanID,
 	}
 
-	if err := guard.RestrictResponseTime(
+	if err := guardImpl.RestrictResponseTime(
 		ctx.Writer, ctx.Request, wssProxy.EnvironConf().ReadTimeoutSecs, wssProxy.Guard(), clientID,
 	); err != nil {
 		return
@@ -135,9 +137,9 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		)
 	}
 	// options must be used for both read and write
-	cachingOpts := []func(*proxy.CacheEntryOptions){
-		proxy.CachingWithCookies(cacheApplCookies),
-		proxy.CachingWithCacheablePOST(),
+	cachingOpts := []func(*cache.CacheEntryOptions){
+		cache.CachingWithCookies(cacheApplCookies),
+		cache.CachingWithCacheablePOST(),
 	}
 	respProc := wssProxy.FromCache(ctx.Request, cachingOpts...)
 
@@ -240,7 +242,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		}
 		wssProxy.ToCache(
 			ctx.Request,
-			proxy.CacheEntry{
+			cache.CacheEntry{
 				Status: http.StatusOK,
 				Data:   toCache.Bytes(),
 				Headers: http.Header{
@@ -267,7 +269,7 @@ func NewWSServerProxy(
 	gConf *cnc.EnvironConf,
 	guard guard.ServiceGuard,
 	httpEngine http.Handler,
-	reqCounter chan<- guard.RequestInfo,
+	reqCounter chan<- guardImpl.RequestInfo,
 ) (*WSServerProxy, error) {
 	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {

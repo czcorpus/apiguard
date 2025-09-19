@@ -20,8 +20,9 @@ package mquery
 import (
 	"fmt"
 
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/services/cnc"
 )
 
@@ -34,7 +35,7 @@ func NewMQueryProxy(
 	conf *cnc.ProxyConf,
 	gConf *cnc.EnvironConf,
 	guard guard.ServiceGuard,
-	reqCounter chan<- guard.RequestInfo,
+	reqCounter chan<- guardImpl.RequestInfo,
 ) (*MQueryProxy, error) {
 	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {

@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
@@ -66,87 +65,10 @@ type BackendResponse interface {
 
 // ---------------------------
 
-type CacheEntryOptions struct {
-	RespectCookies []string
-	RequestBody    []byte
-	CacheablePOST  bool
-
-	// tag may serve for debugging/reviewing cached entries
-	Tag string
-}
-
-func CachingWithCookies(cookies []string) func(*CacheEntryOptions) {
-	return func(opts *CacheEntryOptions) {
-		opts.RespectCookies = cookies
-	}
-}
-
-func CachingWithReqBody(body []byte) func(*CacheEntryOptions) {
-	return func(opts *CacheEntryOptions) {
-		opts.RequestBody = body
-	}
-}
-
-// CachingWithCacheable POST will allow for caching post requests.
-// It will also include POST request body to generate a cache entry key.
-// Please note this should be used only for requests which are really
-// GET-like requests (i.e. they do not change resources on the server side
-// and POST is used only because the args cannot fit from one reason on
-// another to URL query).
-func CachingWithCacheablePOST() func(*CacheEntryOptions) {
-	return func(opts *CacheEntryOptions) {
-		opts.CacheablePOST = true
-	}
-}
-
-// CachingWithTag sets a tag which may become part
-// of cache's record. Some backend may not support it,
-// in which case they should silently ignore the option.
-func CachingWithTag(tag string) func(*CacheEntryOptions) {
-	return func(opts *CacheEntryOptions) {
-		opts.Tag = tag
-	}
-}
-
-// ------------------------------
-
-type CacheEntry struct {
-	Status  int
-	Data    []byte
-	Headers http.Header
-}
-
-func (ce CacheEntry) IsZero() bool {
-	return ce.Status == 0
-}
-
-// -----------------------------
-
-type Cache interface {
-	Get(req *http.Request, opts ...func(*CacheEntryOptions)) (CacheEntry, error)
-	Set(req *http.Request, value CacheEntry, opts ...func(*CacheEntryOptions)) error
-}
-
 // -----------------------------
 
 type GlobalContext struct {
 	TimezoneLocation *time.Location
-}
-
-// -----------------------------
-
-// ExtractClientIP
-// Deprecated: Gin offers a better solution for this
-func ExtractClientIP(req *http.Request) string {
-	ip := req.Header.Get("x-forwarded-for")
-	if ip != "" {
-		return strings.Split(ip, ",")[0]
-	}
-	ip = req.Header.Get("x-real-ip")
-	if ip != "" {
-		return ip
-	}
-	return strings.Split(req.RemoteAddr, ":")[0]
 }
 
 // -------------------------------

@@ -23,11 +23,14 @@ import (
 	"path"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/backend"
+
+	guardImpl "github.com/czcorpus/apiguard/guard"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -35,7 +38,7 @@ import (
 
 func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indirect *bool, cached *bool, created time.Time) {
 	if kp.reqCounter != nil {
-		kp.reqCounter <- guard.RequestInfo{
+		kp.reqCounter <- guardImpl.RequestInfo{
 			Created:     created,
 			Service:     kp.rConf.ServiceKey,
 			NumRequests: 1,
@@ -154,7 +157,7 @@ func (kp *Proxy) HandleRequest(
 	if useCache {
 		respHandler = kp.FromCache(
 			req,
-			proxy.CachingWithCookies(cacheApplCookies),
+			cache.CachingWithCookies(cacheApplCookies),
 		)
 
 	} else {
@@ -189,7 +192,7 @@ func (kp *Proxy) MakeStreamRequest(
 	}
 	resp := kp.FromCache(
 		req,
-		proxy.CachingWithCookies(cacheApplCookies),
+		cache.CachingWithCookies(cacheApplCookies),
 	)
 	resp.HandleCacheMiss(func() proxy.BackendResponse {
 		return kp.apiProxy.Request(
@@ -229,9 +232,9 @@ func (kp *Proxy) MakeCacheablePOSTRequest(
 	}
 	resp := kp.FromCache(
 		req,
-		proxy.CachingWithCookies(cacheApplCookies),
-		proxy.CachingWithReqBody(reqBody),
-		proxy.CachingWithCacheablePOST(),
+		cache.CachingWithCookies(cacheApplCookies),
+		cache.CachingWithReqBody(reqBody),
+		cache.CachingWithCacheablePOST(),
 	)
 	resp.HandleCacheMiss(func() proxy.BackendResponse {
 		backendResp := kp.apiProxy.Request(

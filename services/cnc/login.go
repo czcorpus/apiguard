@@ -27,9 +27,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/guard"
-	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"

@@ -23,8 +23,8 @@ import (
 	"database/sql"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/telemetry"
 	"github.com/czcorpus/apiguard-ext/storage"
-	"github.com/czcorpus/apiguard/telemetry"
 )
 
 func Open(db *sql.DB, location *time.Location) telemetry.Storage {

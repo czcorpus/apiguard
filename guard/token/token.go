@@ -26,12 +26,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/logging"
+	"github.com/czcorpus/apiguard-common/telemetry"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/services/logging"
-	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
@@ -126,7 +126,7 @@ func (g *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) 
 			Error:            fmt.Errorf("invalid authentication token"),
 		}
 	}
-	clientIP := proxy.ExtractClientIP(req)
+	clientIP := logging.ExtractClientIP(req)
 
 	if len(g.confLimits) > 0 {
 		g.rateLimitersMu.Lock()

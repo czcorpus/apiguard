@@ -25,9 +25,9 @@ import (
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/rs/zerolog/log"
 
-	"github.com/czcorpus/apiguard/botwatch"
-	"github.com/czcorpus/apiguard/services/logging"
-	"github.com/czcorpus/apiguard/telemetry"
+	"github.com/czcorpus/apiguard-common/botwatch"
+	"github.com/czcorpus/apiguard-common/logging"
+	"github.com/czcorpus/apiguard-common/telemetry"
 )
 
 type Watchdog[T logging.AnyRequestRecord] struct {

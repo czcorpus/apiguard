@@ -27,15 +27,16 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/czcorpus/apiguard/botwatch"
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/botwatch"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/logging"
+	"github.com/czcorpus/apiguard-common/reporting"
+	"github.com/czcorpus/apiguard-common/telemetry"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
-	"github.com/czcorpus/apiguard/services/logging"
-	"github.com/czcorpus/apiguard/telemetry"
 
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -138,7 +139,7 @@ func (lga *LanguageGuideActions) Query(ctx *gin.Context) {
 		IP: ctx.RemoteIP(),
 		ID: common.InvalidUserID,
 	}
-	err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.guard, clientID)
+	err := guardImpl.RestrictResponseTime(ctx.Writer, ctx.Request, lga.readTimeoutSecs, lga.guard, clientID)
 	if err != nil {
 		return
 	}

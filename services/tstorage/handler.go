@@ -23,8 +23,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/czcorpus/apiguard/services/logging"
-	"github.com/czcorpus/apiguard/telemetry"
+	"github.com/czcorpus/apiguard-common/logging"
+	"github.com/czcorpus/apiguard-common/telemetry"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"

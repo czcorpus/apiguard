@@ -27,11 +27,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/interop"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
@@ -140,9 +141,9 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		)
 	}
 	// options must be used for both read and write
-	cachingOpts := []func(*proxy.CacheEntryOptions){
-		proxy.CachingWithCookies(cacheApplCookies),
-		proxy.CachingWithCacheablePOST(),
+	cachingOpts := []func(*cache.CacheEntryOptions){
+		cache.CachingWithCookies(cacheApplCookies),
+		cache.CachingWithCacheablePOST(),
 	}
 	respProc := mp.FromCache(ctx.Request, cachingOpts...)
 
@@ -222,7 +223,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		}
 		mp.ToCache(
 			ctx.Request,
-			proxy.CacheEntry{
+			cache.CacheEntry{
 				Status: http.StatusOK,
 				Data:   toCache.Bytes(),
 				Headers: http.Header{

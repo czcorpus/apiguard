@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cache
+package redis
 
 import (
 	"bytes"
@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/go-redis/redis/v8"
@@ -62,26 +63,26 @@ type Redis struct {
 	writeQueue  chan writeQueueItem // channel for queuing async write operations
 }
 
-func (rrc *Redis) createCacheID(req *http.Request, opts *proxy.CacheEntryOptions) string {
+func (rrc *Redis) createCacheID(req *http.Request, opts *cache.CacheEntryOptions) string {
 	cacheID := proxy.GenerateCacheId(req, opts)
 	return fmt.Sprintf("apiguard:cache:%x", cacheID)
 }
 
-func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions)) (proxy.CacheEntry, error) {
-	optsFin := new(proxy.CacheEntryOptions)
+func (rrc *Redis) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
+	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
 	if !proxy.ShouldReadFromCache(req, optsFin) {
-		return proxy.CacheEntry{}, proxy.ErrCacheMiss
+		return cache.CacheEntry{}, proxy.ErrCacheMiss
 	}
 	cacheID := rrc.createCacheID(req, optsFin)
 	val, err := rrc.redisClient.Get(rrc.ctx, cacheID).Result()
 	if err == redis.Nil {
-		return proxy.CacheEntry{}, proxy.ErrCacheMiss
+		return cache.CacheEntry{}, proxy.ErrCacheMiss
 
 	} else if err != nil {
-		return proxy.CacheEntry{}, fmt.Errorf("proxy cache access error: %w", err)
+		return cache.CacheEntry{}, fmt.Errorf("proxy cache access error: %w", err)
 	}
 	select {
 	case rrc.writeQueue <- writeQueueItem{
@@ -97,7 +98,7 @@ func (rrc *Redis) Get(req *http.Request, opts ...func(*proxy.CacheEntryOptions))
 	}
 	reader := bytes.NewReader([]byte(val))
 	decoder := gob.NewDecoder(reader)
-	var ans proxy.CacheEntry
+	var ans cache.CacheEntry
 	err = decoder.Decode(&ans)
 	if err == nil {
 		return ans, nil
@@ -138,8 +139,8 @@ func (rrc *Redis) goRunWriter() {
 	}()
 }
 
-func (rrc *Redis) Set(req *http.Request, resp proxy.CacheEntry, opts ...func(*proxy.CacheEntryOptions)) error {
-	optsFin := new(proxy.CacheEntryOptions)
+func (rrc *Redis) Set(req *http.Request, resp cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
+	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
@@ -164,9 +165,9 @@ func (rrc *Redis) Set(req *http.Request, resp proxy.CacheEntry, opts ...func(*pr
 	return nil
 }
 
-// NewRedisCache creates a new Redis cache instance and starts a background
+// New creates a new Redis cache instance and starts a background
 // goroutine for processing asynchronous write operations.
-func NewRedisCache(ctx context.Context, conf *proxy.CacheConf) *Redis {
+func New(ctx context.Context, conf *proxy.CacheConf) *Redis {
 	addr := conf.RedisAddr
 	addrElms := strings.Split(addr, ":")
 	if len(addrElms) == 1 {

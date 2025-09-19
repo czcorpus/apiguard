@@ -20,11 +20,11 @@
 package tlmtr
 
 import (
-	"github.com/czcorpus/apiguard/botwatch"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/botwatch"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/telemetry"
 	"github.com/czcorpus/apiguard/guard/null"
-	"github.com/czcorpus/apiguard/telemetry"
 )
 
 func New(

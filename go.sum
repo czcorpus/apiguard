@@ -15,6 +15,8 @@ github.com/cloudwego/base64x v0.1.5 h1:XPciSp1xaq2VCSt6lF0phncD4koWyULpl5bUxbfCy
 github.com/cloudwego/base64x v0.1.5/go.mod h1:0zlkT4Wn5C6NdauXdJRhSKRlJvmclQ1hhJgA0rcu/8w=
 github.com/cloudwego/iasm v0.2.0/go.mod h1:8rXZaNYT2n95jn+zTI1sDr+IgcD2GVs0nlbbQPiEFhY=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
+github.com/czcorpus/apiguard-common v0.0.2 h1:pWccITvtdODPHFQNt/UFvVAFztck9ai8Td6XrR2u7N4=
+github.com/czcorpus/apiguard-common v0.0.2/go.mod h1:kxdNJck07vtoqDJAo5BqEs+1PB+QCDtZTfi61mGE8yk=
 github.com/czcorpus/cnc-gokit v0.17.0 h1:KyoipuxbsIiYhKeQma7cVu/yGNN0btd/n7Unuh/RdIs=
 github.com/czcorpus/cnc-gokit v0.17.0/go.mod h1:4vHbyf+qV8kHHwvWnPhiccMo5pVGY3tnSSRCP0mr2xc=
 github.com/czcorpus/hltscl v0.2.0 h1:Rz4zNKGKHS/RchgXWnEobXTnvkHb+Cz63/JneBHroMo=

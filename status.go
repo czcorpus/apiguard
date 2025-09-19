@@ -24,13 +24,13 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/logging"
 	"github.com/czcorpus/apiguard-ext/storage"
-	"github.com/czcorpus/apiguard/common"
 	"github.com/czcorpus/apiguard/config"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/guard/tlmtr"
-	"github.com/czcorpus/apiguard/services/logging"
 
 	"github.com/rs/zerolog/log"
 )

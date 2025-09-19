@@ -20,7 +20,7 @@ package guard
 import (
 	"database/sql"
 
-	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard-common/common"
 	"github.com/czcorpus/apiguard/session"
 )
 

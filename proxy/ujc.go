@@ -20,9 +20,11 @@ package proxy
 import (
 	"crypto/tls"
 	"net/http"
+
+	"github.com/czcorpus/apiguard-common/cache"
 )
 
-func UJCGetRequest(url, userAgent string, cache Cache) ResponseProcessor {
+func UJCGetRequest(url, userAgent string, cache cache.Cache) ResponseProcessor {
 	transport := &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}

@@ -25,13 +25,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/logging"
+	"github.com/czcorpus/apiguard-common/telemetry"
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/services/logging"
 	"github.com/czcorpus/apiguard/session"
-	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
@@ -160,7 +161,7 @@ func (kua *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) 
 		return common.InvalidUserID, nil
 	}
 	sessionVal := kua.getUserCNCSessionID(req)
-	userID, err := guard.FindUserBySession(kua.db, sessionVal)
+	userID, err := guardImpl.FindUserBySession(kua.db, sessionVal)
 	if err != nil {
 		return common.InvalidUserID, err
 	}
@@ -191,7 +192,7 @@ func (kua *Guard) checkForBan(req *http.Request, clientID common.ClientID) (bool
 // cookie.
 func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.Cookie) guard.ReqEvaluation {
 	var requiresFallbackCookie bool
-	clientIP := proxy.ExtractClientIP(req)
+	clientIP := logging.ExtractClientIP(req)
 
 	if analyzer.db == nil {
 		return guard.ReqEvaluation{
@@ -221,7 +222,7 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 			cookieValue = session.CNCSessionValue{}.UpdatedFrom(fallbackCookie.Value)
 		}
 	}
-	apiUserID, err := guard.FindUserBySession(
+	apiUserID, err := guardImpl.FindUserBySession(
 		analyzer.db, analyzer.sessionValFactory().UpdatedFrom(cookieValue.String()))
 	if err != nil {
 		return guard.ReqEvaluation{
@@ -301,6 +302,6 @@ func New(
 		anonymousUsers:        globalCtx.AnonymousUserIDs,
 		confLimits:            confLimits,
 		rateLimiters:          make(map[string]*rate.Limiter),
-		sessionValFactory:     guard.CreateSessionValFactory(sessionType),
+		sessionValFactory:     guardImpl.CreateSessionValFactory(sessionType),
 	}
 }

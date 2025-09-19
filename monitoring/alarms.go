@@ -24,12 +24,12 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/czcorpus/apiguard/common"
-	"github.com/czcorpus/apiguard/globctx"
-	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/reporting"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/reporting"
 
+	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/mail"
@@ -75,7 +75,7 @@ type AlarmTicker struct {
 	mailConf        *MailConf
 	limitingConf    *LimitingConf
 	clients         *collections.ConcurrentMap[string, *serviceEntry] //save
-	counter         chan guard.RequestInfo
+	counter         chan guardImpl.RequestInfo
 	reports         []*AlarmReport //save
 	location        *time.Location
 	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
@@ -180,7 +180,7 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 }
 
 func (aticker *AlarmTicker) checkServiceUsage(
-	service *serviceEntry, userActivity *UserActivity, req guard.RequestInfo) {
+	service *serviceEntry, userActivity *UserActivity, req guardImpl.RequestInfo) {
 	for checkInterval, limit := range service.limits {
 		t0 := time.Now().In(aticker.location)
 		numReq := userActivity.NumReqSince(time.Duration(checkInterval), aticker.location)
@@ -210,7 +210,7 @@ func (aticker *AlarmTicker) checkServiceUsage(
 
 			if userActivity.LastReportAt.Before(t0.Add(-minReportsInterval)) {
 				newReport := NewAlarmReport(
-					guard.RequestInfo{
+					guardImpl.RequestInfo{
 						Created:     t0,
 						Service:     service.Service,
 						NumRequests: numReq,
@@ -240,7 +240,7 @@ func (aticker *AlarmTicker) loadAllowList() {
 		if !ok {
 			return
 		}
-		v, err := guard.GetAllowlistUsers(aticker.ctx.CNCDB, serviceID)
+		v, err := guardImpl.GetAllowlistUsers(aticker.ctx.CNCDB, serviceID)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -256,7 +256,7 @@ func (aticker *AlarmTicker) loadAllowList() {
 		Msg("Reloaded user allow lists for all services.")
 }
 
-func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guard.RequestInfo) bool {
+func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guardImpl.RequestInfo) bool {
 	alist := aticker.allowListUsers.Get(reqInfo.Service)
 	return collections.SliceContains(alist, reqInfo.UserID) || !reqInfo.UserID.IsValid()
 }
@@ -346,7 +346,7 @@ func (aticker *AlarmTicker) Register(
 	service string,
 	conf AlarmConf,
 	limits []proxy.Limit,
-) chan<- guard.RequestInfo {
+) chan<- guardImpl.RequestInfo {
 	if conf.RecCounterCleanupProbability == 0 {
 		log.Warn().Msgf(
 			"Service's recCounterCleanupProbability not set. Using default %0.2f",
@@ -384,7 +384,7 @@ func NewAlarmTicker(
 	return &AlarmTicker{
 		ctx:             ctx,
 		clients:         collections.NewConcurrentMap[string, *serviceEntry](),
-		counter:         make(chan guard.RequestInfo, 1000),
+		counter:         make(chan guardImpl.RequestInfo, 1000),
 		location:        loc,
 		publicRoutesURL: publicRoutesURL,
 		mailConf:        mailConf,

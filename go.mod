@@ -20,7 +20,7 @@ require (
 	golang.org/x/net v0.25.0
 	golang.org/x/sync v0.14.0
 	golang.org/x/time v0.7.0
-	github.com/czcorpus/apiguard-ext v0.0.1
+	github.com/czcorpus/apiguard-ext v0.15.0
 )
 
 replace github.com/czcorpus/apiguard-ext => /home/tomas/work/korpus/tools/apiguard-ext

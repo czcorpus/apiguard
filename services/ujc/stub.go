@@ -1,6 +1,6 @@
-// Copyright 2022 Tomas Machalek <tomas.machalek@gmail.com>
-// Copyright 2022 Martin Zimandl <martin.zimandl@gmail.com>
-// Copyright 2022 Department of Linguistics,
+// Copyright 2025 Tomas Machalek <tomas.machalek@gmail.com>
+// Copyright 2025 Martin Zimandl <martin.zimandl@gmail.com>
+// Copyright 2025 Department of Linguistics,
 //                Faculty of Arts, Charles University
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,18 +15,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cja
+//go:build !closed
 
-import "fmt"
+package ujc
 
-type Conf struct {
-	BaseURL         string `json:"baseURL"`
-	ClientUserAgent string `json:"clientUserAgent"`
-}
+import (
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
+)
 
-func (c *Conf) Validate(context string) error {
-	if c.BaseURL == "" {
-		return fmt.Errorf("%s.baseURL is missing/empty", context)
-	}
+func InitUJCService(
+	ctx *globctx.Context,
+	sid int,
+	servConf config.GeneralServiceConf,
+	globalConf *config.Configuration,
+	apiRoutes gin.IRoutes,
+) error {
+	log.Warn().Msgf("Ignoring closed-source UJC service %d: %s", sid, servConf.Type)
 	return nil
 }

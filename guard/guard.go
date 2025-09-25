@@ -18,15 +18,10 @@
 package guard
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/guard"
-
-	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/rs/zerolog/log"
 )
 
 type GuardType string
@@ -76,39 +71,3 @@ type BotAnalyzer interface {
 	BotScore(req *http.Request) (float64, error)
 }
 
-func RestrictResponseTime(
-	w http.ResponseWriter,
-	req *http.Request,
-	readTimeoutSecs int,
-	guard guard.ServiceGuard,
-	client common.ClientID,
-) error {
-	respDelay, err := guard.CalcDelay(req, client)
-	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			w,
-			uniresp.NewActionErrorFrom(err),
-			http.StatusInternalServerError,
-		)
-		return fmt.Errorf("failed to restrict response time: %w", err)
-	}
-	log.Debug().Msgf("Client is going to wait for %v", respDelay)
-	if respDelay.Seconds() >= float64(readTimeoutSecs) {
-		uniresp.WriteJSONErrorResponse(
-			w,
-			uniresp.NewActionError("service overloaded"),
-			http.StatusServiceUnavailable,
-		)
-		return fmt.Errorf("failed to restrict response time: %w", err)
-	}
-	if err := guard.LogAppliedDelay(respDelay, client); err != nil {
-		uniresp.WriteJSONErrorResponse(
-			w,
-			uniresp.NewActionError("service handling error: %s", err),
-			http.StatusInternalServerError,
-		)
-		return fmt.Errorf("failed to restrict response time: %w", err)
-	}
-	time.Sleep(respDelay)
-	return nil
-}

@@ -26,8 +26,8 @@ import (
 	"time"
 
 	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/guard"
 	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/guard"
 
 	"github.com/bytedance/sonic"
 	"github.com/czcorpus/cnc-gokit/uniresp"

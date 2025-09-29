@@ -138,7 +138,7 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 		ID: humanID,
 	}
 
-	if err := guardImpl.RestrictResponseTime(
+	if err := guard.RestrictResponseTime(
 		ctx.Writer, ctx.Request, kp.EnvironConf().ReadTimeoutSecs, kp.Guard(), clientID,
 	); err != nil {
 		return

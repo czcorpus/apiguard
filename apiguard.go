@@ -34,11 +34,14 @@ import (
 
 	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard-common/proxy"
 	"github.com/czcorpus/apiguard-common/reporting"
+
+	proxyImpl "github.com/czcorpus/apiguard/proxy"
+
 	"github.com/czcorpus/apiguard/cnc"
 	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard/token"
-	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/proxy/cache/file"
 	nullCache "github.com/czcorpus/apiguard/proxy/cache/null"
 	"github.com/czcorpus/apiguard/proxy/cache/redis"
@@ -186,7 +189,7 @@ func createGlobalCtx(
 
 func init() {
 	gob.Register(&proxy.BackendSimpleResponse{})
-	gob.Register(&proxy.BackendProxiedResponse{})
+	gob.Register(&proxyImpl.BackendProxiedResponse{})
 }
 
 func determineConfigPath(argPos int) string {

@@ -29,8 +29,8 @@ import (
 
 	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/guard"
 	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/interop"
 	"github.com/czcorpus/apiguard/proxy"
 

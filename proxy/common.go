@@ -19,7 +19,6 @@ package proxy
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -53,19 +52,6 @@ type GeneralProxyConf struct {
 }
 
 // ---------------------------
-
-type BackendResponse interface {
-	GetBodyReader() io.ReadCloser
-	CloseBodyReader() error
-	GetHeaders() http.Header
-	GetStatusCode() int
-	IsDataStream() bool
-	Error() error
-}
-
-// ---------------------------
-
-// -----------------------------
 
 type GlobalContext struct {
 	TimezoneLocation *time.Location

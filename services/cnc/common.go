@@ -26,11 +26,12 @@ import (
 	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard-common/common"
 	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/proxy"
 	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/services/backend"
 
 	guardImpl "github.com/czcorpus/apiguard/guard"
+	proxyImpl "github.com/czcorpus/apiguard/proxy"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -98,12 +99,12 @@ func (kp *Proxy) ProcessReqHeaders(
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(ctx.Request) {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxy.GetCookieValue(ctx.Request, kp.conf.FrontendSessionCookieName),
+				proxyImpl.GetCookieValue(ctx.Request, kp.conf.FrontendSessionCookieName),
 			}
 
 		} else {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxy.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
+				proxyImpl.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
 			}
 		}
 
@@ -129,7 +130,7 @@ func (kp *Proxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEvalua
 		Msg("evaluated user * request")
 	if reqProps.Error != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
-		proxy.WriteError(
+		proxyImpl.WriteError(
 			ctx,
 			fmt.Errorf("failed to proxy request: %s", reqProps.Error),
 			reqProps.ProposedResponse,
@@ -161,7 +162,7 @@ func (kp *Proxy) HandleRequest(
 		)
 
 	} else {
-		respHandler = proxy.NewDirectResponse(nil)
+		respHandler = proxy.NewDirectResponse(nil, nil)
 	}
 	if respHandler.Error() != nil {
 		return respHandler

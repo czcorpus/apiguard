@@ -31,28 +31,21 @@ import (
 	"github.com/czcorpus/apiguard/guard/cncauth"
 	"github.com/czcorpus/apiguard/guard/dflt"
 	"github.com/czcorpus/apiguard/guard/null"
-	"github.com/czcorpus/apiguard/guard/tlmtr"
 	"github.com/czcorpus/apiguard/guard/token"
 	"github.com/czcorpus/apiguard/monitoring"
 	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/proxy/public"
-	"github.com/czcorpus/apiguard/services/backend/assc"
-	"github.com/czcorpus/apiguard/services/backend/cja"
 	"github.com/czcorpus/apiguard/services/backend/frodo"
 	"github.com/czcorpus/apiguard/services/backend/gunstick"
 	"github.com/czcorpus/apiguard/services/backend/hex"
-	"github.com/czcorpus/apiguard/services/backend/kla"
 	"github.com/czcorpus/apiguard/services/backend/kontext"
 	"github.com/czcorpus/apiguard/services/backend/kwords"
-	"github.com/czcorpus/apiguard/services/backend/lguide"
 	"github.com/czcorpus/apiguard/services/backend/mquery"
-	"github.com/czcorpus/apiguard/services/backend/neomat"
-	"github.com/czcorpus/apiguard/services/backend/psjc"
 	"github.com/czcorpus/apiguard/services/backend/scollex"
-	"github.com/czcorpus/apiguard/services/backend/ssjc"
 	"github.com/czcorpus/apiguard/services/backend/treq"
 	"github.com/czcorpus/apiguard/services/backend/wss"
 	"github.com/czcorpus/apiguard/services/cnc"
+	"github.com/czcorpus/apiguard/services/ujc"
 	"github.com/czcorpus/apiguard/session"
 
 	"github.com/czcorpus/cnc-gokit/httpclient"
@@ -81,189 +74,11 @@ func InitServices(
 
 		switch servConf.Type {
 
-		// "Jazyková příručka ÚJČ"
-		case "languageGuide":
-			var typedConf lguide.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (languageGuide): %w", sid, err)
+		// ÚJČ services
+		case "languageGuide", "assc", "ssjc", "psjc", "kla", "neomat", "cja":
+			if err := ujc.InitUJCService(ctx, sid, servConf, globalConf, apiRoutes); err != nil {
+				return err
 			}
-			if err := typedConf.Validate("languageGuide"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (languageGuide): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (languageGuide): %w", sid, err)
-			}
-			langGuideActions := lguide.NewLanguageGuideActions(
-				ctx,
-				fmt.Sprintf("%d/language-guide", sid),
-				&typedConf,
-				&globalConf.Botwatch,
-				globalConf.Telemetry,
-				globalConf.ServerReadTimeoutSecs,
-				guard,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/language-guide", sid),
-				langGuideActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for LanguageGuide enabled")
-
-		// "Akademický slovník současné češtiny"
-		case "assc":
-			var typedConf assc.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (assc): %w", sid, err)
-			}
-			if err := typedConf.Validate("assc"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (assc): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (assc): %w", sid, err)
-			}
-			asscActions := assc.NewASSCActions(
-				ctx,
-				fmt.Sprintf("%d/assc", sid),
-				&typedConf,
-				guard,
-				globalConf.ServerReadTimeoutSecs,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/assc", sid),
-				asscActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for ASSC enabled")
-
-		// "Slovník spisovného jazyka českého"
-		case "ssjc":
-			var typedConf ssjc.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (ssjc): %w", sid, err)
-			}
-			if err := typedConf.Validate("ssjc"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (ssjc): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (ssjc): %w", sid, err)
-			}
-			ssjcActions := ssjc.NewSSJCActions(
-				ctx,
-				fmt.Sprintf("%d/ssjc", sid),
-				&typedConf,
-				guard,
-				globalConf.ServerReadTimeoutSecs,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/ssjc", sid),
-				ssjcActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for SSJC enabled")
-
-		// "Příruční slovník jazyka českého"
-		case "psjc":
-			var typedConf psjc.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (psjc): %w", sid, err)
-			}
-			if err := typedConf.Validate("psjc"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (psjc): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (psjc): %w", sid, err)
-			}
-			psjcActions := psjc.NewPSJCActions(
-				ctx,
-				fmt.Sprintf("%d/psjc", sid),
-				&typedConf,
-				guard,
-				globalConf.ServerReadTimeoutSecs,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/psjc", sid),
-				psjcActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for PSJC enabled")
-
-		// "Kartotéka lexikálního archivu"
-		case "kla":
-			var typedConf kla.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (kla): %w", sid, err)
-			}
-			if err := typedConf.Validate("kla"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (kla): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (kla): %w", sid, err)
-			}
-			klaActions := kla.NewKLAActions(
-				ctx,
-				fmt.Sprintf("%d/kla", sid),
-				&typedConf,
-				guard,
-				globalConf.ServerReadTimeoutSecs,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/kla", sid),
-				klaActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for KLA enabled")
-
-		// "Neomat"
-		case "neomat":
-			var typedConf neomat.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (neomat): %w", sid, err)
-			}
-			if err := typedConf.Validate("neomat"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (neomat): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (neomat): %w", sid, err)
-			}
-			neomatActions := neomat.NewNeomatActions(
-				ctx,
-				fmt.Sprintf("%d/neomat", sid),
-				&typedConf,
-				guard,
-				globalConf.ServerReadTimeoutSecs,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/neomat", sid),
-				neomatActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for Neomat enabled")
-
-		// "Český jazykový atlas"
-		case "cja":
-			var typedConf cja.Conf
-			if err := json.Unmarshal(servConf.Conf, &typedConf); err != nil {
-				return fmt.Errorf("failed to initialize service %d (cja): %w", sid, err)
-			}
-			if err := typedConf.Validate("cja"); err != nil {
-				return fmt.Errorf("failed to initialize service %d (cja): %w", sid, err)
-			}
-			guard, err := tlmtr.New(ctx, &globalConf.Botwatch, globalConf.Telemetry)
-			if err != nil {
-				return fmt.Errorf("failed to initialize service %d (cja): %w", sid, err)
-			}
-			cjaActions := cja.NewCJAActions(
-				ctx,
-				fmt.Sprintf("%d/cja", sid),
-				&typedConf,
-				guard,
-				globalConf.ServerReadTimeoutSecs,
-			)
-			apiRoutes.GET(
-				fmt.Sprintf("/service/%d/cja", sid),
-				cjaActions.Query,
-			)
-			log.Info().Int("sid", sid).Msg("Proxy for CJA enabled")
 
 		// KonText (API) proxy
 		case "kontext":

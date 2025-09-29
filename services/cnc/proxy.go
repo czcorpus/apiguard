@@ -29,11 +29,13 @@ import (
 	"github.com/czcorpus/apiguard-common/common"
 	"github.com/czcorpus/apiguard-common/globctx"
 	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard-common/proxy"
 	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/session"
 
 	guardImpl "github.com/czcorpus/apiguard/guard"
+	proxyImpl "github.com/czcorpus/apiguard/proxy"
+
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -45,7 +47,7 @@ type Proxy struct {
 	conf         *ProxyConf
 	rConf        *EnvironConf
 	guard        guard.ServiceGuard
-	apiProxy     *proxy.CoreProxy
+	apiProxy     *proxyImpl.CoreProxy
 	tDBWriter    reporting.ReportingWriter
 	frontendHost string
 
@@ -59,14 +61,14 @@ type Proxy struct {
 
 func (kp *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
 	data, err := kp.globalCtx.Cache.Get(req, opts...)
-	if err == proxy.ErrCacheMiss {
-		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
+	if err == proxyImpl.ErrCacheMiss {
+		return proxyImpl.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
 
 	} else if err != nil {
-		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, err)
+		return proxyImpl.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, err)
 	}
 
-	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
+	return proxyImpl.NewCachedResponse(data.Status, data.Headers, data.Data)
 }
 
 func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
@@ -129,7 +131,7 @@ func (kp *Proxy) ProxyRequest(
 	method string,
 	headers http.Header,
 	rbody io.Reader,
-) *proxy.BackendProxiedResponse {
+) *proxyImpl.BackendProxiedResponse {
 	return kp.apiProxy.Request(
 		path,
 		args,
@@ -219,7 +221,7 @@ func (kp *Proxy) AnyPath(ctx *gin.Context) {
 		ID: humanID,
 	}
 
-	if err := guardImpl.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.guard, clientID); err != nil {
+	if err := guard.RestrictResponseTime(ctx.Writer, ctx.Request, kp.rConf.ReadTimeoutSecs, kp.guard, clientID); err != nil {
 		return
 	}
 
@@ -248,7 +250,7 @@ func (kp *Proxy) AnyPath(ctx *gin.Context) {
 	if serviceResp.Error() != nil {
 		log.Error().Err(serviceResp.Error()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 
-		proxy.WriteError(
+		proxyImpl.WriteError(
 			ctx,
 			fmt.Errorf("failed to proxy request: %s", serviceResp.Error()),
 			http.StatusInternalServerError,
@@ -288,7 +290,7 @@ func NewProxy(
 	grd guard.ServiceGuard,
 	reqCounter chan<- guardImpl.RequestInfo,
 ) (*Proxy, error) {
-	proxy, err := proxy.NewCoreProxy(conf.GetCoreConf())
+	proxy, err := proxyImpl.NewCoreProxy(conf.GetCoreConf())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}

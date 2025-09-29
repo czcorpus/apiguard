@@ -102,7 +102,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		ID: humanID,
 	}
 
-	if err := guardImpl.RestrictResponseTime(
+	if err := guard.RestrictResponseTime(
 		ctx.Writer, ctx.Request, wssProxy.EnvironConf().ReadTimeoutSecs, wssProxy.Guard(), clientID,
 	); err != nil {
 		return

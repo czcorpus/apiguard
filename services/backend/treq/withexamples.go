@@ -31,8 +31,8 @@ import (
 	"time"
 
 	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/guard"
 	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/services/backend"
 

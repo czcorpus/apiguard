@@ -18,7 +18,6 @@
 package cncauth
 
 import (
-	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -58,7 +57,6 @@ import (
 // is for all users (unregistered users even make up the majority
 // of users there).
 type Guard struct {
-	db *sql.DB
 
 	location *time.Location
 
@@ -103,6 +101,8 @@ type Guard struct {
 	rateLimitersMu sync.Mutex
 
 	sessionValFactory func() session.HTTPSession
+
+	userFinder guardImpl.UserFinder
 }
 
 func (kua *Guard) TestUserIsAnonymous(userID common.UserID) bool {
@@ -157,11 +157,11 @@ func (kua *Guard) getUserCNCSessionID(req *http.Request) session.HTTPSession {
 func (kua *Guard) DetermineTrueUserID(req *http.Request) (common.UserID, error) {
 
 	cookie := kua.getUserCNCSessionCookie(req)
-	if kua.db == nil || cookie == nil {
+	if cookie == nil {
 		return common.InvalidUserID, nil
 	}
 	sessionVal := kua.getUserCNCSessionID(req)
-	userID, err := guardImpl.FindUserBySession(kua.db, sessionVal)
+	userID, err := kua.userFinder.FindUserBySession(sessionVal)
 	if err != nil {
 		return common.InvalidUserID, err
 	}
@@ -194,14 +194,6 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 	var requiresFallbackCookie bool
 	clientIP := logging.ExtractClientIP(req)
 
-	if analyzer.db == nil {
-		return guard.ReqEvaluation{
-			ProposedResponse: http.StatusOK,
-			ClientID:         common.InvalidUserID,
-			SessionID:        "",
-			Error:            nil,
-		}
-	}
 	cookieValue, _ := analyzer.getFrontendOrBackendSession(req)
 	if cookieValue.IsZero() {
 		proxy.LogCookies(req, log.Debug()).
@@ -222,8 +214,7 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 			cookieValue = session.CNCSessionValue{}.UpdatedFrom(fallbackCookie.Value)
 		}
 	}
-	apiUserID, err := guardImpl.FindUserBySession(
-		analyzer.db, analyzer.sessionValFactory().UpdatedFrom(cookieValue.String()))
+	apiUserID, err := analyzer.userFinder.FindUserBySession(analyzer.sessionValFactory().UpdatedFrom(cookieValue.String()))
 	if err != nil {
 		return guard.ReqEvaluation{
 			ProposedResponse:       http.StatusInternalServerError,
@@ -233,6 +224,14 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 		}
 	}
 	if !apiUserID.IsValid() {
+		if analyzer.userFinder.InvalidUserIsOK() {
+			return guard.ReqEvaluation{
+				ProposedResponse: http.StatusOK,
+				ClientID:         common.InvalidUserID,
+				SessionID:        "",
+				Error:            nil,
+			}
+		}
 		return guard.ReqEvaluation{
 			ProposedResponse:       http.StatusUnauthorized,
 			RequiresFallbackCookie: true,
@@ -294,7 +293,6 @@ func New(
 
 ) *Guard {
 	return &Guard{
-		db:                    globalCtx.CNCDB,
 		tlmtrStorage:          globalCtx.TelemetryDB,
 		location:              globalCtx.TimezoneLocation,
 		backendSessionCookie:  backendSessionCookie,
@@ -303,5 +301,6 @@ func New(
 		confLimits:            confLimits,
 		rateLimiters:          make(map[string]*rate.Limiter),
 		sessionValFactory:     guardImpl.CreateSessionValFactory(sessionType),
+		userFinder: 		 guardImpl.NewUserFinder(globalCtx),
 	}
 }

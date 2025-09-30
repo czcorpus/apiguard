@@ -142,7 +142,7 @@ type Configuration struct {
 	Logging           logging.LoggingConf      `json:"logging"`
 	Monitoring        *monitoring.LimitingConf `json:"monitoring"`
 	IPBanTTLSecs      int                      `json:"IpBanTtlSecs"`
-	CNCDB             cnc.Conf                 `json:"cncDb"`
+	CNCDB             *cnc.Conf                `json:"cncDb"`
 	Mail              *monitoring.MailConf     `json:"mail"`
 	CNCAuth           CNCAuthConf              `json:"cncAuth"`
 	IgnoreStoredState bool                     `json:"-"`
@@ -192,8 +192,10 @@ func (c *Configuration) Validate() error {
 			return err
 		}
 	}
-	if err := c.CNCDB.Validate("cncDb"); err != nil {
-		return err
+	if c.CNCDB != nil {
+		if err := c.CNCDB.Validate("cncDb"); err != nil {
+			return err
+		}
 	}
 	if _, err := time.LoadLocation(c.TimeZone); err != nil {
 		return err

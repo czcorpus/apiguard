@@ -21,15 +21,45 @@ import (
 	"database/sql"
 
 	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard-common/globctx"
 	"github.com/czcorpus/apiguard/session"
 )
+
+type UserFinder interface {
+	FindUserBySession(sessionID session.HTTPSession) (common.UserID, error)
+	GetAllowlistUsers(service string) ([]common.UserID, error)
+	InvalidUserIsOK() bool
+}
+
+// --------------------------------------
+
+type NilUserFinder struct {
+}
+
+func (uf *NilUserFinder) FindUserBySession(sessionID session.HTTPSession) (common.UserID, error) {
+	return common.InvalidUserID, nil
+}
+
+func (uf *NilUserFinder) GetAllowlistUsers(service string) ([]common.UserID, error) {
+	return []common.UserID{}, nil
+}
+
+func (uf *NilUserFinder) InvalidUserIsOK() bool {
+	return true
+}
+
+// --------------------------------------
+
+type SQLUserFinder struct {
+	db *sql.DB
+}
 
 // FindUserBySession searches for user session in CNC database.
 // In case nothing is found, `common.InvalidUserID` is returned
 // (and no error). Error is returned only in case of an actual fail
 // (e.g. failed db query).
-func FindUserBySession(db *sql.DB, sessionID session.HTTPSession) (common.UserID, error) {
-	row := db.QueryRow(
+func (uf *SQLUserFinder) FindUserBySession(sessionID session.HTTPSession) (common.UserID, error) {
+	row := uf.db.QueryRow(
 		"SELECT user_id, hashed_validator FROM user_session WHERE selector = ? LIMIT 1",
 		sessionID.SrchSelector(),
 	)
@@ -53,4 +83,37 @@ func FindUserBySession(db *sql.DB, sessionID session.HTTPSession) (common.UserID
 
 	}
 	return common.InvalidUserID, nil
+}
+
+func (uf *SQLUserFinder) GetAllowlistUsers(service string) ([]common.UserID, error) {
+	ans := make([]common.UserID, 0, 50)
+	rows, err := uf.db.Query(
+		"SELECT user_id FROM api_user_allowlist WHERE service_name = ?",
+		service,
+	)
+	if err != nil {
+		return []common.UserID{}, err
+	}
+	for rows.Next() {
+		var userID common.UserID
+		err := rows.Scan(&userID)
+		if err != nil {
+			return []common.UserID{}, err
+		}
+		ans = append(ans, userID)
+	}
+	return ans, nil
+}
+
+func (uf *SQLUserFinder) InvalidUserIsOK() bool {
+	return false
+}
+
+// --------------------------------------
+
+func NewUserFinder(globalCtx *globctx.Context) UserFinder {
+	if globalCtx.CNCDB != nil {
+		return &SQLUserFinder{db: globalCtx.CNCDB}
+	}
+	return &NilUserFinder{}
 }

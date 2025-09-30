@@ -57,6 +57,8 @@ type Proxy struct {
 	reqCounter chan<- guardImpl.RequestInfo
 
 	sessionValFactory func() session.HTTPSession
+
+	userFinder guardImpl.UserFinder
 }
 
 func (kp *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
@@ -313,5 +315,6 @@ func NewProxy(
 		reqCounter:        reqCounter,
 		tDBWriter:         globalCtx.ReportingWriter,
 		sessionValFactory: guardImpl.CreateSessionValFactory(conf.SessionValType),
+		userFinder: 	   guardImpl.NewUserFinder(globalCtx),
 	}, nil
 }

@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard-common/common"
 	"github.com/czcorpus/apiguard-common/globctx"
 	"github.com/czcorpus/apiguard-common/proxy"
 	"github.com/czcorpus/apiguard-common/reporting"
@@ -96,6 +97,10 @@ func init() {
 }
 
 func openCNCDatabase(conf *cnc.Conf) *sql.DB {
+	if conf == nil {
+		log.Info().Msgf("No CNC database configured");
+		return nil
+	}
 	cncDB, err := cnc.OpenDB(conf)
 	if err != nil {
 		log.Fatal().Err(err).Send()
@@ -104,7 +109,7 @@ func openCNCDatabase(conf *cnc.Conf) *sql.DB {
 		Str("host", conf.Host).
 		Str("name", conf.Name).
 		Str("user", conf.User).
-		Msgf("Connected to CNC's SQL database")
+		Msg("Connected to CNC's SQL database")
 	return cncDB
 }
 
@@ -140,7 +145,7 @@ func createGlobalCtx(
 	tDBWriter.AddTableWriter(reporting.ProxyMonitoringTable)
 	tDBWriter.AddTableWriter(reporting.TelemetryMonitoringTable)
 
-	cncdb := openCNCDatabase(&conf.CNCDB)
+	cncdb := openCNCDatabase(conf.CNCDB)
 
 	var cacheBackend cache.Cache
 	if conf.Cache.FileRootPath != "" {
@@ -180,7 +185,11 @@ func createGlobalCtx(
 	}
 	ans.CNCDB = cncdb
 	ans.Cache = cacheBackend
-	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
+	if conf.CNCDB != nil {
+		ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
+	} else {
+		ans.AnonymousUserIDs = []common.UserID{}
+	}
 
 	// delay stats writer and telemetry analyzer
 	ans.TelemetryDB = tstorage.Open(ans.CNCDB, ans.TimezoneLocation)

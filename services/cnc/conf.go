@@ -28,6 +28,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	AuthTokenEntry = "personal_access_token"
+	PortalLoginURL = "https://www.korpus.cz/login"
+)
+
 type ProxyConf struct {
 	// BackendURL is a URL where the backend is installed
 	// (typically something like "http://192.168.1.x:8080")

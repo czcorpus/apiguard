@@ -17,9 +17,29 @@
 
 package services
 
+import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/czcorpus/apiguard-common/globctx"
+	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/monitoring"
+	"github.com/gin-gonic/gin"
+)
+
 // VersionInfo provides a detailed information about the actual build
 type VersionInfo struct {
 	Version   string `json:"version"`
 	BuildDate string `json:"buildDate"`
 	GitCommit string `json:"gitCommit"`
+}
+
+type InitArgs struct {
+	Ctx        *globctx.Context
+	SID        int
+	RawConf    json.RawMessage
+	GlobalConf *config.Configuration
+	APIRoutes  *gin.RouterGroup
+	Engine     http.Handler
+	Alarm      *monitoring.AlarmTicker
 }

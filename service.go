@@ -37,6 +37,7 @@ import (
 	"github.com/czcorpus/apiguard/monitoring"
 	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/services/tstorage"
+	"github.com/czcorpus/apiguard/srvfactory"
 	"github.com/czcorpus/apiguard/wagstream"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
@@ -44,11 +45,16 @@ import (
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
-)
 
-const (
-	cncPortalLoginURL = "https://www.korpus.cz/login"
-	authTokenEntry    = "personal_access_token"
+	_ "github.com/czcorpus/apiguard/services/backend/frodo"
+	_ "github.com/czcorpus/apiguard/services/backend/gunstick"
+	_ "github.com/czcorpus/apiguard/services/backend/hex"
+	_ "github.com/czcorpus/apiguard/services/backend/kontext"
+	_ "github.com/czcorpus/apiguard/services/backend/kwords"
+	_ "github.com/czcorpus/apiguard/services/backend/mquery"
+	_ "github.com/czcorpus/apiguard/services/backend/scollex"
+	_ "github.com/czcorpus/apiguard/services/backend/treq"
+	_ "github.com/czcorpus/apiguard/services/backend/wss"
 )
 
 func initProxyEngine(
@@ -147,16 +153,13 @@ func initProxyEngine(
 
 	// --------------------
 
-	if err := InitServices(
+	srvfactory.InitServices(
 		globalCtx,
 		engine,
 		apiRoutes,
 		conf,
 		alarm,
-	); err != nil {
-		log.Fatal().Err(err).Msg("failed to start APIGuard")
-		return nil
-	}
+	)
 
 	// administration/monitoring actions
 
@@ -220,7 +223,6 @@ func initProxyEngine(
 }
 
 func initWagStreamingEngine(
-	conf *config.Configuration,
 	actionHandler *wagstream.Actions,
 ) http.Handler {
 	engine := gin.New()
@@ -287,7 +289,7 @@ func runService(conf *config.Configuration) {
 			log.Fatal().Err(err).Msg("failed to start")
 			return
 		}
-		engine = initWagStreamingEngine(conf, actionsHandler)
+		engine = initWagStreamingEngine(actionsHandler)
 		log.Info().Msg("running in the STREAMING mode")
 	default:
 		engine = nil

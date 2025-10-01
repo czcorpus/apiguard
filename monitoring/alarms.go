@@ -81,6 +81,7 @@ type AlarmTicker struct {
 	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
 	tDBWriter       reporting.ReportingWriter
 	reportTicker    time.Ticker
+	userFinder 	guardImpl.UserFinder
 }
 
 func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
@@ -240,7 +241,7 @@ func (aticker *AlarmTicker) loadAllowList() {
 		if !ok {
 			return
 		}
-		v, err := guardImpl.GetAllowlistUsers(aticker.ctx.CNCDB, serviceID)
+		v, err := aticker.userFinder.GetAllowlistUsers(serviceID)
 		if err != nil {
 			log.Error().
 				Err(err).
@@ -392,5 +393,6 @@ func NewAlarmTicker(
 		allowListUsers:  collections.NewConcurrentMap[string, []common.UserID](),
 		tDBWriter:       ctx.ReportingWriter,
 		reportTicker:    *time.NewTicker(monitoringSendInterval),
+		userFinder:  guardImpl.NewUserFinder(ctx),
 	}
 }

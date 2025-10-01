@@ -29,7 +29,6 @@ import (
 
 	"github.com/czcorpus/apiguard-common/common"
 	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/guard"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -158,7 +157,7 @@ func (kp *Proxy) applyLoginRespCookies(
 		if cCopy.Name == kp.rConf.CNCAuthCookie && kp.conf.FrontendSessionCookieName != "" {
 			var err error
 			sessionID := kp.sessionValFactory().UpdatedFrom(cCopy.Value)
-			userID, err = guard.FindUserBySession(kp.globalCtx.CNCDB, sessionID)
+			userID, err = kp.userFinder.FindUserBySession(sessionID)
 			if err != nil {
 				log.Error().Err(err).Msg("Failed to obtain user ID after successful. Ignoring.")
 			}

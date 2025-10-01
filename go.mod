@@ -21,6 +21,8 @@ require (
 	golang.org/x/time v0.7.0
 )
 
+replace github.com/czcorpus/apiguard-ext => ../apiguard-ext
+
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect
 	github.com/PuerkitoBio/goquery v1.10.3 // indirect

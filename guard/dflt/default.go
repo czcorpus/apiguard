@@ -18,7 +18,6 @@
 package dflt
 
 import (
-	"database/sql"
 	"net"
 	"net/http"
 	"sync"
@@ -44,7 +43,6 @@ const (
 // based on IP counting and with some advantages
 // for authenticated users.
 type Guard struct {
-	db                *sql.DB
 	storage           telemetry.Storage
 	sessionCookieName string
 	clientCounter     chan common.ClientID
@@ -149,7 +147,6 @@ func New(
 	confLimits []proxy.Limit,
 ) *Guard {
 	return &Guard{
-		db:                globalCtx.CNCDB,
 		storage:           globalCtx.TelemetryDB,
 		sessionCookieName: sessionCookieName,
 		clientCounter:     make(chan common.ClientID),

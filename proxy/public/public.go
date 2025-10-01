@@ -18,7 +18,6 @@
 package public
 
 import (
-	"database/sql"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -87,10 +86,10 @@ type Proxy struct {
 	basicProxy          *proxy.CoreProxy
 	clientCounter       chan<- common.ClientID
 	guard               iGuard.ServiceGuard
-	db                  *sql.DB
 	tzLocation          *time.Location
 	responseInterceptor func(resp *proxy.BackendProxiedResponse)
 	monitoring          reporting.ReportingWriter
+	userFinder 	   		guard.UserFinder
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -143,11 +142,11 @@ func (prox *Proxy) determineTrueUserID(
 ) (common.UserID, error) {
 
 	cookie := prox.getUserCNCSessionCookie(req)
-	if prox.db == nil || cookie == nil {
+	if cookie == nil {
 		return common.InvalidUserID, nil
 	}
 	sessionVal := prox.getUserCNCSessionID(req)
-	userID, err := guard.FindUserBySession(prox.db, sessionVal)
+	userID, err := prox.userFinder.FindUserBySession(sessionVal)
 	if err != nil {
 		return common.InvalidUserID, err
 	}
@@ -265,7 +264,7 @@ func NewProxy(
 	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
-	guard iGuard.ServiceGuard,
+	sGuard iGuard.ServiceGuard,
 	opts PublicAPIProxyOpts,
 
 ) *Proxy {
@@ -280,11 +279,11 @@ func NewProxy(
 		basicProxy:          basicProxy,
 		clientCounter:       clientCounter,
 		cache:               globalCtx.Cache,
-		guard:               guard,
-		db:                  globalCtx.CNCDB,
+		guard:               sGuard,
 		responseInterceptor: respInt,
 		monitoring:          globalCtx.ReportingWriter,
 		tzLocation:          globalCtx.TimezoneLocation,
+		userFinder:			 guard.NewUserFinder(globalCtx),
 	}
 
 	if opts.AuthCookieName == "" {

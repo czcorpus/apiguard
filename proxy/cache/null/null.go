@@ -20,7 +20,7 @@ package null
 import (
 	"net/http"
 
-	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/proxy"
 )
 

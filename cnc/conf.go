@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard/common"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/rs/zerolog/log"

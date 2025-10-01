@@ -23,8 +23,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/telemetry"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/telemetry"
 )
 
 type NilStorage struct{}

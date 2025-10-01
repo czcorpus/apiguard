@@ -24,14 +24,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/cache"
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	iGuard "github.com/czcorpus/apiguard-common/guard"
-	iProxy "github.com/czcorpus/apiguard-common/proxy"
-	"github.com/czcorpus/apiguard-common/reporting"
+	"github.com/czcorpus/apiguard/cache"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/session"
 
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -85,11 +83,11 @@ type Proxy struct {
 	cache               cache.Cache
 	basicProxy          *proxy.CoreProxy
 	clientCounter       chan<- common.ClientID
-	guard               iGuard.ServiceGuard
+	guard               guard.ServiceGuard
 	tzLocation          *time.Location
 	responseInterceptor func(resp *proxy.BackendProxiedResponse)
 	monitoring          reporting.ReportingWriter
-	userFinder 	   		guard.UserFinder
+	userFinder          guard.UserFinder
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -153,7 +151,7 @@ func (prox *Proxy) determineTrueUserID(
 	return userID, nil
 }
 
-func (prox *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) iProxy.ResponseProcessor {
+func (prox *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
 	data, err := prox.cache.Get(req, opts...)
 
 	if err == proxy.ErrCacheMiss {
@@ -232,7 +230,7 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 
 	respHandler := prox.FromCache(ctx.Request)
 	logging.AddCustomEntry(ctx, "isCached", respHandler.IsCacheHit())
-	respHandler.HandleCacheMiss(func() iProxy.BackendResponse {
+	respHandler.HandleCacheMiss(func() proxy.BackendResponse {
 		internalPath := strings.TrimPrefix(path, prox.servicePath)
 		bResp := prox.basicProxy.Request(
 			internalPath,
@@ -264,7 +262,7 @@ func NewProxy(
 	sid int,
 	client *http.Client,
 	clientCounter chan<- common.ClientID,
-	sGuard iGuard.ServiceGuard,
+	sGuard guard.ServiceGuard,
 	opts PublicAPIProxyOpts,
 
 ) *Proxy {
@@ -283,7 +281,7 @@ func NewProxy(
 		responseInterceptor: respInt,
 		monitoring:          globalCtx.ReportingWriter,
 		tzLocation:          globalCtx.TimezoneLocation,
-		userFinder:			 guard.NewUserFinder(globalCtx),
+		userFinder:          guard.NewUserFinder(globalCtx),
 	}
 
 	if opts.AuthCookieName == "" {

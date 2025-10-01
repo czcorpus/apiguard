@@ -4,7 +4,6 @@ go 1.23.4
 
 require (
 	github.com/bytedance/sonic v1.12.9
-	github.com/czcorpus/apiguard-common v0.0.3-0.20250925143339-a4de9d4cfa5e
 	github.com/czcorpus/cnc-gokit v0.17.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/mquery-common v0.5.4

@@ -18,12 +18,96 @@
 package proxy
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
-
-	"github.com/czcorpus/apiguard-common/proxy"
 )
+
+type BackendResponse interface {
+	GetBodyReader() io.ReadCloser
+	CloseBodyReader() error
+	GetHeaders() http.Header
+	GetStatusCode() int
+	IsDataStream() bool
+	Error() error
+}
+
+// ----------------------
+
+type EmptyReadCloser struct{}
+
+func (rc EmptyReadCloser) Read(p []byte) (int, error) {
+	return 0, io.EOF
+}
+
+func (rc EmptyReadCloser) Close() error {
+	return nil
+}
+
+// ----------------------
+
+type BackendZeroResponse struct {
+}
+
+func (sr *BackendZeroResponse) GetBodyReader() io.ReadCloser {
+	return &EmptyReadCloser{}
+}
+
+func (sr *BackendZeroResponse) CloseBodyReader() error {
+	return nil
+}
+
+func (sr *BackendZeroResponse) GetHeaders() http.Header {
+	return map[string][]string{}
+}
+
+func (sr *BackendZeroResponse) GetStatusCode() int {
+	return 0
+}
+
+func (sr *BackendZeroResponse) Error() error {
+	return fmt.Errorf("the response is undefined")
+}
+
+func (sr *BackendZeroResponse) IsDataStream() bool {
+	return false
+}
+
+// -----------------------------------------
+
+// BackendSimpleResponse represents a backend response where we don't
+// care about authentication and/or information returned via
+// headers
+type BackendSimpleResponse struct {
+	BodyReader io.ReadCloser
+	StatusCode int
+	Err        error
+}
+
+func (sr *BackendSimpleResponse) GetBodyReader() io.ReadCloser {
+	return sr.BodyReader
+}
+
+func (sr *BackendSimpleResponse) CloseBodyReader() error {
+	return sr.BodyReader.Close()
+}
+
+func (sr *BackendSimpleResponse) GetHeaders() http.Header {
+	return map[string][]string{}
+}
+
+func (sr *BackendSimpleResponse) GetStatusCode() int {
+	return sr.StatusCode
+}
+
+func (sr *BackendSimpleResponse) Error() error {
+	return sr.Err
+}
+
+func (sr *BackendSimpleResponse) IsDataStream() bool {
+	return false
+}
 
 type BackendProxiedResponse struct {
 	BodyReader io.ReadCloser
@@ -69,7 +153,7 @@ type BackendProxiedStreamResponse struct {
 	readData []byte
 }
 
-func (pr *BackendProxiedStreamResponse) BackendResponse() proxy.BackendResponse {
+func (pr *BackendProxiedStreamResponse) BackendResponse() BackendResponse {
 	return pr
 }
 

@@ -29,7 +29,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/czcorpus/apiguard-common/proxy"
+	"github.com/czcorpus/apiguard/proxy"
 
 	proxyImpl "github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/server"

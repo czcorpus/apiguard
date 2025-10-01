@@ -28,13 +28,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/cache"
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/guard"
-	"github.com/czcorpus/apiguard-common/reporting"
-	guardImpl "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/cache"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/bytedance/sonic"
@@ -269,7 +268,7 @@ func NewWSServerProxy(
 	gConf *cnc.EnvironConf,
 	guard guard.ServiceGuard,
 	httpEngine http.Handler,
-	reqCounter chan<- guardImpl.RequestInfo,
+	reqCounter chan<- guard.RequestInfo,
 ) (*WSServerProxy, error) {
 	proxy, err := cnc.NewProxy(globalCtx, conf, gConf, guard, reqCounter)
 	if err != nil {

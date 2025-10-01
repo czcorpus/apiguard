@@ -26,7 +26,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard/cache"
 	"github.com/rs/zerolog/log"
 )
 

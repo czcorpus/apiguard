@@ -27,11 +27,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/guard"
-	"github.com/czcorpus/apiguard-common/reporting"
-	guardImpl "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/cnc"
 
 	"github.com/bytedance/sonic"
@@ -236,7 +235,7 @@ func NewKontextProxy(
 	conf *Conf,
 	gConf *cnc.EnvironConf,
 	guard guard.ServiceGuard,
-	reqCounter chan<- guardImpl.RequestInfo,
+	reqCounter chan<- guard.RequestInfo,
 ) (*KonTextProxy, error) {
 	proxy, err := cnc.NewProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
 	if err != nil {

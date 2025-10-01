@@ -24,8 +24,6 @@ import (
 	"net/url"
 	"time"
 
-	iProxy "github.com/czcorpus/apiguard-common/proxy"
-
 	"github.com/czcorpus/cnc-gokit/httpclient"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -99,7 +97,7 @@ func (proxy *CoreProxy) Request(
 	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
 		return &BackendProxiedResponse{
-			BodyReader: iProxy.EmptyReadCloser{},
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,
@@ -109,7 +107,7 @@ func (proxy *CoreProxy) Request(
 	resp, err := proxy.client.Do(req)
 	if err != nil {
 		return &BackendProxiedResponse{
-			BodyReader: iProxy.EmptyReadCloser{},
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,
@@ -144,7 +142,7 @@ func (proxy *CoreProxy) RequestStream(
 	req, err := http.NewRequest(method, targetURL.String(), rbody)
 	if err != nil {
 		return &BackendProxiedStreamResponse{
-			BodyReader: iProxy.EmptyReadCloser{},
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,
@@ -154,7 +152,7 @@ func (proxy *CoreProxy) RequestStream(
 	resp, err := proxy.client.Do(req)
 	if err != nil {
 		return &BackendProxiedStreamResponse{
-			BodyReader: iProxy.EmptyReadCloser{},
+			BodyReader: EmptyReadCloser{},
 			Headers:    http.Header{},
 			StatusCode: http.StatusInternalServerError,
 			Err:        err,

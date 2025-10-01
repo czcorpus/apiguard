@@ -24,10 +24,10 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/reporting"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 
 	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/cnc-gokit/collections"
@@ -81,7 +81,7 @@ type AlarmTicker struct {
 	allowListUsers  *collections.ConcurrentMap[string, []common.UserID]
 	tDBWriter       reporting.ReportingWriter
 	reportTicker    time.Ticker
-	userFinder 	guardImpl.UserFinder
+	userFinder      guardImpl.UserFinder
 }
 
 func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
@@ -393,6 +393,6 @@ func NewAlarmTicker(
 		allowListUsers:  collections.NewConcurrentMap[string, []common.UserID](),
 		tDBWriter:       ctx.ReportingWriter,
 		reportTicker:    *time.NewTicker(monitoringSendInterval),
-		userFinder:  guardImpl.NewUserFinder(ctx),
+		userFinder:      guardImpl.NewUserFinder(ctx),
 	}
 }

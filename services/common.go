@@ -21,8 +21,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/czcorpus/apiguard-common/globctx"
 	"github.com/czcorpus/apiguard/config"
+	"github.com/czcorpus/apiguard/globctx"
 	"github.com/czcorpus/apiguard/monitoring"
 	"github.com/gin-gonic/gin"
 )

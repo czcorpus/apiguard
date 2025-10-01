@@ -25,13 +25,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/guard"
-	"github.com/czcorpus/apiguard-common/reporting"
-	guardImpl "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/guard/cncauth"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/backend"
 	"github.com/czcorpus/apiguard/services/cnc"
 
@@ -272,7 +271,7 @@ func NewTreqProxy(
 	gConf *cnc.EnvironConf,
 	guard *cncauth.Guard,
 	httpEngine http.Handler,
-	reqCounter chan<- guardImpl.RequestInfo,
+	reqCounter chan<- guard.RequestInfo,
 ) (*TreqProxy, error) {
 	proxy, err := cnc.NewProxy(globalCtx, &conf.ProxyConf, gConf, guard, reqCounter)
 	if err != nil {

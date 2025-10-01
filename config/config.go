@@ -24,13 +24,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/botwatch"
-	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard-common/telemetry"
+	"github.com/czcorpus/apiguard/botwatch"
 	"github.com/czcorpus/apiguard/cnc"
 	"github.com/czcorpus/apiguard/monitoring"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/session"
+	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"

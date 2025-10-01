@@ -22,9 +22,9 @@ import (
 	"fmt"
 	"net/http"
 
-	iGuard "github.com/czcorpus/apiguard-common/guard"
 	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard"
+	iGuard "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/guard/dflt"
 	"github.com/czcorpus/apiguard/guard/token"
 	"github.com/czcorpus/apiguard/services"

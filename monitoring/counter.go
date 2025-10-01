@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
+	"github.com/czcorpus/apiguard/common"
 	"github.com/czcorpus/apiguard/guard"
 
 	"github.com/czcorpus/cnc-gokit/collections"

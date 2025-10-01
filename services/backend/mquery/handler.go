@@ -20,8 +20,8 @@ package mquery
 import (
 	"fmt"
 
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/guard"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
 	guardImpl "github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/services/cnc"
 )

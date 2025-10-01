@@ -24,14 +24,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/guard"
-	"github.com/czcorpus/apiguard-common/logging"
-	"github.com/czcorpus/apiguard-common/telemetry"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
 	guardImpl "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/logging"
 	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/session"
+	"github.com/czcorpus/apiguard/telemetry"
 
 	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
@@ -57,7 +57,6 @@ import (
 // is for all users (unregistered users even make up the majority
 // of users there).
 type Guard struct {
-
 	location *time.Location
 
 	tlmtrStorage telemetry.Storage
@@ -301,6 +300,6 @@ func New(
 		confLimits:            confLimits,
 		rateLimiters:          make(map[string]*rate.Limiter),
 		sessionValFactory:     guardImpl.CreateSessionValFactory(sessionType),
-		userFinder: 		 guardImpl.NewUserFinder(globalCtx),
+		userFinder:            guardImpl.NewUserFinder(globalCtx),
 	}
 }

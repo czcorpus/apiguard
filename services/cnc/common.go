@@ -23,15 +23,13 @@ import (
 	"path"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/cache"
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/guard"
-	"github.com/czcorpus/apiguard-common/proxy"
-	"github.com/czcorpus/apiguard-common/reporting"
-	"github.com/czcorpus/apiguard/services/backend"
-
-	guardImpl "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/cache"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
 	proxyImpl "github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
+	"github.com/czcorpus/apiguard/services/backend"
 
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
@@ -39,7 +37,7 @@ import (
 
 func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indirect *bool, cached *bool, created time.Time) {
 	if kp.reqCounter != nil {
-		kp.reqCounter <- guardImpl.RequestInfo{
+		kp.reqCounter <- guard.RequestInfo{
 			Created:     created,
 			Service:     kp.rConf.ServiceKey,
 			NumRequests: 1,
@@ -99,12 +97,12 @@ func (kp *Proxy) ProcessReqHeaders(
 	if kp.conf.UseHeaderXApiKey {
 		if kp.reqUsesMappedSession(ctx.Request) {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxyImpl.GetCookieValue(ctx.Request, kp.conf.FrontendSessionCookieName),
+				proxy.GetCookieValue(ctx.Request, kp.conf.FrontendSessionCookieName),
 			}
 
 		} else {
 			passedHeaders[backend.HeaderAPIKey] = []string{
-				proxyImpl.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
+				proxy.GetCookieValue(ctx.Request, kp.rConf.CNCAuthCookie),
 			}
 		}
 

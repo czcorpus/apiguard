@@ -25,12 +25,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/cache"
-	"github.com/czcorpus/apiguard-common/common"
-	"github.com/czcorpus/apiguard-common/globctx"
-	"github.com/czcorpus/apiguard-common/guard"
-	"github.com/czcorpus/apiguard-common/proxy"
-	"github.com/czcorpus/apiguard-common/reporting"
+	"github.com/czcorpus/apiguard/cache"
+	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/globctx"
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/session"
 
 	guardImpl "github.com/czcorpus/apiguard/guard"
@@ -315,6 +315,6 @@ func NewProxy(
 		reqCounter:        reqCounter,
 		tDBWriter:         globalCtx.ReportingWriter,
 		sessionValFactory: guardImpl.CreateSessionValFactory(conf.SessionValType),
-		userFinder: 	   guardImpl.NewUserFinder(globalCtx),
+		userFinder:        guardImpl.NewUserFinder(globalCtx),
 	}, nil
 }

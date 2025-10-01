@@ -20,16 +20,55 @@ package proxy
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
 
-	"github.com/czcorpus/apiguard-common/cache"
-	"github.com/czcorpus/apiguard-common/proxy"
+	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
+
+// ResponseProcessor is an abstraction for handling cache-aware response processing.
+// It is a key component in how APIGuard handles proxied actions where it is expected
+// that each handler will first try to look into cache and then - based on the result
+// either return data or perform actual backend request. The advantage of ResponseProcessor
+// is in the fact, that the logic of deciding is hidden and interface consumer - in a typical
+// situation - calls just three methods without any branching:
+// resp := myProxy.FromCache(req, opts)
+// resp.HandleCacheMiss(func() { ... actual backend request; return response })
+// resp.WriteResponse()
+//
+// It is returned by high-level cache functions provided by proxy implementations.
+type ResponseProcessor interface {
+
+	// Response should just return a bound response (or nil if nothing is bound)
+	Response() BackendResponse
+
+	// Error shoudl return any error that occurred either during backend
+	// response obtanining or during caching etc. operations
+	Error() error
+
+	//HandleCacheMiss is a core function that should be callable
+	// no matter if there was cache hit or miss but it should perform
+	// actual operations only if there was a cache miss or some specific
+	// implementation's logic requires.
+	//
+	// Typically, the fn should perform actual backend request.
+	HandleCacheMiss(fn func() BackendResponse)
+
+	IsCacheHit() bool
+
+	// WriteResponse is other core function which must be used instead
+	// of direct ctx.Writer. This ensures that data are cached if needed.
+	WriteResponse(w http.ResponseWriter)
+
+	// ExportResponse is used in special situations where we
+	// need direct access to a response body.
+	ExportResponse() ([]byte, error)
+}
 
 func isCacheableStatusCode(code int) bool {
 	return 200 <= code && code < 300
@@ -66,13 +105,13 @@ func (cw *CachedResponse) ExportResponse() ([]byte, error) {
 	return cw.data, nil
 }
 
-func (cw *CachedResponse) Response() proxy.BackendResponse {
+func (cw *CachedResponse) Response() BackendResponse {
 	if strings.Contains(cw.headers.Get("Content-Type"), "text/event-stream") {
 		return &BackendProxiedStreamResponse{
 			BodyReader: io.NopCloser(bytes.NewBuffer(cw.data)),
 		}
 	}
-	return &proxy.BackendSimpleResponse{
+	return &BackendSimpleResponse{
 		BodyReader: io.NopCloser(bytes.NewBuffer(cw.data)),
 	}
 }
@@ -85,7 +124,7 @@ func (cw *CachedResponse) IsCacheHit() bool {
 	return true
 }
 
-func (cw *CachedResponse) HandleCacheMiss(func() proxy.BackendResponse) {
+func (cw *CachedResponse) HandleCacheMiss(func() BackendResponse) {
 	// NO-OP
 }
 
@@ -105,7 +144,7 @@ type ThroughCacheResponse struct {
 	error     error
 	req       *http.Request
 	cache     cache.Cache
-	boundResp proxy.BackendResponse
+	boundResp BackendResponse
 	opts      []func(*cache.CacheEntryOptions)
 }
 
@@ -206,11 +245,11 @@ func (ncw *ThroughCacheResponse) WriteResponse(w http.ResponseWriter) {
 	}
 }
 
-func (ncw *ThroughCacheResponse) Response() proxy.BackendResponse {
+func (ncw *ThroughCacheResponse) Response() BackendResponse {
 	if ncw.boundResp != nil {
 		return ncw.boundResp
 	}
-	return &proxy.BackendZeroResponse{}
+	return &BackendZeroResponse{}
 }
 
 // Error returns any error that occurred
@@ -231,7 +270,7 @@ func (ncw *ThroughCacheResponse) IsCacheHit() bool {
 	return false
 }
 
-func (ncw *ThroughCacheResponse) HandleCacheMiss(fn func() proxy.BackendResponse) {
+func (ncw *ThroughCacheResponse) HandleCacheMiss(fn func() BackendResponse) {
 	ncw.boundResp = fn()
 }
 
@@ -240,5 +279,87 @@ func NewThroughCacheResponse(req *http.Request, cache cache.Cache, err error) *T
 		req:   req,
 		cache: cache,
 		error: err,
+	}
+}
+
+// -------
+
+// DirectResponse handles response delivery by bypassing cache entirely,
+// writing response data directly to client without caching.
+type DirectResponse struct {
+	error     error
+	boundResp BackendResponse
+}
+
+func (ncw *DirectResponse) String() string {
+	isDataStream := ncw.boundResp != nil && ncw.boundResp.IsDataStream()
+	return fmt.Sprintf(
+		"DirectResponse{err: %s, bound: %t, isDataStream: %t}",
+		ncw.error, ncw.boundResp != nil, isDataStream,
+	)
+}
+
+func (ncw *DirectResponse) ExportResponse() ([]byte, error) {
+	data, err := io.ReadAll(ncw.boundResp.GetBodyReader())
+	if err != nil {
+		return nil, fmt.Errorf("failed to export response from DirectResponse: %w", err)
+	}
+	return data, nil
+}
+
+// DirectResponse
+func (ncw *DirectResponse) WriteResponse(w http.ResponseWriter) {
+	data, err := io.ReadAll(ncw.boundResp.GetBodyReader())
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	jsonAns, err := json.Marshal(data)
+	if err != nil {
+		uniresp.WriteJSONErrorResponse(
+			w, uniresp.NewActionErrorFrom(err), http.StatusInternalServerError)
+		return
+	}
+	uniresp.WriteRawJSONResponse(w, jsonAns)
+}
+
+func (ncw *DirectResponse) Response() BackendResponse {
+	if ncw.boundResp != nil {
+		return ncw.boundResp
+	}
+	return &BackendZeroResponse{}
+}
+
+// Error returns any error that occurred
+// while retrieving the cache value.
+// This excludes CacheMiss errors but includes
+// errors from the bound response (if present).
+func (ncw *DirectResponse) Error() error {
+	if ncw.error != nil {
+		return ncw.error
+	}
+	if ncw.boundResp != nil && ncw.boundResp.Error() != nil {
+		return ncw.boundResp.Error()
+	}
+	return nil
+}
+
+func (ncw *DirectResponse) IsCacheHit() bool {
+	return false
+}
+
+func (ncw *DirectResponse) HandleCacheMiss(fn func() BackendResponse) {
+	ncw.boundResp = fn()
+}
+
+func NewDirectResponse(resp BackendResponse, err error) *DirectResponse {
+	if err != nil {
+		return &DirectResponse{
+			error: err,
+		}
+	}
+	return &DirectResponse{
+		boundResp: resp,
 	}
 }

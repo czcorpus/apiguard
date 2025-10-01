@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard-common/cache"
+	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/proxy"
 
 	"github.com/go-redis/redis/v8"

@@ -18,7 +18,6 @@
 package main
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -145,26 +144,6 @@ func main() {
 			Msg("Starting CNC APIGuard")
 
 		server.RunService(conf)
-	case "status":
-		conf := findAndLoadConfig(determineConfigPath(2), cmdOpts)
-		ctx := context.TODO()
-		tDBWriter := server.CreateTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-		globalCtx, err := server.CreateGlobalCtx(ctx, conf, tDBWriter)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
-			os.Exit(1)
-		}
-		runStatus(globalCtx, conf, flag.Arg(1))
-	case "learn":
-		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
-		ctx := context.TODO()
-		tDBWriter := server.CreateTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-		globalCtx, err := server.CreateGlobalCtx(ctx, conf, tDBWriter)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
-			os.Exit(1)
-		}
-		runLearn(globalCtx, conf)
 	case "generate-token":
 		id := uuid.New()
 		bytes := make([]byte, 16)

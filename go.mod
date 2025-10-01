@@ -5,7 +5,6 @@ go 1.23.4
 require (
 	github.com/bytedance/sonic v1.12.9
 	github.com/czcorpus/apiguard-common v0.0.3-0.20250925143339-a4de9d4cfa5e
-	github.com/czcorpus/apiguard-ext v0.16.0
 	github.com/czcorpus/cnc-gokit v0.17.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/mquery-common v0.5.4
@@ -21,8 +20,6 @@ require (
 	golang.org/x/sync v0.14.0
 	golang.org/x/time v0.7.0
 )
-
-replace github.com/czcorpus/apiguard-ext => ../apiguard-ext
 
 require (
 	github.com/BurntSushi/toml v1.4.0 // indirect

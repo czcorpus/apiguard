@@ -15,21 +15,45 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"path"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/czcorpus/apiguard/config"
 
+	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"
 	"github.com/rs/zerolog/log"
 )
 
-func findAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configuration {
+type CmdOptions struct {
+	Host              string
+	Port              int
+	ReadTimeoutSecs   int
+	WriteTimeoutSecs  int
+	LogPath           string
+	LogLevel          string
+	MaxAgeDays        int
+	BanDurationStr    string
+	IgnoreStoredState bool
+	StreamingMode     bool
+}
+
+func (opts CmdOptions) BanDuration() (time.Duration, error) {
+	// we test for '0' as the parser below does not like
+	// numbers without suffix ('d', 'h', 's', ...)
+	if opts.BanDurationStr == "" || opts.BanDurationStr == "0" {
+		return 0, nil
+	}
+	return datetime.ParseDuration(opts.BanDurationStr)
+}
+
+func FindAndLoadConfig(explicitPath string, cmdOpts *CmdOptions) *config.Configuration {
 	var conf *config.Configuration
 	if explicitPath != "" {
 		conf = config.LoadConfig(explicitPath)

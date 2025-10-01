@@ -28,7 +28,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/czcorpus/apiguard-common/proxy"
 
@@ -38,7 +37,6 @@ import (
 	"github.com/czcorpus/apiguard/guard/token"
 	"github.com/czcorpus/apiguard/services"
 
-	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 )
@@ -54,28 +52,6 @@ var (
 		GitCommit: gitCommit,
 	}
 )
-
-type CmdOptions struct {
-	Host              string
-	Port              int
-	ReadTimeoutSecs   int
-	WriteTimeoutSecs  int
-	LogPath           string
-	LogLevel          string
-	MaxAgeDays        int
-	BanDurationStr    string
-	IgnoreStoredState bool
-	StreamingMode     bool
-}
-
-func (opts CmdOptions) BanDuration() (time.Duration, error) {
-	// we test for '0' as the parser below does not like
-	// numbers without suffix ('d', 'h', 's', ...)
-	if opts.BanDurationStr == "" || opts.BanDurationStr == "0" {
-		return 0, nil
-	}
-	return datetime.ParseDuration(opts.BanDurationStr)
-}
 
 func init() {
 	if defaultConfigPath == "" {
@@ -99,7 +75,7 @@ func determineConfigPath(argPos int) string {
 
 func main() {
 
-	cmdOpts := new(CmdOptions)
+	cmdOpts := new(server.CmdOptions)
 	flag.StringVar(&cmdOpts.Host, "host", "", "Host to listen on")
 	flag.IntVar(&cmdOpts.Port, "port", 0, "Port to listen on")
 	flag.BoolVar(&cmdOpts.StreamingMode, "streaming-mode", false, "If used, APIGuard will run in the streaming mode no matter what is defined in its config JSON")
@@ -136,7 +112,7 @@ func main() {
 			versionInfo.Version, versionInfo.BuildDate, versionInfo.GitCommit)
 		return
 	case "start":
-		conf := findAndLoadConfig(determineConfigPath(1), cmdOpts)
+		conf := server.FindAndLoadConfig(determineConfigPath(1), cmdOpts)
 		log.Info().
 			Str("version", versionInfo.Version).
 			Str("buildDate", versionInfo.BuildDate).

@@ -15,10 +15,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package server
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"net"
 	"net/http"
@@ -29,16 +30,23 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/czcorpus/apiguard-common/cache"
 	"github.com/czcorpus/apiguard-common/common"
 	"github.com/czcorpus/apiguard-common/globctx"
 	"github.com/czcorpus/apiguard-common/reporting"
+	"github.com/czcorpus/apiguard/cnc"
 	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/monitoring"
 	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/services/tstorage"
+	"github.com/czcorpus/apiguard/proxy/cache/file"
+	"github.com/czcorpus/apiguard/proxy/cache/null"
+	"github.com/czcorpus/apiguard/proxy/cache/redis"
 	"github.com/czcorpus/apiguard/srvfactory"
+	"github.com/czcorpus/apiguard/tstorage"
 	"github.com/czcorpus/apiguard/wagstream"
+	"github.com/czcorpus/hltscl"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -238,14 +246,110 @@ func initWagStreamingEngine(
 	return engine
 }
 
-func runService(conf *config.Configuration) {
+func createPGPool(conf hltscl.PgConf) *pgxpool.Pool {
+	conn, err := hltscl.CreatePool(conf)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
+	return conn
+}
+
+func CreateTDBWriter(
+	ctx context.Context, conf *reporting.Conf, loc *time.Location) (ans reporting.ReportingWriter) {
+	if conf != nil {
+		pgPool := createPGPool(conf.DB)
+		ans = reporting.NewReportingWriter(pgPool, loc, ctx)
+
+	} else {
+		ans = &reporting.NullWriter{}
+	}
+	return
+}
+
+func openCNCDatabase(conf *cnc.Conf) *sql.DB {
+	if conf == nil {
+		log.Info().Msgf("No CNC database configured")
+		return nil
+	}
+	cncDB, err := cnc.OpenDB(conf)
+	if err != nil {
+		log.Fatal().Err(err).Send()
+	}
+	log.Info().
+		Str("host", conf.Host).
+		Str("name", conf.Name).
+		Str("user", conf.User).
+		Msg("Connected to CNC's SQL database")
+	return cncDB
+}
+
+func CreateGlobalCtx(
+	ctx context.Context,
+	conf *config.Configuration,
+	tDBWriter reporting.ReportingWriter,
+) (*globctx.Context, error) {
+	ans := globctx.NewGlobalContext(ctx)
+
+	tDBWriter.AddTableWriter(reporting.AlarmMonitoringTable)
+	tDBWriter.AddTableWriter(reporting.BackendMonitoringTable)
+	tDBWriter.AddTableWriter(reporting.ProxyMonitoringTable)
+	tDBWriter.AddTableWriter(reporting.TelemetryMonitoringTable)
+
+	cncdb := openCNCDatabase(conf.CNCDB)
+
+	var cacheBackend cache.Cache
+	if conf.Cache.FileRootPath != "" {
+		cacheBackend = file.New(conf.Cache)
+		log.Info().Msgf("using file response cache (path: %s)", conf.Cache.FileRootPath)
+		log.Warn().Msg("caching respects the Cache-Control header")
+
+	} else if conf.Cache.RedisAddr != "" {
+		cacheBackend = redis.New(ctx, conf.Cache)
+		log.Info().Msgf("using redis response cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
+		log.Warn().Msg("caching respects the Cache-Control header")
+
+	} else {
+		cacheBackend = null.New()
+		log.Warn().Msg("using NULL cache (neither fs path nor Redis props are specified)")
+	}
+
+	ans.TimezoneLocation = conf.TimezoneLocation()
+	ans.ReportingWriter = tDBWriter
+	ans.BackendLoggers = make(map[string]*globctx.BackendLogger)
+	for i, backendConf := range conf.Services {
+		var err error
+		serviceKey := fmt.Sprintf("%d/%s", i, backendConf.Type)
+		ans.BackendLoggers[serviceKey], err = globctx.NewBackendLogger(
+			tDBWriter,
+			backendConf.LogPath,
+			fmt.Sprintf("/service/%s", serviceKey),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create global ctx: %w", err)
+		}
+	}
+	var err error
+	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "", "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create global ctx: %w", err)
+	}
+	ans.CNCDB = cncdb
+	ans.Cache = cacheBackend
+	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
+
+	// delay stats writer and telemetry analyzer
+	ans.TelemetryDB = tstorage.Open(ans.CNCDB, ans.TimezoneLocation)
+	return ans, nil
+}
+
+func RunService(conf *config.Configuration) {
 	syscallChan := make(chan os.Signal, 1)
 	signal.Notify(syscallChan, syscall.SIGHUP)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	tDBWriter := createTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-	globalCtx, err := createGlobalCtx(ctx, conf, tDBWriter)
+	tDBWriter := CreateTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
+	globalCtx, err := CreateGlobalCtx(ctx, conf, tDBWriter)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
 		os.Exit(1)

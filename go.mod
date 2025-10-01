@@ -15,6 +15,7 @@ require (
 	github.com/go-sql-driver/mysql v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jackc/pgx/v5 v5.5.5
+	github.com/rogpeppe/go-internal v1.13.1
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/sync v0.14.0

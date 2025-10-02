@@ -25,8 +25,8 @@ import (
 	"path"
 	"time"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 )

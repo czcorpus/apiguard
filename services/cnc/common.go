@@ -23,11 +23,10 @@ import (
 	"path"
 	"time"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/common"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
-	proxyImpl "github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
 	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/services/backend"
 
@@ -128,7 +127,7 @@ func (kp *Proxy) AuthorizeRequestOrRespondErr(ctx *gin.Context) (guard.ReqEvalua
 		Msg("evaluated user * request")
 	if reqProps.Error != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request")
-		proxyImpl.WriteError(
+		proxy.WriteError(
 			ctx,
 			fmt.Errorf("failed to proxy request: %s", reqProps.Error),
 			reqProps.ProposedResponse,

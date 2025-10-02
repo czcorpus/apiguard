@@ -26,7 +26,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/czcorpus/apiguard/cache"
+	"github.com/czcorpus/apiguard/proxy/cache"
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/rs/zerolog/log"
 )
@@ -37,7 +37,7 @@ import (
 // either return data or perform actual backend request. The advantage of ResponseProcessor
 // is in the fact, that the logic of deciding is hidden and interface consumer - in a typical
 // situation - calls just three methods without any branching:
-// resp := myProxy.FromCache(req, opts)
+// resp := myFromCache(req, opts)
 // resp.HandleCacheMiss(func() { ... actual backend request; return response })
 // resp.WriteResponse()
 //

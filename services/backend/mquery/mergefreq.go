@@ -27,11 +27,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/common"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/interop"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
 	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/bytedance/sonic"

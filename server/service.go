@@ -30,7 +30,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/cnc"
 	"github.com/czcorpus/apiguard/common"
 	"github.com/czcorpus/apiguard/config"
@@ -38,6 +37,7 @@ import (
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/monitoring"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
 	"github.com/czcorpus/apiguard/proxy/cache/file"
 	"github.com/czcorpus/apiguard/proxy/cache/null"
 	"github.com/czcorpus/apiguard/proxy/cache/redis"

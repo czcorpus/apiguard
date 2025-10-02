@@ -20,8 +20,8 @@ package null
 import (
 	"net/http"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
 )
 
 type NullCache struct{}

@@ -25,16 +25,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/common"
 	"github.com/czcorpus/apiguard/globctx"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/proxy"
+	"github.com/czcorpus/apiguard/proxy/cache"
 	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/session"
-
-	guardImpl "github.com/czcorpus/apiguard/guard"
-	proxyImpl "github.com/czcorpus/apiguard/proxy"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
@@ -47,30 +44,30 @@ type Proxy struct {
 	conf         *ProxyConf
 	rConf        *EnvironConf
 	guard        guard.ServiceGuard
-	apiProxy     *proxyImpl.CoreProxy
+	apiProxy     *proxy.CoreProxy
 	tDBWriter    reporting.ReportingWriter
 	frontendHost string
 
 	// reqCounter can be used to send info about number of request
 	// to an alarm service. Please note that this value can be nil
 	// (in such case, nothing is sent)
-	reqCounter chan<- guardImpl.RequestInfo
+	reqCounter chan<- guard.RequestInfo
 
 	sessionValFactory func() session.HTTPSession
 
-	userFinder guardImpl.UserFinder
+	userFinder guard.UserFinder
 }
 
 func (kp *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
 	data, err := kp.globalCtx.Cache.Get(req, opts...)
-	if err == proxyImpl.ErrCacheMiss {
-		return proxyImpl.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
+	if err == proxy.ErrCacheMiss {
+		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
 
 	} else if err != nil {
-		return proxyImpl.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, err)
+		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, err)
 	}
 
-	return proxyImpl.NewCachedResponse(data.Status, data.Headers, data.Data)
+	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
 }
 
 func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
@@ -117,7 +114,7 @@ func (kp *Proxy) Conf() *ProxyConf {
 
 func (kp *Proxy) CountRequest(ctx *gin.Context, created time.Time, serviceKey string, userID common.UserID) {
 	if kp.reqCounter != nil {
-		kp.reqCounter <- guardImpl.RequestInfo{
+		kp.reqCounter <- guard.RequestInfo{
 			Created:     created,
 			Service:     serviceKey,
 			NumRequests: 1,
@@ -133,7 +130,7 @@ func (kp *Proxy) ProxyRequest(
 	method string,
 	headers http.Header,
 	rbody io.Reader,
-) *proxyImpl.BackendProxiedResponse {
+) *proxy.BackendProxiedResponse {
 	return kp.apiProxy.Request(
 		path,
 		args,
@@ -252,7 +249,7 @@ func (kp *Proxy) AnyPath(ctx *gin.Context) {
 	if serviceResp.Error() != nil {
 		log.Error().Err(serviceResp.Error()).Msgf("failed to proxy request %s", ctx.Request.URL.Path)
 
-		proxyImpl.WriteError(
+		proxy.WriteError(
 			ctx,
 			fmt.Errorf("failed to proxy request: %s", serviceResp.Error()),
 			http.StatusInternalServerError,
@@ -290,9 +287,9 @@ func NewProxy(
 	conf *ProxyConf,
 	gConf *EnvironConf,
 	grd guard.ServiceGuard,
-	reqCounter chan<- guardImpl.RequestInfo,
+	reqCounter chan<- guard.RequestInfo,
 ) (*Proxy, error) {
-	proxy, err := proxyImpl.NewCoreProxy(conf.GetCoreConf())
+	proxy, err := proxy.NewCoreProxy(conf.GetCoreConf())
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CoreProxy: %w", err)
 	}
@@ -314,7 +311,7 @@ func NewProxy(
 		apiProxy:          proxy,
 		reqCounter:        reqCounter,
 		tDBWriter:         globalCtx.ReportingWriter,
-		sessionValFactory: guardImpl.CreateSessionValFactory(conf.SessionValType),
-		userFinder:        guardImpl.NewUserFinder(globalCtx),
+		sessionValFactory: guard.CreateSessionValFactory(conf.SessionValType),
+		userFinder:        guard.NewUserFinder(globalCtx),
 	}, nil
 }

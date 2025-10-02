@@ -22,8 +22,8 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/czcorpus/apiguard/cache"
 	"github.com/czcorpus/apiguard/common"
+	"github.com/czcorpus/apiguard/proxy/cache"
 	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/telemetry"
 )

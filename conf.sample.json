@@ -1,0 +1,109 @@
+{
+    "serverHost": "localhost",
+    "serverPort": 8080,
+    "publicRoutesUrl": "http://localhost:3010",
+    "botwatch": {
+        "botDefsPath": "",
+        "watchedTimeWindowSecs": 30,
+        "numRequestsThreshold": 10,
+        "rsdThreshold": 0.2
+    },
+    "telemetry": {
+        "analyzer": "dumb",
+        "dataDelaySecs": 10,
+        "maxAgeSecsRelevant": 3600
+    },
+    "services": [
+        {
+            "type": "languageGuide",
+            "conf": {
+                "baseURL": "https://prirucka.ujc.cas.cz",
+                "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+            }
+        },
+        {
+            "type": "assc",
+            "conf": {
+                "baseURL": "https://slovnikcestiny.cz",
+                "clientUserAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.41 Safari/537.36"
+            }
+        },
+        {
+            "type": "kontext",
+            "conf": {
+                "backendUrl": "http://localhost:8080",
+                "frontendUrl": "http://localhost:3010/service/kontext",
+                "limits": [
+                    {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+                ],
+                "alarm": {
+                    "recipients": ["tomas.machalek@gmail.com"]
+                },
+                "sessionValType": "none"
+            }
+        },
+        {
+            "type": "treq",
+            "conf": {
+                "backendUrl": "http://localhost:8081",
+                "frontendUrl": "http://localhost:3010/service/treq",
+                "limits": [
+                    {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+                ],
+                "alarm": {
+                    "recipients": ["tomas.machalek@gmail.com"]
+                },
+                "sessionValType": "none"
+            }
+        },
+        {
+            "type": "kwords",
+            "conf": {
+                "backendUrl": "http://localhost:8082",
+                "frontendUrl": "http://localhost:3010/service/kwords",
+                "limits": [
+                    {"reqPerTimeThreshold": 2, "reqCheckingIntervalSecs": 10}
+                ],
+                "alarm": {
+                    "recipients": ["tomas.machalek@gmail.com"]
+                },
+                "sessionValType": "none"
+            }
+        }
+    ],
+    "cache": {
+        "fileRootPath": "",
+        "ttlSecs": 3600
+    },
+    "reporting": {
+        "db": {
+            "user": "postgres",
+            "passwd": "password",
+            "host": "localhost",
+            "port": 5432,
+            "dbName": "postgres"
+        }
+    },
+    "cncDb": {
+        "name": "cnc_database_name",
+        "host": "10.0.3.130",
+        "user": "db_user_with_limited_rights (see cncdb/conf.go)",
+        "password": "******"
+    },
+    "mail": {
+        "sender": "apiguard@korpus.cz",
+        "smtpServer": "smtp.korpus.cz:587",
+        "smtpUsername": "some_user",
+        "smtpPassword": "********"
+    },
+    "cncAuth": {
+        "sessionCookieName": "cnc_toolbar_sid"
+    },
+    "monitoring": {
+        "delayLogCleanupMaxAgeDays": 100,
+        "statusDataDir": "/var/opt/apiguard/status",
+        "userReqCounterBufferSize": 1000,
+        "exceedingsBufferSize": 10,
+        "exceedingThreshold": 0.06
+    }
+}

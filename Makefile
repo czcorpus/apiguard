@@ -1,0 +1,25 @@
+VERSION=`git describe --tags --always`
+BUILD=`date +%FT%T%z`
+HASH=`git rev-parse --short HEAD`
+
+
+LDFLAGS=-ldflags "-w -s -X main.version=${VERSION} -X main.buildDate=${BUILD} -X main.gitCommit=${HASH} -X main.defaultConfigPath=${DEFAULT_CONFIG_PATH}"
+
+all: test build
+
+build:
+	go build -o apiguard ${LDFLAGS}
+
+install:
+	go install -o apiguard ${LDFLAGS}
+
+clean:
+	rm klogproc
+
+test:
+	go test ./...
+
+rtest:
+	go test -race ./...
+
+.PHONY: clean install test

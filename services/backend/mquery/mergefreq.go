@@ -110,7 +110,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 
 	rt0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
-	var tileID int
+	var tileID, queryIdx int
 
 	if mp.EnvironConf().IsStreamingMode {
 		_, err = fmt.Fprint(ctx.Writer, "{}\n\n")
@@ -119,6 +119,15 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		}
 		var err error
 		tileID, err = interop.TileIdFromReq(ctx.Request)
+		if err != nil {
+			http.Error(
+				ctx.Writer,
+				err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
+		}
+		queryIdx, err = interop.QueryIdxFromReq(ctx.Request)
 		if err != nil {
 			http.Error(
 				ctx.Writer,
@@ -157,10 +166,6 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 			Parts: make([]*partialFreqResponse, 0, len(args.URLs)),
 		}
 		toCache := new(bytes.Buffer)
-		sseEvent := ""
-		if mp.EnvironConf().IsStreamingMode {
-			sseEvent = fmt.Sprintf(" DataTile-%d.%d", tileID, 0)
-		}
 
 		for _, u := range args.URLs {
 			req := *ctx.Request
@@ -170,6 +175,12 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 				http.Error(ctx.Writer, "Invalid URL", http.StatusBadRequest)
 				return
 			}
+
+			sseEvent := ""
+			if mp.EnvironConf().IsStreamingMode {
+				sseEvent = fmt.Sprintf(" DataTile-%d.%d", tileID, queryIdx)
+			}
+
 			req.URL = parsedURL
 			req.Method = "GET"
 			resp := mp.HandleRequest(&req, reqProps, false)

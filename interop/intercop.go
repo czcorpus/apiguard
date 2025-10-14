@@ -28,7 +28,8 @@ import (
 // this package contains code for Proxy - Wag-stream interoperability
 
 const (
-	TileIdHeader = "x-tile-id"
+	TileIdHeader   = "x-tile-id"
+	QueryIdxHeader = "x-query-idx"
 )
 
 var (
@@ -45,5 +46,16 @@ func TileIdFromReq(req *http.Request) (int, error) {
 		return -1, fmt.Errorf("invalid tile id in HTTP header: %w", err)
 	}
 	return ans, nil
+}
 
+func QueryIdxFromReq(req *http.Request) (int, error) {
+	v := req.Header.Get(QueryIdxHeader)
+	if v == "" {
+		return 0, nil
+	}
+	ans, err := strconv.Atoi(v)
+	if err != nil {
+		return -1, fmt.Errorf("invalid query idx in HTTP header: %w", err)
+	}
+	return ans, nil
 }

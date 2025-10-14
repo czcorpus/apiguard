@@ -166,6 +166,10 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 			Parts: make([]*partialFreqResponse, 0, len(args.URLs)),
 		}
 		toCache := new(bytes.Buffer)
+		sseEvent := ""
+		if mp.EnvironConf().IsStreamingMode {
+			sseEvent = fmt.Sprintf(" DataTile-%d.%d", tileID, queryIdx)
+		}
 
 		for _, u := range args.URLs {
 			req := *ctx.Request
@@ -175,12 +179,6 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 				http.Error(ctx.Writer, "Invalid URL", http.StatusBadRequest)
 				return
 			}
-
-			sseEvent := ""
-			if mp.EnvironConf().IsStreamingMode {
-				sseEvent = fmt.Sprintf(" DataTile-%d.%d", tileID, queryIdx)
-			}
-
 			req.URL = parsedURL
 			req.Method = "GET"
 			resp := mp.HandleRequest(&req, reqProps, false)

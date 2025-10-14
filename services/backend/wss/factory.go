@@ -57,7 +57,7 @@ func create(args services.InitArgs) error {
 	var wssReqCounter chan<- guard.RequestInfo
 	if len(typedConf.Limits) > 0 {
 		wssReqCounter = args.Alarm.Register(
-			fmt.Sprintf("%d/mquery", args.SID),
+			fmt.Sprintf("%d/wss", args.SID),
 			typedConf.Alarm,
 			typedConf.Limits,
 		)

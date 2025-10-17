@@ -335,8 +335,12 @@ func CreateGlobalCtx(
 	}
 	ans.CNCDB = cncdb
 	ans.Cache = cacheBackend
-	ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
-
+	if conf.CNCDB == nil {
+		ans.AnonymousUserIDs = common.AnonymousUsers{}
+	} else {
+		ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
+	}
+	
 	// delay stats writer and telemetry analyzer
 	ans.TelemetryDB = tstorage.Open(ans.CNCDB, ans.TimezoneLocation)
 	return ans, nil

@@ -94,6 +94,7 @@ func (uf *SQLUserFinder) GetAllowlistUsers(service string) ([]common.UserID, err
 	if err != nil {
 		return []common.UserID{}, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var userID common.UserID
 		err := rows.Scan(&userID)

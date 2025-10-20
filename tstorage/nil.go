@@ -34,7 +34,12 @@ func (storage *NilStorage) LoadClientTelemetry(sessionID, clientIP string, maxAg
 }
 
 func (storage *NilStorage) LoadStats(clientIP, sessionID string, maxAgeSecs int, insertIfNone bool) (*telemetry.IPProcData, error) {
-	return nil, nil
+	return &telemetry.IPProcData{
+		SessionID:   sessionID,
+		ClientIP:    clientIP,
+		FirstAccess: time.Now(),
+		LastAccess:  time.Now(),
+	}, nil
 }
 
 func (storage *NilStorage) LoadIPStats(clientIP string, maxAgeSecs int) (*telemetry.IPAggData, error) {

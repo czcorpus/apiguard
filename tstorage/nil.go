@@ -43,7 +43,11 @@ func (storage *NilStorage) LoadStats(clientIP, sessionID string, maxAgeSecs int,
 }
 
 func (storage *NilStorage) LoadIPStats(clientIP string, maxAgeSecs int) (*telemetry.IPAggData, error) {
-	return nil, nil
+	return &telemetry.IPAggData{
+		ClientIP: clientIP,
+		Count:    1,
+		Mean:     1,
+	}, nil
 }
 
 func (storage *NilStorage) TestIPBan(IP net.IP) (bool, error) {
@@ -83,7 +87,7 @@ func (storage *NilStorage) InsertTelemetry(transact *sql.Tx, data telemetry.Payl
 }
 
 func (storage *NilStorage) AnalyzeDelayLog(binWidth float64, otherLimit float64) (*telemetry.DelayLogsHistogram, error) {
-	return nil, nil
+	return &telemetry.DelayLogsHistogram{}, nil
 }
 
 func (storage *NilStorage) AnalyzeBans(timeAgo time.Duration) ([]telemetry.BanRow, error) {

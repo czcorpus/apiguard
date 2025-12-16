@@ -20,12 +20,24 @@ package cache
 import "net/http"
 
 type CacheEntryOptions struct {
-	RespectCookies []string
-	RequestBody    []byte
-	CacheablePOST  bool
+	RespectCookies      []string
+	RequestBody         []byte
+	CacheablePOST       bool
+	RespectCacheControl bool
 
 	// tag may serve for debugging/reviewing cached entries
 	Tag string
+}
+
+func CachingWithNoOp() func(*CacheEntryOptions) {
+	return func(opts *CacheEntryOptions) {
+	}
+}
+
+func CachingWithCacheControl(cacheControl bool) func(*CacheEntryOptions) {
+	return func(opts *CacheEntryOptions) {
+		opts.RespectCacheControl = cacheControl
+	}
 }
 
 func CachingWithCookies(cookies []string) func(*CacheEntryOptions) {

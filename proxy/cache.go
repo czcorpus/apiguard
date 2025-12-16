@@ -70,7 +70,7 @@ func GenerateCacheId(req *http.Request, opts *cache.CacheEntryOptions) []byte {
 // caching conditions for reading.
 func ShouldReadFromCache(req *http.Request, opts *cache.CacheEntryOptions) bool {
 	return (req.Method == http.MethodGet || opts.CacheablePOST) &&
-		req.Header.Get("Cache-Control") != "no-cache"
+		(req.Header.Get("Cache-Control") != "no-cache" || !opts.RespectCacheControl)
 }
 
 // ShouldWriteToCache tests if the provided user request and response properties
@@ -78,7 +78,7 @@ func ShouldReadFromCache(req *http.Request, opts *cache.CacheEntryOptions) bool 
 func ShouldWriteToCache(req *http.Request, value cache.CacheEntry, opts *cache.CacheEntryOptions) bool {
 	ans := (value.Status == http.StatusOK || value.Status == http.StatusCreated) &&
 		(req.Method == http.MethodGet || opts.CacheablePOST) &&
-		req.Header.Get("Cache-Control") != "no-cache"
+		(req.Header.Get("Cache-Control") != "no-cache" || !opts.RespectCacheControl)
 	log.Debug().
 		Str("url", req.URL.String()).
 		Bool("cacheable", ans).

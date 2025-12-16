@@ -156,6 +156,7 @@ func (kp *Proxy) HandleRequest(
 		respHandler = kp.FromCache(
 			req,
 			cache.CachingWithCookies(cacheApplCookies),
+			cache.CachingWithCacheControl(!kp.rConf.IsStreamingMode),
 		)
 
 	} else {
@@ -191,6 +192,7 @@ func (kp *Proxy) MakeStreamRequest(
 	resp := kp.FromCache(
 		req,
 		cache.CachingWithCookies(cacheApplCookies),
+		cache.CachingWithCacheControl(!kp.rConf.IsStreamingMode),
 	)
 	resp.HandleCacheMiss(func() proxy.BackendResponse {
 		return kp.apiProxy.Request(
@@ -233,6 +235,7 @@ func (kp *Proxy) MakeCacheablePOSTRequest(
 		cache.CachingWithCookies(cacheApplCookies),
 		cache.CachingWithReqBody(reqBody),
 		cache.CachingWithCacheablePOST(),
+		cache.CachingWithCacheControl(!kp.rConf.IsStreamingMode),
 	)
 	resp.HandleCacheMiss(func() proxy.BackendResponse {
 		backendResp := kp.apiProxy.Request(

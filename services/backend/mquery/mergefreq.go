@@ -153,6 +153,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 	cachingOpts := []func(*cache.CacheEntryOptions){
 		cache.CachingWithCookies(cacheApplCookies),
 		cache.CachingWithCacheablePOST(),
+		cache.CachingWithCacheControl(!mp.EnvironConf().IsStreamingMode),
 	}
 	respProc := mp.FromCache(ctx.Request, cachingOpts...)
 

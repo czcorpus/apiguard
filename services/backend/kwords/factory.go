@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard"
 	"github.com/czcorpus/apiguard/guard/dflt"
 	"github.com/czcorpus/apiguard/proxy"
@@ -90,6 +91,7 @@ func create(args services.InitArgs) error {
 			AuthCookieName:   args.GlobalConf.CNCAuth.SessionCookieName,
 			UserIDHeaderName: typedConf.TrueUserIDHeader,
 			ReadTimeoutSecs:  args.GlobalConf.ServerReadTimeoutSecs,
+			IsStreamingMode:  args.GlobalConf.OperationMode == config.OperationModeStreaming,
 		},
 	)
 	args.APIRoutes.Any(

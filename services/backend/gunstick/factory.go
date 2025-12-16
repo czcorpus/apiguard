@@ -23,6 +23,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard/dflt"
 	"github.com/czcorpus/apiguard/proxy"
 	"github.com/czcorpus/apiguard/proxy/public"
@@ -81,6 +82,7 @@ func create(args services.InitArgs) error {
 			BackendURL:      backendURL,
 			FrontendURL:     frontendURL,
 			ReadTimeoutSecs: args.GlobalConf.ServerReadTimeoutSecs,
+			IsStreamingMode: args.GlobalConf.OperationMode == config.OperationModeStreaming,
 		},
 	)
 	args.APIRoutes.Any(

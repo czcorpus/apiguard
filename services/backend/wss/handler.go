@@ -139,6 +139,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	cachingOpts := []func(*cache.CacheEntryOptions){
 		cache.CachingWithCookies(cacheApplCookies),
 		cache.CachingWithCacheablePOST(),
+		cache.CachingWithCacheControl(!wssProxy.EnvironConf().IsStreamingMode),
 	}
 	respProc := wssProxy.FromCache(ctx.Request, cachingOpts...)
 

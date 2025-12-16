@@ -65,6 +65,7 @@ type PublicAPIProxyOpts struct {
 	UserIDHeaderName    string
 	ReadTimeoutSecs     int
 	ResponseInterceptor func(*proxy.BackendProxiedResponse)
+	IsStreamingMode     bool
 }
 
 // Proxy is a service proxy which - in general - does not
@@ -88,6 +89,7 @@ type Proxy struct {
 	responseInterceptor func(resp *proxy.BackendProxiedResponse)
 	monitoring          reporting.ReportingWriter
 	userFinder          guard.UserFinder
+	isStreamingMode     bool
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -228,7 +230,7 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
 
-	respHandler := prox.FromCache(ctx.Request)
+	respHandler := prox.FromCache(ctx.Request, cache.CachingWithCacheControl(!prox.isStreamingMode))
 	logging.AddCustomEntry(ctx, "isCached", respHandler.IsCacheHit())
 	respHandler.HandleCacheMiss(func() proxy.BackendResponse {
 		internalPath := strings.TrimPrefix(path, prox.servicePath)
@@ -333,6 +335,8 @@ func NewProxy(
 	} else {
 		p.userIDHeaderName = opts.UserIDHeaderName
 	}
+
+	p.isStreamingMode = opts.IsStreamingMode
 
 	return p
 }

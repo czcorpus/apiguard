@@ -82,7 +82,7 @@ func create(args services.InitArgs) error {
 			typedConf.Limits,
 		)
 	default:
-		return fmt.Errorf("MQuery proxy does not support guard type `%s`", typedConf.GuardType)
+		return fmt.Errorf("WSS proxy does not support guard type `%s`", typedConf.GuardType)
 	}
 
 	wssActions, err := NewWSServerProxy(

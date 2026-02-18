@@ -25,6 +25,7 @@ import (
 	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard"
 	iGuard "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/cncauth"
 	"github.com/czcorpus/apiguard/guard/dflt"
 	"github.com/czcorpus/apiguard/guard/token"
 	"github.com/czcorpus/apiguard/services"
@@ -82,6 +83,14 @@ func create(args services.InitArgs) error {
 		grd = dflt.New(
 			args.Ctx,
 			args.GlobalConf.CNCAuth.SessionCookieName,
+			typedConf.SessionValType,
+			typedConf.Limits,
+		)
+	case guard.GuardTypeCNCAuth:
+		grd = cncauth.New(
+			args.Ctx,
+			args.GlobalConf.CNCAuth.SessionCookieName,
+			typedConf.FrontendSessionCookieName,
 			typedConf.SessionValType,
 			typedConf.Limits,
 		)

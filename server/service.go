@@ -298,12 +298,13 @@ func CreateGlobalCtx(
 	cncdb := openCNCDatabase(conf.CNCDB)
 
 	var cacheBackend cache.Cache
-	if conf.Cache.FileRootPath != "" {
+
+	if conf.Cache != nil && conf.Cache.FileRootPath != "" {
 		cacheBackend = file.New(conf.Cache)
 		log.Info().Msgf("using file response cache (path: %s)", conf.Cache.FileRootPath)
 		log.Warn().Msg("caching respects the Cache-Control header")
 
-	} else if conf.Cache.RedisAddr != "" {
+	} else if conf.Cache != nil && conf.Cache.RedisAddr != "" {
 		cacheBackend = redis.New(ctx, conf.Cache)
 		log.Info().Msgf("using redis response cache (addr: %s, db: %d)", conf.Cache.RedisAddr, conf.Cache.RedisDB)
 		log.Warn().Msg("caching respects the Cache-Control header")
@@ -340,7 +341,7 @@ func CreateGlobalCtx(
 	} else {
 		ans.AnonymousUserIDs = conf.CNCDB.AnonymousUserIDs
 	}
-	
+
 	// delay stats writer and telemetry analyzer
 	ans.TelemetryDB = tstorage.Open(ans.CNCDB, ans.TimezoneLocation)
 	return ans, nil

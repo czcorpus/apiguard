@@ -198,6 +198,7 @@ func (analyzer *Guard) EvaluateRequest(req *http.Request, fallbackCookie *http.C
 		proxy.LogCookies(req, log.Debug()).
 			Str("backendCookie", analyzer.backendSessionCookie).
 			Str("frontendCookie", analyzer.frontendSessionCookie).
+			Type("sessionValType", analyzer.sessionValFactory()).
 			Msgf("failed to find authentication cookies")
 		requiresFallbackCookie = true
 		if fallbackCookie == nil { //note requiresFallbackCookie == true - it is because here there is no other way already

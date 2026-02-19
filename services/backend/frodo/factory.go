@@ -44,8 +44,9 @@ func create(args services.InitArgs) error {
 	if err := json.Unmarshal(args.RawConf, &typedConf); err != nil {
 		return fmt.Errorf("failed to initialize service %d (frodo): %w", args.SID, err)
 	}
-	// we don't want to bother admins with none session type, so we set it here
-	typedConf.SessionValType = session.SessionTypeNone
+	if typedConf.SessionValType == "" {
+		typedConf.SessionValType = session.SessionTypeNone
+	}
 	if err := typedConf.Validate("frodo"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (frodo): %w", args.SID, err)
 	}

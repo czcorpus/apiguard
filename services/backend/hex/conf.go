@@ -19,6 +19,7 @@ package hex
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -68,17 +69,33 @@ func Interceptor(pr *proxy.BackendProxiedResponse) {
 		}
 
 	} else {
-		defer pr.BodyReader.Close()
-		body, err := io.ReadAll(pr.BodyReader)
+		var bodyReader io.Reader = pr.BodyReader
+		if pr.Headers.Get("content-encoding") == "gzip" {
+			gzReader, err := gzip.NewReader(pr.BodyReader)
+			if err != nil {
+				log.Error().
+					Err(err).
+					Msg("failed to create gzip reader for Hex backend response")
+				return
+			}
+			defer gzReader.Close()
+			bodyReader = gzReader
+			pr.Headers.Del("content-encoding")
+		}
+		body, err := io.ReadAll(bodyReader)
 		if err != nil {
 			log.Error().
 				Err(err).
 				Msg("failed to read response body")
 			return
 		}
+		pr.BodyReader.Close()
 		srch := bytes.Index(body, []byte{'v', 'a', 'r', ' ', 'h', 'e', 'x'})
 		if srch > 0 {
 			pr.BodyReader = io.NopCloser(bytes.NewReader(body[srch-5:]))
+
+		} else {
+			pr.BodyReader = io.NopCloser(bytes.NewReader([]byte{}))
 		}
 	}
 }

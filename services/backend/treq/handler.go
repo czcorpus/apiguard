@@ -88,7 +88,6 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 }
 
 func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
-	fmt.Println("ANYPATH TREQ, req headers: ", ctx.Request.Header)
 	var cached, indirectAPICall bool
 	var clientID, humanID common.UserID
 	t0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)

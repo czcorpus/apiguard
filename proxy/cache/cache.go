@@ -24,9 +24,6 @@ type CacheEntryOptions struct {
 	RequestBody         []byte
 	CacheablePOST       bool
 	RespectCacheControl bool
-
-	// tag may serve for debugging/reviewing cached entries
-	Tag string
 }
 
 func CachingWithNoOp() func(*CacheEntryOptions) {
@@ -64,15 +61,6 @@ func CachingWithCacheablePOST() func(*CacheEntryOptions) {
 	}
 }
 
-// CachingWithTag sets a tag which may become part
-// of cache's record. Some backend may not support it,
-// in which case they should silently ignore the option.
-func CachingWithTag(tag string) func(*CacheEntryOptions) {
-	return func(opts *CacheEntryOptions) {
-		opts.Tag = tag
-	}
-}
-
 // ------------------------------
 
 type CacheEntry struct {
@@ -88,6 +76,6 @@ func (ce CacheEntry) IsZero() bool {
 // -----------------------------
 
 type Cache interface {
-	Get(req *http.Request, opts ...func(*CacheEntryOptions)) (CacheEntry, error)
-	Set(req *http.Request, value CacheEntry, opts ...func(*CacheEntryOptions)) error
+	Get(req *http.Request, tag string, opts ...func(*CacheEntryOptions)) (CacheEntry, error)
+	Set(req *http.Request, tag string, value CacheEntry, opts ...func(*CacheEntryOptions)) error
 }

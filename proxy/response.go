@@ -145,6 +145,7 @@ type ThroughCacheResponse struct {
 	req       *http.Request
 	cache     cache.Cache
 	boundResp BackendResponse
+	tag       string
 	opts      []func(*cache.CacheEntryOptions)
 }
 
@@ -201,6 +202,7 @@ func (ncw *ThroughCacheResponse) writeSSEResponse(w http.ResponseWriter) {
 	if isCacheableStatusCode(ncw.boundResp.GetStatusCode()) {
 		ncw.cache.Set(
 			ncw.req,
+			ncw.tag,
 			cache.CacheEntry{
 				Status:  http.StatusOK,
 				Data:    toCache.Bytes(),
@@ -232,12 +234,14 @@ func (ncw *ThroughCacheResponse) WriteResponse(w http.ResponseWriter) {
 		if isCacheableStatusCode(ncw.boundResp.GetStatusCode()) {
 			if err := ncw.cache.Set(
 				ncw.req,
+				ncw.tag,
 				cache.CacheEntry{
 					Status:  http.StatusOK,
 					Data:    data,
 					Headers: w.Header(),
 				},
-				ncw.opts...); err != nil {
+				ncw.opts...,
+			); err != nil {
 				log.Error().Err(err).Msg("failed to cache response")
 			}
 		}
@@ -274,9 +278,10 @@ func (ncw *ThroughCacheResponse) HandleCacheMiss(fn func() BackendResponse) {
 	ncw.boundResp = fn()
 }
 
-func NewThroughCacheResponse(req *http.Request, cache cache.Cache, err error) *ThroughCacheResponse {
+func NewThroughCacheResponse(req *http.Request, tag string, cache cache.Cache, err error) *ThroughCacheResponse {
 	return &ThroughCacheResponse{
 		req:   req,
+		tag:   tag,
 		cache: cache,
 		error: err,
 	}

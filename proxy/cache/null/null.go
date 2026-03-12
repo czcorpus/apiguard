@@ -26,11 +26,11 @@ import (
 
 type NullCache struct{}
 
-func (rc *NullCache) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
+func (rc *NullCache) Get(req *http.Request, tag string, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
 	return cache.CacheEntry{}, proxy.ErrCacheMiss
 }
 
-func (rc *NullCache) Set(req *http.Request, value cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
+func (rc *NullCache) Set(req *http.Request, tag string, value cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	return nil
 }
 

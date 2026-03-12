@@ -63,12 +63,12 @@ type Redis struct {
 	writeQueue  chan writeQueueItem // channel for queuing async write operations
 }
 
-func (rrc *Redis) createCacheID(req *http.Request, opts *cache.CacheEntryOptions) string {
+func (rrc *Redis) createCacheID(req *http.Request, tag string, opts *cache.CacheEntryOptions) string {
 	cacheID := proxy.GenerateCacheId(req, opts)
-	return fmt.Sprintf("apiguard:cache:%x", cacheID)
+	return fmt.Sprintf("apiguard:cache:%s:%x", tag, cacheID)
 }
 
-func (rrc *Redis) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
+func (rrc *Redis) Get(req *http.Request, tag string, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
 	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
@@ -76,7 +76,7 @@ func (rrc *Redis) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions))
 	if !proxy.ShouldReadFromCache(req, optsFin) {
 		return cache.CacheEntry{}, proxy.ErrCacheMiss
 	}
-	cacheID := rrc.createCacheID(req, optsFin)
+	cacheID := rrc.createCacheID(req, tag, optsFin)
 	val, err := rrc.redisClient.Get(rrc.ctx, cacheID).Result()
 	if err == redis.Nil {
 		return cache.CacheEntry{}, proxy.ErrCacheMiss
@@ -139,13 +139,13 @@ func (rrc *Redis) goRunWriter() {
 	}()
 }
 
-func (rrc *Redis) Set(req *http.Request, resp cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
+func (rrc *Redis) Set(req *http.Request, tag string, resp cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
 	if proxy.ShouldWriteToCache(req, resp, optsFin) {
-		cacheID := rrc.createCacheID(req, optsFin)
+		cacheID := rrc.createCacheID(req, tag, optsFin)
 		var buffer bytes.Buffer
 		encoder := gob.NewEncoder(&buffer)
 		err := encoder.Encode(&resp)

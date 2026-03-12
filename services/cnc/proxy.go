@@ -59,12 +59,12 @@ type Proxy struct {
 }
 
 func (kp *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
-	data, err := kp.globalCtx.Cache.Get(req, opts...)
+	data, err := kp.globalCtx.Cache.Get(req, kp.EnvironConf().ServiceKey, opts...)
 	if err == proxy.ErrCacheMiss {
-		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, nil)
+		return proxy.NewThroughCacheResponse(req, kp.rConf.ServiceKey, kp.GlobalCtx().Cache, nil)
 
 	} else if err != nil {
-		return proxy.NewThroughCacheResponse(req, kp.GlobalCtx().Cache, err)
+		return proxy.NewThroughCacheResponse(req, kp.rConf.ServiceKey, kp.GlobalCtx().Cache, err)
 	}
 
 	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
@@ -73,6 +73,7 @@ func (kp *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOpti
 func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	return kp.globalCtx.Cache.Set(
 		req,
+		kp.rConf.ServiceKey,
 		data,
 		opts...,
 	)

@@ -154,13 +154,13 @@ func (prox *Proxy) determineTrueUserID(
 }
 
 func (prox *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOptions)) proxy.ResponseProcessor {
-	data, err := prox.cache.Get(req, opts...)
+	data, err := prox.cache.Get(req, prox.serviceKey, opts...)
 
 	if err == proxy.ErrCacheMiss {
-		return proxy.NewThroughCacheResponse(req, prox.cache, nil)
+		return proxy.NewThroughCacheResponse(req, prox.serviceKey, prox.cache, nil)
 
 	} else if err != nil {
-		return proxy.NewThroughCacheResponse(req, prox.cache, err)
+		return proxy.NewThroughCacheResponse(req, prox.serviceKey, prox.cache, err)
 	}
 	return proxy.NewCachedResponse(data.Status, data.Headers, data.Data)
 }
@@ -168,6 +168,7 @@ func (prox *Proxy) FromCache(req *http.Request, opts ...func(*cache.CacheEntryOp
 func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	return kp.cache.Set(
 		req,
+		kp.serviceKey,
 		data,
 		opts...,
 	)

@@ -35,13 +35,16 @@ type File struct {
 	conf *proxy.CacheConf
 }
 
-func (frc *File) createItemPath(req *http.Request, opts *cache.CacheEntryOptions) string {
+func (frc *File) createItemPath(req *http.Request, tag string, opts *cache.CacheEntryOptions) string {
 	cacheID := proxy.GenerateCacheId(req, opts)
-	bs := fmt.Sprintf("%x.gob", cacheID)
+	if tag == "" {
+		tag = "-"
+	}
+	bs := fmt.Sprintf("%s-%x.gob", tag, cacheID)
 	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
 }
 
-func (rc *File) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
+func (rc *File) Get(req *http.Request, tag string, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
 	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
@@ -49,7 +52,7 @@ func (rc *File) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (
 	if !proxy.ShouldReadFromCache(req, optsFin) {
 		return cache.CacheEntry{}, proxy.ErrCacheMiss
 	}
-	filePath := rc.createItemPath(req, optsFin)
+	filePath := rc.createItemPath(req, tag, optsFin)
 	isFile, err := fs.IsFile(filePath)
 	if err != nil {
 		return cache.CacheEntry{}, err
@@ -86,13 +89,13 @@ func (rc *File) Get(req *http.Request, opts ...func(*cache.CacheEntryOptions)) (
 	return ans, fmt.Errorf("proxy cache access error: %w", err)
 }
 
-func (frc *File) Set(req *http.Request, value cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
+func (frc *File) Set(req *http.Request, tag string, value cache.CacheEntry, opts ...func(*cache.CacheEntryOptions)) error {
 	optsFin := new(cache.CacheEntryOptions)
 	for _, fn := range opts {
 		fn(optsFin)
 	}
 	if proxy.ShouldWriteToCache(req, value, optsFin) {
-		targetPath := frc.createItemPath(req, optsFin)
+		targetPath := frc.createItemPath(req, tag, optsFin)
 		os.MkdirAll(path.Dir(targetPath), os.ModePerm)
 		fw, err := os.OpenFile(targetPath, os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {

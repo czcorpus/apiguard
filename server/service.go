@@ -227,6 +227,17 @@ func initProxyEngine(
 		}
 	})
 
+	apiRoutes.POST("/cleanCache/:id/:type", func(ctx *gin.Context) {
+		tag := fmt.Sprintf("%s/%s", ctx.Param("id"), ctx.Param("type"))
+		count, err := globalCtx.Cache.Flush(tag)
+		if err != nil {
+			uniresp.WriteJSONErrorResponse(
+				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+		} else {
+			uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"flushed": count})
+		}
+	})
+
 	return engine
 }
 

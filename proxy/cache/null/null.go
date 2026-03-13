@@ -34,6 +34,10 @@ func (rc *NullCache) Set(req *http.Request, tag string, value cache.CacheEntry, 
 	return nil
 }
 
+func (rc *NullCache) Flush(tag string) (int, error) {
+	return 0, nil
+}
+
 func New() *NullCache {
 	return &NullCache{}
 }

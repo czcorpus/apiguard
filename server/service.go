@@ -70,7 +70,7 @@ func initProxyEngine(
 	globalCtx *globctx.Context,
 	alarm *monitoring.AlarmTicker,
 	skipIPFilter bool,
-) http.Handler {
+) *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
 	engine.Use(logging.GinMiddleware())
@@ -169,12 +169,41 @@ func initProxyEngine(
 		alarm,
 	)
 
+	return engine
+}
+
+func initWagStreamingEngine(
+	actionHandler *wagstream.Actions,
+) *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	engine.Use(logging.GinMiddleware())
+	engine.NoMethod(uniresp.NoMethodHandler)
+	engine.NoRoute(uniresp.NotFoundHandler)
+
+	engine.PUT("/wag/stream", actionHandler.CreateStream)
+	engine.GET("/wag/stream/:id", actionHandler.StartStream)
+	engine.GET("/wag/tileconf/:id", actionHandler.TileConf)
+
+	return engine
+}
+
+func initAdminRoutes(
+	conf *config.Configuration,
+	globalCtx *globctx.Context,
+	engine *gin.Engine,
+) {
+	adminRoutes := engine.Group("/admin")
+	if conf.Auth != nil {
+		adminRoutes.Use(AuthRequired(conf))
+	}
+
 	// administration/monitoring actions
 
 	telemetryActions := tstorage.NewActions(globalCtx.TelemetryDB)
-	apiRoutes.POST("/telemetry", telemetryActions.Store)
+	adminRoutes.POST("/telemetry", telemetryActions.Store)
 
-	apiRoutes.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
+	adminRoutes.GET("/delayLogsAnalysis", func(ctx *gin.Context) {
 		binWidth, otherLimit := 0.1, 5.0
 		var err error
 
@@ -205,7 +234,7 @@ func initProxyEngine(
 		}
 	})
 
-	apiRoutes.GET("/bans", func(ctx *gin.Context) {
+	adminRoutes.GET("/bans", func(ctx *gin.Context) {
 		duration := time.Duration(24 * time.Hour)
 		var err error
 
@@ -227,7 +256,7 @@ func initProxyEngine(
 		}
 	})
 
-	apiRoutes.POST("/cleanCache/:id/:type", func(ctx *gin.Context) {
+	adminRoutes.POST("/cleanCache/:id/:type", func(ctx *gin.Context) {
 		tag := fmt.Sprintf("%s/%s", ctx.Param("id"), ctx.Param("type"))
 		count, err := globalCtx.Cache.Flush(tag)
 		if err != nil {
@@ -237,24 +266,6 @@ func initProxyEngine(
 			uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"flushed": count})
 		}
 	})
-
-	return engine
-}
-
-func initWagStreamingEngine(
-	actionHandler *wagstream.Actions,
-) http.Handler {
-	engine := gin.New()
-	engine.Use(gin.Recovery())
-	engine.Use(logging.GinMiddleware())
-	engine.NoMethod(uniresp.NoMethodHandler)
-	engine.NoRoute(uniresp.NotFoundHandler)
-
-	engine.PUT("/wag/stream", actionHandler.CreateStream)
-	engine.GET("/wag/stream/:id", actionHandler.StartStream)
-	engine.GET("/wag/tileconf/:id", actionHandler.TileConf)
-
-	return engine
 }
 
 func createPGPool(conf hltscl.PgConf) *pgxpool.Pool {
@@ -392,7 +403,7 @@ func RunService(conf *config.Configuration) {
 		close(reloadChan)
 	}()
 
-	var engine http.Handler
+	var engine *gin.Engine
 
 	switch conf.OperationMode {
 	case config.OperationModeProxy:
@@ -416,6 +427,8 @@ func RunService(conf *config.Configuration) {
 		log.Fatal().Err(conf.OperationMode.Validate()).Msg("unsupported operation mode")
 		return
 	}
+
+	initAdminRoutes(conf, globalCtx, engine)
 
 	log.Info().Msgf("starting to listen at %s:%d", conf.ServerHost, conf.ServerPort)
 	srv := &http.Server{

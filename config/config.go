@@ -145,6 +145,7 @@ type Configuration struct {
 	CNCDB             *cnc.Conf                `json:"cncDb"`
 	Mail              *monitoring.MailConf     `json:"mail"`
 	CNCAuth           CNCAuthConf              `json:"cncAuth"`
+	Auth              *AuthConf                `json:"auth"`
 	IgnoreStoredState bool                     `json:"-"`
 }
 
@@ -244,4 +245,22 @@ func LoadConfig(path string) *Configuration {
 		log.Fatal().Err(err).Msg("Cannot load config")
 	}
 	return &conf
+}
+
+type AuthConf struct {
+	TokenHeaderName string   `json:"TokenHeaderName"`
+	Tokens          []string `json:"tokens"`
+	// KnownProxies lists IP addresses of reverse proxies in front of Apiguard.
+	// Requests originating from these IPs are always subject to auth token
+	// checks, even if the IP matches listenAddress.
+	KnownProxies []string `json:"knownProxies"`
+	// LocalNetworks lists CIDR ranges (e.g. "192.168.1.0/24") whose traffic
+	// is considered local and exempt from auth token checks, provided the
+	// source IP is not also listed in trustedProxies. If empty, only the
+	// exact listenAddress is treated as local.
+	LocalNetworks []string `json:"localNetworks"`
+}
+
+func (ac *AuthConf) IsDefined() bool {
+	return ac.TokenHeaderName != "" && len(ac.Tokens) > 0
 }

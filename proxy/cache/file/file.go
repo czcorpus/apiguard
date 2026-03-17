@@ -23,6 +23,8 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/czcorpus/apiguard/proxy"
@@ -40,8 +42,8 @@ func (frc *File) createItemPath(req *http.Request, tag string, opts *cache.Cache
 	if tag == "" {
 		tag = "-"
 	}
-	bs := fmt.Sprintf("%s-%x.gob", tag, cacheID)
-	return path.Join(frc.conf.FileRootPath, bs[0:1], bs)
+	bs := fmt.Sprintf("%s/%x.gob", tag, cacheID)
+	return path.Join(frc.conf.FileRootPath, bs)
 }
 
 func (rc *File) Get(req *http.Request, tag string, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
@@ -105,6 +107,46 @@ func (frc *File) Set(req *http.Request, tag string, value cache.CacheEntry, opts
 		return enc.Encode(&value)
 	}
 	return nil
+}
+
+func (frc *File) Flush(tag string) (int, error) {
+	if isDir, err := fs.IsDir(frc.conf.FileRootPath); !isDir || err != nil {
+		if err != nil {
+			return 0, fmt.Errorf("failed to access file root path: %w", err)
+		}
+		return 0, fmt.Errorf("file root path does not exist")
+	}
+
+	files := []string{}
+	err := filepath.Walk(frc.conf.FileRootPath, func(path string, f os.FileInfo, err error) error {
+		isFile, err := fs.IsFile(path)
+		if err != nil {
+			return fmt.Errorf("failed to test if path is file: %w", err)
+		}
+		if isFile {
+			pathRel, err := filepath.Rel(frc.conf.FileRootPath, path)
+			if err != nil {
+				return fmt.Errorf("failed to obtain relative path: %w", err)
+			}
+			if strings.HasPrefix(pathRel, tag) {
+				files = append(files, path)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to list cache files: %w", err)
+	}
+
+	count := 0
+	for _, file := range files {
+		err := fs.DeleteFile(file)
+		if err != nil {
+			return count, fmt.Errorf("failed to delete file %s: %w", file, err)
+		}
+		count++
+	}
+	return count, nil
 }
 
 func New(conf *proxy.CacheConf) *File {

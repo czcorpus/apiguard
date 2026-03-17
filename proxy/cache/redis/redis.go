@@ -42,6 +42,8 @@ const (
 
 	defaultRedisPort     = 6379
 	writeChannelCapacity = 100
+
+	redisKeyPrefix = "apiguard:cache"
 )
 
 // writeQueueItem represents a queued Redis write operation
@@ -65,7 +67,7 @@ type Redis struct {
 
 func (rrc *Redis) createCacheID(req *http.Request, tag string, opts *cache.CacheEntryOptions) string {
 	cacheID := proxy.GenerateCacheId(req, opts)
-	return fmt.Sprintf("apiguard:cache:%s:%x", tag, cacheID)
+	return fmt.Sprintf("%s:%s:%x", redisKeyPrefix, tag, cacheID)
 }
 
 func (rrc *Redis) Get(req *http.Request, tag string, opts ...func(*cache.CacheEntryOptions)) (cache.CacheEntry, error) {
@@ -163,6 +165,30 @@ func (rrc *Redis) Set(req *http.Request, tag string, resp cache.CacheEntry, opts
 		}
 	}
 	return nil
+}
+
+func (rrc *Redis) Flush(tag string) (int, error) {
+	var cursor uint64
+	match := fmt.Sprintf("%s:%s:*", redisKeyPrefix, tag)
+	count := 0
+	for {
+		keys, newCursor, err := rrc.redisClient.Scan(rrc.ctx, cursor, match, 100).Result()
+		if err != nil {
+			return 0, err
+		}
+		if len(keys) > 0 {
+			if err := rrc.redisClient.Del(rrc.ctx, keys...).Err(); err != nil {
+				return 0, err
+			}
+			count += len(keys)
+		}
+		cursor = newCursor
+		if cursor == 0 {
+			break
+		}
+	}
+	log.Debug().Msgf("Flushed %d keys matching pattern '%s'", count, match)
+	return count, nil
 }
 
 // New creates a new Redis cache instance and starts a background

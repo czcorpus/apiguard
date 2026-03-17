@@ -11,7 +11,8 @@
     "telemetry": {
         "analyzer": "dumb",
         "dataDelaySecs": 10,
-        "maxAgeSecsRelevant": 3600
+        "maxAgeSecsRelevant": 3600,
+        "internalDataPath": "/var/opt/apiguard/internal"
     },
     "services": [
         {

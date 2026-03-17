@@ -78,4 +78,5 @@ func (ce CacheEntry) IsZero() bool {
 type Cache interface {
 	Get(req *http.Request, tag string, opts ...func(*CacheEntryOptions)) (CacheEntry, error)
 	Set(req *http.Request, tag string, value CacheEntry, opts ...func(*CacheEntryOptions)) error
+	Flush(tag string) (int, error)
 }

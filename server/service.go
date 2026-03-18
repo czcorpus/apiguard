@@ -211,7 +211,7 @@ func initAdminRoutes(
 		if queryValue != "" {
 			binWidth, err = strconv.ParseFloat(queryValue, 64)
 			if err != nil {
-				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 				return
 			}
 		}
@@ -220,15 +220,14 @@ func initAdminRoutes(
 		if queryValue != "" {
 			otherLimit, err = strconv.ParseFloat(queryValue, 64)
 			if err != nil {
-				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 				return
 			}
 		}
 
 		ans, err := globalCtx.TelemetryDB.AnalyzeDelayLog(binWidth, otherLimit)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		} else {
 			uniresp.WriteJSONResponse(ctx.Writer, ans)
 		}
@@ -242,15 +241,15 @@ func initAdminRoutes(
 		if queryValue != "" {
 			duration, err = datetime.ParseDuration(queryValue)
 			if err != nil {
-				uniresp.WriteJSONErrorResponse(ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusBadRequest)
+				uniresp.RespondWithErrorJSON(ctx, err, http.StatusBadRequest)
 				return
 			}
 		}
 
 		ans, err := globalCtx.TelemetryDB.AnalyzeBans(duration)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+
 		} else {
 			uniresp.WriteJSONResponse(ctx.Writer, ans)
 		}
@@ -260,8 +259,8 @@ func initAdminRoutes(
 		tag := fmt.Sprintf("%s/%s", ctx.Param("id"), ctx.Param("type"))
 		count, err := globalCtx.Cache.Flush(tag)
 		if err != nil {
-			uniresp.WriteJSONErrorResponse(
-				ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+			uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
+
 		} else {
 			uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"flushed": count})
 		}

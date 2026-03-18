@@ -50,14 +50,12 @@ type Actions struct {
 func (a *Actions) Store(ctx *gin.Context) {
 	rawPayload, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 	}
 	var payloadTmp payload
 	err = json.Unmarshal(rawPayload, &payloadTmp)
 	if err != nil {
-		uniresp.WriteJSONErrorResponse(
-			ctx.Writer, uniresp.NewActionError(err.Error()), http.StatusInternalServerError)
+		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 	}
 	ip, sessionID := logging.ExtractRequestIdentifiers(ctx.Request)
 	payload := telemetry.Payload{

@@ -18,6 +18,7 @@
 package mquery
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"net/http"
@@ -267,12 +268,12 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		return
 	}
 	if resp1.Error != "" {
-		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf(resp1.Error), statusCode)
+		uniresp.RespondWithErrorJSON(ctx, errors.New(resp1.Error), statusCode)
 		return
 	}
 
 	if len(resp1.Lines) == 0 {
-		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("no data found"), http.StatusNotFound)
+		uniresp.RespondWithErrorJSON(ctx, errors.New("no data found"), http.StatusNotFound)
 		return
 	}
 

@@ -84,14 +84,15 @@ func create(args services.InitArgs) error {
 		analyzer.ExposeAsCounter(),
 		analyzer,
 		public.PublicAPIProxyOpts{
-			ServiceKey:       fmt.Sprintf("%d/kwords", args.SID),
-			ServicePath:      fmt.Sprintf("/service/%d/kwords", args.SID),
-			BackendURL:       backendURL,
-			FrontendURL:      frontendUrl,
-			AuthCookieName:   args.GlobalConf.CNCAuth.SessionCookieName,
-			UserIDHeaderName: typedConf.TrueUserIDHeader,
-			ReadTimeoutSecs:  args.GlobalConf.ServerReadTimeoutSecs,
-			IsStreamingMode:  args.GlobalConf.OperationMode == config.OperationModeStreaming,
+			ServiceKey:                 fmt.Sprintf("%d/kwords", args.SID),
+			ServicePath:                fmt.Sprintf("/service/%d/kwords", args.SID),
+			BackendURL:                 backendURL,
+			FrontendURL:                frontendUrl,
+			AuthCookieName:             args.GlobalConf.CNCAuth.SessionCookieName,
+			ReadTimeoutSecs:            args.GlobalConf.ServerReadTimeoutSecs,
+			IsStreamingMode:            args.GlobalConf.OperationMode == config.OperationModeStreaming,
+			UserIDHeaderName:           typedConf.TrueUserIDHeader,
+			InternalRequestsFlagHeader: typedConf.InternalRequestsFlagHeader,
 		},
 	)
 	args.APIRoutes.Any(

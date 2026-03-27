@@ -179,7 +179,6 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 
 			} else {
 				apiWriter := NewAPIWriter()
-
 				req.Header.Add(interop.TileIdHeader, strconv.Itoa(tiles[0].TileID))
 				req.Header.Add(interop.QueryIdxHeader, strconv.Itoa(tiles[0].QueryIdx))
 				actions.apiRoutes.ServeHTTP(apiWriter, req)

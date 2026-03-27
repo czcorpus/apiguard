@@ -191,10 +191,10 @@ func (kp *Proxy) WriteReport(report *reporting.ProxyProcReport) {
 // AnyPath is the main handler for KonText API actions.
 func (kp *Proxy) AnyPath(ctx *gin.Context) {
 	var userID, humanID common.UserID
-	var cached, indirectAPICall bool
+	var cached, internalAPICall bool
 	t0 := time.Now().In(kp.globalCtx.TimezoneLocation)
 
-	defer kp.LogRequest(ctx, &humanID, &indirectAPICall, &cached, t0)
+	defer kp.LogRequest(ctx, &humanID, &internalAPICall, &cached, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, kp.rConf.ServicePath) {
 		log.Error().Msgf("failed to proxy request - invalid path detected")
@@ -226,7 +226,7 @@ func (kp *Proxy) AnyPath(ctx *gin.Context) {
 	}
 
 	if err := kp.ProcessReqHeaders(
-		ctx, humanID, userID, &indirectAPICall,
+		ctx, humanID, userID, &internalAPICall,
 	); err != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy request - cookie mapping")
 		http.Error(

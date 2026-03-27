@@ -34,7 +34,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indirect *bool, cached *bool, created time.Time) {
+func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, internalCall *bool, cached *bool, created time.Time) {
 	if kp.reqCounter != nil {
 		kp.reqCounter <- guard.RequestInfo{
 			Created:     created,
@@ -50,7 +50,7 @@ func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, indire
 		time.Since(created),
 		*cached,
 		*currHumanID,
-		*indirect,
+		*internalCall,
 		reporting.BackendActionTypeQuery,
 	)
 }
@@ -67,10 +67,14 @@ func (kp *Proxy) reqUsesMappedSession(req *http.Request) bool {
 	return err == nil
 }
 
+func (kp *Proxy) IsRegularAPICall(hd http.Header) bool {
+	return !kp.rConf.IsStreamingMode && kp.conf.InternalRequestsFlagHeader != "" && hd.Get(kp.conf.InternalRequestsFlagHeader) != ""
+}
+
 func (kp *Proxy) ProcessReqHeaders(
 	ctx *gin.Context,
 	humanID, userID common.UserID,
-	indirectAPICall *bool,
+	internalAPICall *bool,
 ) error {
 	passedHeaders := ctx.Request.Header
 
@@ -85,8 +89,8 @@ func (kp *Proxy) ProcessReqHeaders(
 		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
 	}
 
-	if passedHeaders.Get(backend.HeaderIndirectCall) != "" {
-		*indirectAPICall = true
+	if kp.IsRegularAPICall(passedHeaders) {
+		*internalAPICall = true
 	}
 
 	if kp.conf.TrueUserIDHeader != "" {

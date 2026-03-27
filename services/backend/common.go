@@ -30,15 +30,6 @@ const (
 	// backend so it knows who is actually using the API even if
 	// the API itself does not have required authentication ability.
 	HeaderAPIUserID = "X-Api-User"
-
-	// HeaderIndirectCall indicates that the API query is not called
-	// directly by a user but rather by an application which is queried
-	// in its own way and which - based on its user query - produces
-	// an API call proxied by APIGuard.
-	// We are using this flag to distinguish direct API usage from
-	// indirect one which has its significance e.g. when reporting
-	// services usage.
-	HeaderIndirectCall = "X-Indirect-Call"
 )
 
 // MapFrontendCookieToBackend takes current user's frontend authentication

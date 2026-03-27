@@ -77,13 +77,15 @@ func create(args services.InitArgs) error {
 		grd.ExposeAsCounter(),
 		grd,
 		public.PublicAPIProxyOpts{
-			ServicePath:         fmt.Sprintf("/service/%d/hex", args.SID),
-			ServiceKey:          fmt.Sprintf("%d/hex", args.SID),
-			BackendURL:          backendURL,
-			FrontendURL:         frontendURL,
-			ReadTimeoutSecs:     args.GlobalConf.ServerReadTimeoutSecs,
-			ResponseInterceptor: Interceptor,
-			IsStreamingMode:     args.GlobalConf.OperationMode == config.OperationModeStreaming,
+			ServicePath:                fmt.Sprintf("/service/%d/hex", args.SID),
+			ServiceKey:                 fmt.Sprintf("%d/hex", args.SID),
+			BackendURL:                 backendURL,
+			FrontendURL:                frontendURL,
+			ReadTimeoutSecs:            args.GlobalConf.ServerReadTimeoutSecs,
+			ResponseInterceptor:        Interceptor,
+			IsStreamingMode:            args.GlobalConf.OperationMode == config.OperationModeStreaming,
+			UserIDHeaderName:           typedConf.TrueUserIDHeader,
+			InternalRequestsFlagHeader: typedConf.InternalRequestsFlagHeader,
 		},
 	)
 	args.APIRoutes.Any(

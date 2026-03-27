@@ -88,7 +88,7 @@ func (tp *TreqProxy) reqUsesMappedSession(req *http.Request) bool {
 }
 
 func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
-	var cached, indirectAPICall bool
+	var cached, internalAPICall bool
 	var clientID, humanID common.UserID
 	t0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
 
@@ -112,7 +112,7 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			*indirect,
 			reporting.BackendActionTypeQuery,
 		)
-	}(&clientID, &humanID, &indirectAPICall, t0)
+	}(&clientID, &humanID, &internalAPICall, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, tp.EnvironConf().ServicePath) {
 		proxy.WriteError(ctx, fmt.Errorf("invalid path detected"), http.StatusInternalServerError)
@@ -189,6 +189,16 @@ func (tp *TreqProxy) AnyPath(ctx *gin.Context) {
 			Str("value", tp.authFallbackCookie.Value).Msg("applying fallback cookie")
 		tp.DeleteCookie(ctx.Request, tp.authFallbackCookie.Name)
 		ctx.Request.AddCookie(tp.authFallbackCookie)
+	}
+
+	if err := tp.ProcessReqHeaders(ctx, clientID, humanID, &internalAPICall); err != nil {
+		log.Error().Err(err).Msg("failed to proxy request")
+		http.Error(
+			ctx.Writer,
+			err.Error(),
+			http.StatusInternalServerError,
+		)
+		return
 	}
 
 	passedHeaders := ctx.Request.Header

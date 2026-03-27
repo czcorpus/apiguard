@@ -41,7 +41,7 @@ import (
 
 func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 	var userID, humanID common.UserID
-	var cached, indirectAPICall bool
+	var cached, internalAPICall bool
 	t0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
 	// we must prepare request's body for repeated reading
@@ -52,7 +52,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 		return
 	}
 
-	defer mp.LogRequest(ctx, &humanID, &indirectAPICall, &cached, t0)
+	defer mp.LogRequest(ctx, &humanID, &internalAPICall, &cached, t0)
 
 	rawReq1Body, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
@@ -97,7 +97,7 @@ func (mp *MQueryProxy) MergeFreqs(ctx *gin.Context) {
 	}
 
 	if err := mp.ProcessReqHeaders(
-		ctx, humanID, userID, &indirectAPICall,
+		ctx, humanID, userID, &internalAPICall,
 	); err != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to get merge freqs - cookie mapping")
 		http.Error(

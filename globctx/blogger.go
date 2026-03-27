@@ -63,7 +63,7 @@ func (b *BackendLogger) Log(
 	procTime time.Duration,
 	cached bool,
 	userID common.UserID,
-	indirectCall bool,
+	internalCall bool,
 	actionType reporting.BackendActionType,
 ) {
 	if b == nil {
@@ -76,7 +76,7 @@ func (b *BackendLogger) Log(
 		ProcTime:     procTime.Seconds(),
 		IsCached:     cached,
 		UserID:       userID,
-		IndirectCall: indirectCall,
+		IndirectCall: internalCall,
 		ActionType:   actionType,
 	}
 	b.tDBWriter.Write(bReq)

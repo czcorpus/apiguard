@@ -97,13 +97,12 @@ func ExtractRequestIdentifiers(req *http.Request) (string, string) {
 	ip := ExtractClientIP(req)
 	session, err := req.Cookie(WaGSessionName)
 	var sessionID string
-	if err == nil {
+	switch err {
+	case nil:
 		sessionID = NormalizeSessionID(session.Value)
-
-	} else if err == http.ErrNoCookie {
+	case http.ErrNoCookie:
 		sessionID = ""
-
-	} else {
+	default:
 		sessionID = ""
 		log.Warn().Err(err).Msg("failed to fetch session cookie - ")
 	}

@@ -51,7 +51,7 @@ type WSServerProxy struct {
 
 func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	var userID, humanID common.UserID
-	var cached, indirectAPICall bool
+	var cached, internalAPICall bool
 	var statusCode int
 	t0 := time.Now().In(wssProxy.GlobalCtx().TimezoneLocation)
 
@@ -63,7 +63,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 		return
 	}
 
-	defer wssProxy.LogRequest(ctx, &humanID, &indirectAPICall, &cached, t0)
+	defer wssProxy.LogRequest(ctx, &humanID, &internalAPICall, &cached, t0)
 
 	rawReq1Body, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
@@ -108,7 +108,7 @@ func (wssProxy *WSServerProxy) CollocationsTT(ctx *gin.Context) {
 	}
 
 	if err := wssProxy.ProcessReqHeaders(
-		ctx, humanID, userID, &indirectAPICall,
+		ctx, humanID, userID, &internalAPICall,
 	); err != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to get tt-collocations - cookie mapping")
 		http.Error(

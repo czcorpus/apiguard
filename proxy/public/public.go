@@ -59,13 +59,14 @@ type PublicAPIProxyOpts struct {
 	// ServiceKey is a unique service id - e.g. 3/gunstick
 	ServiceKey string
 
-	BackendURL          *url.URL
-	FrontendURL         *url.URL
-	AuthCookieName      string
-	UserIDHeaderName    string
-	ReadTimeoutSecs     int
-	ResponseInterceptor func(*proxy.BackendProxiedResponse)
-	IsStreamingMode     bool
+	BackendURL                 *url.URL
+	FrontendURL                *url.URL
+	AuthCookieName             string
+	UserIDHeaderName           string
+	InternalRequestsFlagHeader string
+	ReadTimeoutSecs            int
+	ResponseInterceptor        func(*proxy.BackendProxiedResponse)
+	IsStreamingMode            bool
 }
 
 // Proxy is a service proxy which - in general - does not
@@ -73,23 +74,24 @@ type PublicAPIProxyOpts struct {
 // distinguishes between logged-in users and anonymous ones. And
 // it may throttle requests with some favouring of logged-in users.
 type Proxy struct {
-	servicePath         string
-	serviceKey          string
-	BackendURL          *url.URL
-	FrontendURL         *url.URL
-	authCookieName      string
-	userIDHeaderName    string
-	readTimeoutSecs     int
-	client              *http.Client
-	cache               cache.Cache
-	basicProxy          *proxy.CoreProxy
-	clientCounter       chan<- common.ClientID
-	guard               guard.ServiceGuard
-	tzLocation          *time.Location
-	responseInterceptor func(resp *proxy.BackendProxiedResponse)
-	monitoring          reporting.ReportingWriter
-	userFinder          guard.UserFinder
-	isStreamingMode     bool
+	servicePath                string
+	serviceKey                 string
+	BackendURL                 *url.URL
+	FrontendURL                *url.URL
+	authCookieName             string
+	userIDHeaderName           string
+	InternalRequestsFlagHeader string
+	readTimeoutSecs            int
+	client                     *http.Client
+	cache                      cache.Cache
+	basicProxy                 *proxy.CoreProxy
+	clientCounter              chan<- common.ClientID
+	guard                      guard.ServiceGuard
+	tzLocation                 *time.Location
+	responseInterceptor        func(resp *proxy.BackendProxiedResponse)
+	monitoring                 reporting.ReportingWriter
+	userFinder                 guard.UserFinder
+	isStreamingMode            bool
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -176,6 +178,7 @@ func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(
 
 func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	var humanID common.UserID
+	var internalAPICall bool
 	path := ctx.Request.URL.Path
 	rt0 := time.Now().In(prox.tzLocation)
 
@@ -230,6 +233,7 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	if prox.userIDHeaderName != "" && humanID.IsValid() {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
+	prox.ProcessReqHeaders(ctx, &internalAPICall)
 
 	respHandler := prox.FromCache(ctx.Request, cache.CachingWithCacheControl(!prox.isStreamingMode))
 	logging.AddCustomEntry(ctx, "isCached", respHandler.IsCacheHit())
@@ -253,6 +257,23 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 		Service:  prox.serviceKey,
 		IsCached: respHandler.IsCacheHit(),
 	})
+}
+
+func (prox *Proxy) IsRegularAPICall(hd http.Header) bool {
+	return !prox.isStreamingMode && prox.InternalRequestsFlagHeader != "" && hd.Get(prox.InternalRequestsFlagHeader) != ""
+}
+
+func (prox *Proxy) ProcessReqHeaders(
+	ctx *gin.Context,
+	internalAPICall *bool,
+) {
+	passedHeaders := ctx.Request.Header
+	if ctx.Request.Header.Get("host") == "" {
+		ctx.Request.Header.Set("host", prox.FrontendURL.Host)
+	}
+	if prox.IsRegularAPICall(passedHeaders) {
+		*internalAPICall = true
+	}
 }
 
 // NewProxy
@@ -335,6 +356,13 @@ func NewProxy(
 
 	} else {
 		p.userIDHeaderName = opts.UserIDHeaderName
+	}
+
+	if opts.InternalRequestsFlagHeader == "" {
+		log.Warn().Msg("internalRequestsFlagHeader not set - APIGuard won't be able to report internal API use in logs")
+
+	} else {
+		p.InternalRequestsFlagHeader = opts.InternalRequestsFlagHeader
 	}
 
 	p.isStreamingMode = opts.IsStreamingMode

@@ -155,10 +155,7 @@ func (aticker *AlarmTicker) sendReport(
 }
 
 func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
-	aticker.clients.ForEach(func(k string, service *serviceEntry, ok bool) {
-		if !ok {
-			return
-		}
+	aticker.clients.Iterate(func(k string, service *serviceEntry) bool {
 		// find longest check interval:
 		var maxInterval common.CheckInterval
 		for chint := range service.limits {
@@ -168,15 +165,18 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 		}
 		oldestTime := time.Now().In(aticker.location).Add(-time.Duration(maxInterval))
 
-		service.ClientRequests.ForEach(func(userID string, limitInfo *UserActivity, ok bool) {
-			if !ok {
-				return
+		service.ClientRequests.Iterate(func(userID string, limitInfo *UserActivity) bool {
+			if limitInfo.Requests.Len() == 0 {
+				return true
 			}
 			mostRecent := limitInfo.Requests.Last()
 			if mostRecent.Created.Before(oldestTime) {
 				service.ClientRequests.Delete(userID)
 			}
+			return true
 		})
+
+		return true
 	})
 }
 
@@ -237,20 +237,18 @@ func (aticker *AlarmTicker) checkServiceUsage(
 func (aticker *AlarmTicker) loadAllowList() {
 	aticker.allowListUsers = collections.NewConcurrentMap[string, []common.UserID]()
 	var total int
-	aticker.clients.ForEach(func(serviceID string, se *serviceEntry, ok bool) {
-		if !ok {
-			return
-		}
+	aticker.clients.Iterate(func(serviceID string, se *serviceEntry) bool {
 		v, err := aticker.userFinder.GetAllowlistUsers(serviceID)
 		if err != nil {
 			log.Error().
 				Err(err).
 				Str("service", serviceID).
 				Msg("Failed to reload user allow list")
-			return
+			return false
 		}
 		aticker.allowListUsers.Set(serviceID, v)
 		total += len(v)
+		return true
 	})
 	log.Info().
 		Int("itemsLoaded", total).
@@ -278,10 +276,7 @@ func (aticker *AlarmTicker) Shutdown(ctx context.Context) error {
 }
 
 func (aticker *AlarmTicker) reportSummary() {
-	aticker.clients.ForEach(func(k string, service *serviceEntry, ok bool) {
-		if !ok {
-			return
-		}
+	aticker.clients.Iterate(func(k string, service *serviceEntry) bool {
 		report := &reporting.AlarmStatus{
 			Created:     time.Now(),
 			Service:     service.Service,
@@ -289,6 +284,7 @@ func (aticker *AlarmTicker) reportSummary() {
 			NumRequests: service.ClientRequests.CountRequests(),
 		}
 		aticker.tDBWriter.Write(report)
+		return true
 	})
 }
 

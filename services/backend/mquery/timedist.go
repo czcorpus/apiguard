@@ -44,6 +44,8 @@ type streamedFreqDistArgs struct {
 	flimit   int
 	maxItems int
 	event    string
+	fromYear string
+	toYear   string
 }
 
 func (sfargs *streamedFreqDistArgs) toURLQuery() string {
@@ -68,6 +70,12 @@ func (sfargs *streamedFreqDistArgs) toURLQuery() string {
 
 	} else if sfargs.attr != "" {
 		q.Add("attr", sfargs.attr)
+	}
+	if sfargs.fromYear != "" {
+		q.Add("fromYear", sfargs.fromYear)
+	}
+	if sfargs.toYear != "" {
+		q.Add("toYear", sfargs.toYear)
 	}
 	return q.Encode()
 }
@@ -260,6 +268,8 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 			flimit:   flimit,
 			maxItems: 100, // TODO
 			event:    ctx.Query("event"),
+			fromYear: ctx.Query("fromYear"),
+			toYear:   ctx.Query("toYear"),
 		},
 	)
 	if err != nil {

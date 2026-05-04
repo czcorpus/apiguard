@@ -92,6 +92,7 @@ type Proxy struct {
 	monitoring                 reporting.ReportingWriter
 	userFinder                 guard.UserFinder
 	isStreamingMode            bool
+	backendLoggers             globctx.BackendLoggers
 }
 
 func mustParseURL(rawUrl string) *url.URL {
@@ -176,9 +177,21 @@ func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(
 	)
 }
 
+func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, internalCall *bool, cached *bool, created time.Time) {
+	kp.backendLoggers[kp.serviceKey].Log(
+		ctx.Request,
+		kp.serviceKey,
+		time.Since(created),
+		*cached,
+		*currHumanID,
+		*internalCall,
+		reporting.BackendActionTypeQuery,
+	)
+}
+
 func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	var humanID common.UserID
-	var internalAPICall bool
+	var cached, internalAPICall bool
 	path := ctx.Request.URL.Path
 	rt0 := time.Now().In(prox.tzLocation)
 
@@ -190,6 +203,8 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 			Int("userID", int(humanID)).
 			Msg("asked to process proxy paths (deferred message)")
 	}(&humanID)
+
+	defer prox.LogRequest(ctx, &humanID, &internalAPICall, &cached, rt0)
 
 	if !strings.HasPrefix(path, prox.servicePath) {
 		uniresp.RespondWithErrorJSON(
@@ -236,7 +251,8 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	prox.ProcessReqHeaders(ctx, &internalAPICall)
 
 	respHandler := prox.FromCache(ctx.Request, cache.CachingWithCacheControl(!prox.isStreamingMode))
-	logging.AddCustomEntry(ctx, "isCached", respHandler.IsCacheHit())
+	cached = respHandler.IsCacheHit()
+	logging.AddCustomEntry(ctx, "isCached", cached)
 	respHandler.HandleCacheMiss(func() proxy.BackendResponse {
 		internalPath := strings.TrimPrefix(path, prox.servicePath)
 		bResp := prox.basicProxy.Request(
@@ -305,6 +321,7 @@ func NewProxy(
 		responseInterceptor: respInt,
 		monitoring:          globalCtx.ReportingWriter,
 		tzLocation:          globalCtx.TimezoneLocation,
+		backendLoggers:      globalCtx.BackendLoggers,
 		userFinder:          guard.NewUserFinder(globalCtx),
 	}
 

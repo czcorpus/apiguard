@@ -349,6 +349,7 @@ func CreateGlobalCtx(
 		if err != nil {
 			return nil, fmt.Errorf("failed to create global ctx: %w", err)
 		}
+		log.Info().Str("service", serviceKey).Str("path", backendConf.LogPath).Msg("created backend logger")
 	}
 	var err error
 	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "", "")

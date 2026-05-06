@@ -19,8 +19,10 @@ package monitoring
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"fmt"
+	"io"
 	"os"
 	"path"
 
@@ -28,6 +30,20 @@ import (
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/rs/zerolog/log"
 )
+
+type ctxWriter struct {
+	ctx context.Context
+	w   io.Writer
+}
+
+func (cw *ctxWriter) Write(p []byte) (int, error) {
+	select {
+	case <-cw.ctx.Done():
+		return 0, cw.ctx.Err()
+	default:
+		return cw.w.Write(p)
+	}
+}
 
 // this file contains GOB encoding/decoding routines for AlarmTicker and types in involves
 
@@ -42,6 +58,7 @@ func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
 		v2 := *v
 		clients2[k] = &v2
 	}
+	log.Debug().Int("numClients", len(clients2)).Int("numReports", len(aticker.reports)).Msg("saving AlarmTicker state")
 	err := encoder.Encode(&clients2)
 	if err != nil {
 		return []byte{}, err
@@ -82,23 +99,28 @@ func (aticker *AlarmTicker) GobDecode(data []byte) error {
 	return err
 }
 
-func SaveState(aticker *AlarmTicker) error {
-	file, err := os.Create(path.Join(aticker.limitingConf.StatusDataDir, alarmStatusFile))
+func SaveState(ctx context.Context, aticker *AlarmTicker) error {
+	tmpFile, err := os.CreateTemp(aticker.limitingConf.StatusDataDir, "alarm-status-*.gob.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
 	}
-	encoder := gob.NewEncoder(file)
-	err = encoder.Encode(aticker)
-	if err != nil {
+	tmpPath := tmpFile.Name()
+	encoder := gob.NewEncoder(&ctxWriter{ctx: ctx, w: tmpFile})
+	encErr := encoder.Encode(aticker)
+	tmpFile.Close()
+	if encErr != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("failed to save AlarmTicker state: %w", encErr)
+	}
+	finalPath := path.Join(aticker.limitingConf.StatusDataDir, alarmStatusFile)
+	if err := os.Rename(tmpPath, finalPath); err != nil {
+		os.Remove(tmpPath)
 		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
 	}
-	err = file.Close()
-	if err == nil {
-		log.Info().
-			Str("file", file.Name()).
-			Msg("AlarmTicker runtime data saved")
-	}
-	return err
+	log.Info().
+		Str("file", finalPath).
+		Msg("AlarmTicker runtime data saved")
+	return nil
 }
 
 func LoadState(aticker *AlarmTicker) error {

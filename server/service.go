@@ -453,21 +453,16 @@ func RunService(conf *config.Configuration) {
 
 	var wg sync.WaitGroup
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		if err := srv.Shutdown(ctx); err != nil {
 			log.Error().Err(err).Msg("HTTP server shutdown error")
 		}
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	})
+	wg.Go(func() {
 		if err := alarm.Shutdown(ctx); err != nil {
 			log.Error().Err(err).Msg("AlarmTicker shutdown error")
 		}
-	}()
+	})
 
 	done := make(chan struct{})
 	go func() {

@@ -261,18 +261,7 @@ func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guardImpl.RequestInfo) bool {
 }
 
 func (aticker *AlarmTicker) Shutdown(ctx context.Context) error {
-	saveDone := make(chan bool)
-	var err error
-	go func() {
-		err = SaveState(aticker)
-		close(saveDone)
-	}()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-saveDone:
-		return err
-	}
+	return SaveState(ctx, aticker)
 }
 
 func (aticker *AlarmTicker) reportSummary() {

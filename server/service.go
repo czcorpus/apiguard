@@ -55,6 +55,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	_ "github.com/czcorpus/apiguard/services/backend/frodo"
+	_ "github.com/czcorpus/apiguard/services/backend/gramatikat"
 	_ "github.com/czcorpus/apiguard/services/backend/gunstick"
 	_ "github.com/czcorpus/apiguard/services/backend/hex"
 	_ "github.com/czcorpus/apiguard/services/backend/kontext"

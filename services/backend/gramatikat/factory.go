@@ -20,17 +20,18 @@ package gramatikat
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
-	"time"
+	"net/http"
 
 	"github.com/czcorpus/apiguard/config"
 	"github.com/czcorpus/apiguard/guard"
+	iGuard "github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/cncauth"
 	"github.com/czcorpus/apiguard/guard/dflt"
-	"github.com/czcorpus/apiguard/proxy"
-	"github.com/czcorpus/apiguard/proxy/public"
+	"github.com/czcorpus/apiguard/guard/token"
 	"github.com/czcorpus/apiguard/services"
+	"github.com/czcorpus/apiguard/services/cnc"
 	"github.com/czcorpus/apiguard/srvfactory"
-	"github.com/czcorpus/cnc-gokit/httpclient"
+	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
 
@@ -46,58 +47,80 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("gramatikat"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
 	}
-	client := httpclient.New(
-		httpclient.WithFollowRedirects(),
-		httpclient.WithInsecureSkipVerify(),
-		httpclient.WithIdleConnTimeout(time.Duration(60)*time.Second),
-	)
 
 	if typedConf.GuardType != guard.GuardTypeDflt {
 		return fmt.Errorf("failed to initialize service %d (gramatikat): unsupported guard type %s (supported: dflt)", args.SID, typedConf.GuardType)
 	}
 
-	analyzer := dflt.New(
-		args.Ctx,
-		args.GlobalConf.CNCAuth.SessionCookieName,
-		typedConf.SessionValType,
-		typedConf.Limits,
-	)
-	go analyzer.Run()
-	backendURL, err := url.Parse(typedConf.BackendURL)
-	if err != nil {
-		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
-	}
-	frontendUrl, err := url.Parse(typedConf.FrontendURL)
-	if err != nil {
-		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
-	}
-	coreProxy, err := proxy.NewCoreProxy(typedConf.GetCoreConf())
-	if err != nil {
-		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
+	var gramatikatReqCounter chan<- guard.RequestInfo
+	if len(typedConf.Limits) > 0 {
+		gramatikatReqCounter = args.Alarm.Register(
+			fmt.Sprintf("%d/gramatikat", args.SID),
+			typedConf.Alarm,
+			typedConf.Limits,
+		)
 	}
 
-	gramatikatActions := public.NewProxy(
+	var grd iGuard.ServiceGuard
+	switch typedConf.GuardType {
+	case guard.GuardTypeToken:
+		grd = token.NewGuard(
+			args.Ctx,
+			fmt.Sprintf("/service/%d/gramatikat", args.SID),
+			typedConf.TokenHeaderName,
+			typedConf.Limits,
+			typedConf.Tokens,
+			[]string{"/openapi"},
+		)
+	case guard.GuardTypeDflt:
+		grd = dflt.New(
+			args.Ctx,
+			args.GlobalConf.CNCAuth.SessionCookieName,
+			typedConf.SessionValType,
+			typedConf.Limits,
+		)
+	case guard.GuardTypeCNCAuth:
+		grd = cncauth.New(
+			args.Ctx,
+			args.GlobalConf.CNCAuth.SessionCookieName,
+			typedConf.FrontendSessionCookieName,
+			typedConf.SessionValType,
+			typedConf.Limits,
+		)
+	default:
+		return fmt.Errorf("Gramatikat proxy does not support guard type `%s`", typedConf.GuardType)
+	}
+
+	gramatikatActions, err := NewGramatikatProxy(
 		args.Ctx,
-		coreProxy,
-		args.SID,
-		client,
-		analyzer.ExposeAsCounter(),
-		analyzer,
-		public.PublicAPIProxyOpts{
-			ServiceKey:                 fmt.Sprintf("%d/gramatikat", args.SID),
-			ServicePath:                fmt.Sprintf("/service/%d/gramatikat", args.SID),
-			BackendURL:                 backendURL,
-			FrontendURL:                frontendUrl,
-			AuthCookieName:             args.GlobalConf.CNCAuth.SessionCookieName,
-			ReadTimeoutSecs:            args.GlobalConf.ServerReadTimeoutSecs,
-			IsStreamingMode:            args.GlobalConf.OperationMode == config.OperationModeStreaming,
-			UserIDHeaderName:           typedConf.TrueUserIDHeader,
-			InternalRequestsFlagHeader: typedConf.InternalRequestsFlagHeader,
+		&typedConf.ProxyConf,
+		&cnc.EnvironConf{
+			CNCAuthCookie:     args.GlobalConf.CNCAuth.SessionCookieName,
+			AuthTokenEntry:    cnc.AuthTokenEntry,
+			ServicePath:       fmt.Sprintf("/service/%d/gramatikat", args.SID),
+			ServiceKey:        fmt.Sprintf("%d/gramatikat", args.SID),
+			CNCPortalLoginURL: cnc.PortalLoginURL,
+			ReadTimeoutSecs:   args.GlobalConf.ServerReadTimeoutSecs,
+			IsStreamingMode:   args.GlobalConf.OperationMode == config.OperationModeStreaming,
 		},
+		grd,
+		gramatikatReqCounter,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to initialize service %d (Gramatikat): %w", args.SID, err)
+	}
+
 	args.APIRoutes.Any(
 		fmt.Sprintf("/service/%d/gramatikat/*path", args.SID),
-		gramatikatActions.AnyPath)
+		func(ctx *gin.Context) {
+			if ctx.Param("path") == "/lemma-profile" && ctx.Request.Method == http.MethodPost {
+				gramatikatActions.LemmaProfile(ctx)
+
+			} else {
+				gramatikatActions.AnyPath(ctx)
+			}
+		},
+	)
 	log.Info().Int("args.SID", args.SID).Msg("Proxy for Gramatikat enabled")
 	return nil
 }

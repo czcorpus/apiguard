@@ -16,6 +16,15 @@
 
 package gramatikat
 
-import "github.com/czcorpus/apiguard/services/cnc"
+import (
+	"github.com/czcorpus/apiguard/guard"
+	"github.com/czcorpus/apiguard/guard/token"
+	"github.com/czcorpus/apiguard/services/cnc"
+)
 
-type Conf = cnc.ProxyConf
+type Conf struct {
+	cnc.ProxyConf
+	GuardType       guard.GuardType   `json:"guardType"`
+	TokenHeaderName string            `json:"tokenHeaderName"`
+	Tokens          []token.TokenConf `json:"tokens"`
+}

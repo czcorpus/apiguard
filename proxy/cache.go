@@ -54,12 +54,16 @@ func GenerateCacheId(req *http.Request, opts *cache.CacheEntryOptions) []byte {
 
 	}
 	if opts.CacheablePOST {
-		reqData, err := io.ReadAll(req.Body)
-		if err != nil {
-			panic(fmt.Errorf("generateCacheId failed: %s (make sure request body can be read repeatedly if needed)", err))
-		}
-		h.Write(reqData)
+		if len(opts.RequestBody) > 0 {
+			h.Write(opts.RequestBody)
 
+		} else {
+			reqData, err := io.ReadAll(req.Body)
+			if err != nil {
+				panic(fmt.Errorf("generateCacheId failed: %s (make sure request body can be read repeatedly if needed)", err))
+			}
+			h.Write(reqData)
+		}
 	} else if len(opts.RequestBody) > 0 {
 		h.Write(opts.RequestBody)
 	}

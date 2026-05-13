@@ -37,17 +37,19 @@ import (
 )
 
 type lemmaProfileArgs struct {
-	Lemma    string `json:"lemma"`
-	PoS      string `json:"pos"`
-	Category string `json:"category"`
-	Corpus   string `json:"corpus"`
+	Lemma       string   `json:"lemma"`
+	PoS         string   `json:"pos"`
+	CatSet      []string `json:"catSet"`
+	FrameCatSet []string `json:"frameCatSet,omitempty"`
+	Corpus      string   `json:"corpus"`
 }
 
 type posReqArgs struct {
-	PoS      string `json:"pos"`
-	Category string `json:"category"`
-	Corpus   string `json:"corpus"`
-	BinCount int    `json:"bin_count"`
+	PoS         string   `json:"pos"`
+	CatSet      []string `json:"catSet"`
+	FrameCatSet []string `json:"frameCatSet,omitempty"`
+	Corpus      string   `json:"corpus"`
+	BinCount    int      `json:"bin_count"`
 }
 
 type profileResponse struct {
@@ -139,10 +141,11 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		}
 
 		reqArgsJson, err := json.Marshal(posReqArgs{
-			PoS:      reqArgs.PoS,
-			Category: reqArgs.Category,
-			Corpus:   reqArgs.Corpus,
-			BinCount: 20,
+			PoS:         reqArgs.PoS,
+			CatSet:      reqArgs.CatSet,
+			FrameCatSet: reqArgs.FrameCatSet,
+			Corpus:      reqArgs.Corpus,
+			BinCount:    20,
 		})
 
 		req := *ctx.Request
@@ -164,7 +167,6 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
 	}
-
 	uniresp.WriteJSONResponse(
 		ctx.Writer,
 		profileResponse{

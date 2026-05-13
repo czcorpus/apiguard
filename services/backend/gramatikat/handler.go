@@ -96,6 +96,8 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		return
 	}
 
+	log.Debug().Any("reqArgs", reqArgs).Str("method", ctx.Request.Method).Msg("obtained lemma-profile args")
+
 	if err := guard.RestrictResponseTime(
 		ctx.Writer, ctx.Request, gp.EnvironConf().ReadTimeoutSecs, gp.Guard(), clientID,
 	); err != nil {
@@ -152,7 +154,7 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		req.URL = req1URL
 		req.Method = http.MethodPost
 		req.Body = io.NopCloser(bytes.NewBuffer(reqArgsJson))
-		serviceResp := gp.MakeCacheablePOSTRequest(&req, reqProps, reqBody)
+		serviceResp := gp.MakeCacheablePOSTRequest(&req, reqProps, reqArgsJson)
 		if err := serviceResp.Error(); err != nil {
 			return err
 		}

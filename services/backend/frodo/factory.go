@@ -50,6 +50,9 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("frodo"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (frodo): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
 	var frodoReqCounter chan<- guard.RequestInfo
 	if len(typedConf.Limits) > 0 {
 		frodoReqCounter = args.Alarm.Register(

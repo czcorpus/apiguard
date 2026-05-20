@@ -46,6 +46,7 @@ type Actions struct {
 	apiRoutes  http.Handler
 	streams    *streams
 	confLoader wagConfLoader
+	conf       StreamingConf
 }
 
 type wagConfLoader interface {
@@ -74,6 +75,9 @@ func (actions *Actions) CreateStream(ctx *gin.Context) {
 		return
 	}
 	args.ApplyDefaults()
+	if actions.conf.APIReporting.HeaderName != "" {
+		args.apiReportingKey = ctx.GetHeader(actions.conf.APIReporting.HeaderName)
+	}
 	id := actions.streams.Add(&args)
 	ctx.Status(http.StatusCreated)
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]string{"id": id})
@@ -140,6 +144,9 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 			req, _ := http.NewRequest(rd.Method, rd.URL, bodyReader)
 			req.RemoteAddr = ctx.RemoteIP()
 			req.Header.Add("content-type", rd.ContentType)
+			if actions.conf.APIReporting.HeaderName != "" && args.apiReportingKey != "" {
+				req.Header.Add(actions.conf.APIReporting.HeaderName, args.apiReportingKey)
+			}
 			for _, ck := range ctx.Request.Cookies() {
 				req.AddCookie(ck)
 			}
@@ -290,6 +297,7 @@ func NewActions(
 	ctx context.Context,
 	apiRoutes http.Handler,
 	wagTilesConfDir string,
+	conf StreamingConf,
 ) (*Actions, error) {
 	var confLoader wagConfLoader
 	if wagTilesConfDir != "" {
@@ -308,6 +316,7 @@ func NewActions(
 		apiRoutes:  apiRoutes,
 		streams:    newStreams(),
 		confLoader: confLoader,
+		conf:       conf,
 	}
 	tc := time.NewTicker(5 * time.Minute)
 	go func() {

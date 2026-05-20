@@ -19,7 +19,13 @@ package wagstream
 
 import (
 	"fmt"
+
+	"github.com/czcorpus/apiguard/proxy"
 )
+
+type StreamingConf struct {
+	APIReporting proxy.APIReportingConf `json:"apiReporting"`
+}
 
 // request is a single API request which we pack into
 // an HTTP stream request.
@@ -98,7 +104,8 @@ func (req *request) groupingKey() string {
 // StreamRequestJSON represents an HTTP body of a request
 // to APIGuard's data streaming API proxy.
 type StreamRequestJSON struct {
-	Requests []*request `json:"requests"`
+	Requests        []*request `json:"requests"`
+	apiReportingKey string
 }
 
 func (srj *StreamRequestJSON) ApplyDefaults() {

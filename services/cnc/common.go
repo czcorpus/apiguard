@@ -67,15 +67,12 @@ func (kp *Proxy) reqUsesMappedSession(req *http.Request) bool {
 	return err == nil
 }
 
-func (kp *Proxy) IsRegularAPICall(hd http.Header) bool {
-	return !kp.rConf.IsStreamingMode && kp.conf.InternalRequestsFlagHeader != "" && hd.Get(kp.conf.InternalRequestsFlagHeader) != ""
-}
-
 func (kp *Proxy) ProcessReqHeaders(
 	ctx *gin.Context,
 	humanID, userID common.UserID,
 	internalAPICall *bool,
 ) error {
+
 	passedHeaders := ctx.Request.Header
 
 	if ctx.Request.Header.Get("host") == "" {
@@ -89,7 +86,7 @@ func (kp *Proxy) ProcessReqHeaders(
 		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
 	}
 
-	if kp.IsRegularAPICall(passedHeaders) {
+	if kp.apiProxy.IsRegularAPICall(passedHeaders) {
 		*internalAPICall = true
 	}
 

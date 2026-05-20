@@ -67,10 +67,10 @@ type ProxyConf struct {
 	// service. If empty then no user ID info will be passed.
 	TrueUserIDHeader string `json:"trueUserIdHeader"`
 
-	// InternalRequestsFlagHeader defines a header which indicates
+	// APIReporting defines a header and validation HMAC secret which indicates
 	// that the request is "internal" (e.g. from an inhouse web app)
 	// and thus can be omitted from reports about API/backends usage.
-	InternalRequestsFlagHeader string `json:"internalRequestsFlagHeader"`
+	APIReporting proxy.APIReportingConf `json:"apiReporting"`
 
 	Limits []proxy.Limit `json:"limits"`
 
@@ -98,9 +98,6 @@ func (c *ProxyConf) Validate(context string) error {
 	if err := c.SessionValType.Validate(); err != nil {
 		return fmt.Errorf("%s.sessionValType is invalid: %w", context, err)
 	}
-	if c.InternalRequestsFlagHeader == "" {
-		log.Warn().Msg("internalRequestsFlagHeader not set - APIGuard won't be able to report internal API use in logs")
-	}
 	for i, limit := range c.Limits {
 		if limit.BurstLimit == 0 {
 			log.Warn().
@@ -123,6 +120,7 @@ func (c *ProxyConf) GetCoreConf() proxy.GeneralProxyConf {
 		ReqTimeoutSecs:      c.ReqTimeoutSecs,
 		IdleConnTimeoutSecs: c.IdleConnTimeoutSecs,
 		Limits:              c.Limits,
+		APIReporting:        c.APIReporting,
 	}
 }
 

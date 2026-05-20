@@ -59,14 +59,14 @@ type PublicAPIProxyOpts struct {
 	// ServiceKey is a unique service id - e.g. 3/gunstick
 	ServiceKey string
 
-	BackendURL                 *url.URL
-	FrontendURL                *url.URL
-	AuthCookieName             string
-	UserIDHeaderName           string
-	InternalRequestsFlagHeader string
-	ReadTimeoutSecs            int
-	ResponseInterceptor        func(*proxy.BackendProxiedResponse)
-	IsStreamingMode            bool
+	BackendURL          *url.URL
+	FrontendURL         *url.URL
+	AuthCookieName      string
+	UserIDHeaderName    string
+	APIReporting        proxy.APIReportingConf
+	ReadTimeoutSecs     int
+	ResponseInterceptor func(*proxy.BackendProxiedResponse)
+	IsStreamingMode     bool
 }
 
 // Proxy is a service proxy which - in general - does not
@@ -275,10 +275,6 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	})
 }
 
-func (prox *Proxy) IsRegularAPICall(hd http.Header) bool {
-	return !prox.isStreamingMode && prox.InternalRequestsFlagHeader != "" && hd.Get(prox.InternalRequestsFlagHeader) != ""
-}
-
 func (prox *Proxy) ProcessReqHeaders(
 	ctx *gin.Context,
 	internalAPICall *bool,
@@ -287,7 +283,7 @@ func (prox *Proxy) ProcessReqHeaders(
 	if ctx.Request.Header.Get("host") == "" {
 		ctx.Request.Header.Set("host", prox.FrontendURL.Host)
 	}
-	if prox.IsRegularAPICall(passedHeaders) {
+	if prox.basicProxy.IsRegularAPICall(passedHeaders) {
 		*internalAPICall = true
 	}
 }
@@ -373,13 +369,6 @@ func NewProxy(
 
 	} else {
 		p.userIDHeaderName = opts.UserIDHeaderName
-	}
-
-	if opts.InternalRequestsFlagHeader == "" {
-		log.Warn().Msg("internalRequestsFlagHeader not set - APIGuard won't be able to report internal API use in logs")
-
-	} else {
-		p.InternalRequestsFlagHeader = opts.InternalRequestsFlagHeader
 	}
 
 	p.isStreamingMode = opts.IsStreamingMode

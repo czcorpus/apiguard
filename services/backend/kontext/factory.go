@@ -47,6 +47,10 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate(fmt.Sprintf("%d/kontext", args.SID)); err != nil {
 		return fmt.Errorf("failed to initialize service %d (kontext): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
+
 	var cncGuard iGuard.ServiceGuard
 	switch typedConf.SessionValType {
 	case session.SessionTypeNone:

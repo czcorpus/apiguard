@@ -416,7 +416,7 @@ func RunService(conf *config.Configuration) {
 		// handlers is set to Null cache and only possible caching
 		// is centralized here
 
-		actionsHandler, err := wagstream.NewActions(ctx, apiEngine, conf.WagTilesConfDir)
+		actionsHandler, err := wagstream.NewActions(ctx, apiEngine, conf.WagTilesConfDir, conf.Streaming)
 		if err != nil {
 			log.Fatal().Err(err).Msg("failed to start")
 			return

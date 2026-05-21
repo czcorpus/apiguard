@@ -50,6 +50,9 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("scollex"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (scollex): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
 	var scollexReqCounter chan<- guard.RequestInfo
 	if len(typedConf.Limits) > 0 {
 		scollexReqCounter = args.Alarm.Register(

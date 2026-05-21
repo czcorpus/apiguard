@@ -45,6 +45,10 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("gunstick"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gunstick): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
+
 	client := httpclient.New(
 		httpclient.WithFollowRedirects(),
 		httpclient.WithInsecureSkipVerify(),
@@ -77,14 +81,14 @@ func create(args services.InitArgs) error {
 		grd.ExposeAsCounter(),
 		grd,
 		public.PublicAPIProxyOpts{
-			ServicePath:                fmt.Sprintf("/service/%d/gunstick", args.SID),
-			ServiceKey:                 fmt.Sprintf("%d/gunstick", args.SID),
-			BackendURL:                 backendURL,
-			FrontendURL:                frontendURL,
-			ReadTimeoutSecs:            args.GlobalConf.ServerReadTimeoutSecs,
-			IsStreamingMode:            args.GlobalConf.OperationMode == config.OperationModeStreaming,
-			UserIDHeaderName:           typedConf.TrueUserIDHeader,
-			InternalRequestsFlagHeader: typedConf.InternalRequestsFlagHeader,
+			ServicePath:      fmt.Sprintf("/service/%d/gunstick", args.SID),
+			ServiceKey:       fmt.Sprintf("%d/gunstick", args.SID),
+			BackendURL:       backendURL,
+			FrontendURL:      frontendURL,
+			ReadTimeoutSecs:  args.GlobalConf.ServerReadTimeoutSecs,
+			IsStreamingMode:  args.GlobalConf.OperationMode == config.OperationModeStreaming,
+			UserIDHeaderName: typedConf.TrueUserIDHeader,
+			APIReporting:     typedConf.APIReporting,
 		},
 	)
 	args.APIRoutes.Any(

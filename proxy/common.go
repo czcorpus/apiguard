@@ -27,6 +27,15 @@ import (
 	"golang.org/x/time/rate"
 )
 
+type APIReportingConf struct {
+	HeaderName      string `json:"headerName"`
+	Secret          string `json:"secret"`
+	AppID           string `json:"appId"`
+	RefreshInterval string `json:"refreshInterval"`
+}
+
+// ---------------------------
+
 type Limit struct {
 	ReqPerTimeThreshold     int `json:"reqPerTimeThreshold"`
 	ReqCheckingIntervalSecs int `json:"reqCheckingIntervalSecs"`
@@ -49,6 +58,7 @@ type GeneralProxyConf struct {
 	ReqTimeoutSecs      int
 	IdleConnTimeoutSecs int
 	Limits              []Limit
+	APIReporting        APIReportingConf
 }
 
 // ---------------------------
@@ -102,3 +112,5 @@ func (msc MultiStatusCode) Result() int {
 	}
 	return maxCode
 }
+
+// -------------------------------------

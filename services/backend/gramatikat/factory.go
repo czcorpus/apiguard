@@ -47,9 +47,11 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("gramatikat"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
 	}
-
 	if typedConf.GuardType != guard.GuardTypeDflt {
 		return fmt.Errorf("failed to initialize service %d (gramatikat): unsupported guard type %s (supported: dflt)", args.SID, typedConf.GuardType)
+	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
 	}
 
 	var gramatikatReqCounter chan<- guard.RequestInfo

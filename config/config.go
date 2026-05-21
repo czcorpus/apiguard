@@ -31,6 +31,7 @@ import (
 	"github.com/czcorpus/apiguard/reporting"
 	"github.com/czcorpus/apiguard/session"
 	"github.com/czcorpus/apiguard/telemetry"
+	"github.com/czcorpus/apiguard/wagstream"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -120,16 +121,16 @@ func (services *servicesSection) validate() error {
 */
 
 type Configuration struct {
-	apiAllowedClientsCache    []net.IPNet
-	ServerHost                string        `json:"serverHost"`
-	ServerPort                int           `json:"serverPort"`
-	ServerReadTimeoutSecs     int           `json:"serverReadTimeoutSecs"`
-	ServerWriteTimeoutSecs    int           `json:"serverWriteTimeoutSecs"`
-	TimeZone                  string        `json:"timeZone"`
-	PublicRoutesURL           string        `json:"publicRoutesUrl"`
-	OperationMode             OperationMode `json:"operationMode"`
-	DisableStreamingModeCache bool          `json:"disableStreamingModeCache"`
-	WagTilesConfDir           string        `json:"wagTilesConfDir"`
+	apiAllowedClientsCache []net.IPNet
+	ServerHost             string                  `json:"serverHost"`
+	ServerPort             int                     `json:"serverPort"`
+	ServerReadTimeoutSecs  int                     `json:"serverReadTimeoutSecs"`
+	ServerWriteTimeoutSecs int                     `json:"serverWriteTimeoutSecs"`
+	TimeZone               string                  `json:"timeZone"`
+	PublicRoutesURL        string                  `json:"publicRoutesUrl"`
+	OperationMode          OperationMode           `json:"operationMode"`
+	Streaming              wagstream.StreamingConf `json:"streaming"`
+	WagTilesConfDir        string                  `json:"wagTilesConfDir"`
 
 	// APIAllowedClients is a list of IP/CIDR addresses allowed to access the API.
 	// Mostly, we should stick here with our internal network.

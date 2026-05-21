@@ -43,6 +43,9 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("treq"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (treq): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
 	cnca := cncauth.New(
 		args.Ctx,
 		args.GlobalConf.CNCAuth.SessionCookieName,

@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/httpclient"
+	"github.com/czcorpus/klogproc-core/analysis"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -57,9 +58,10 @@ func LogCookies(req *http.Request, target *zerolog.Event) *zerolog.Event {
 // It has only methods for performing request and request stream
 // (Server-side events).
 type CoreProxy struct {
-	BackendURL  *url.URL
-	FrontendURL *url.URL
-	client      *http.Client
+	BackendURL   *url.URL
+	FrontendURL  *url.URL
+	client       *http.Client
+	apiReporting APIReportingConf
 }
 
 func (proxy *CoreProxy) transformRedirect(headers http.Header) error {
@@ -174,6 +176,33 @@ func (proxy *CoreProxy) RequestStream(
 	}
 }
 
+func (proxy *CoreProxy) IsRegularAPICall(hd http.Header) bool {
+	if proxy.apiReporting.HeaderName != "" {
+		key := hd.Get(proxy.apiReporting.HeaderName)
+
+		if proxy.apiReporting.Secret != "" {
+			valid, err := analysis.ValidateAPIReportingKey(
+				proxy.apiReporting.AppID,
+				proxy.apiReporting.Secret,
+				key,
+				time.Now().UTC(),
+				proxy.apiReporting.RefreshInterval,
+			)
+			if err != nil {
+				log.Error().Err(err).Msg("failed to validate API reporting key")
+				return false
+			}
+			return valid
+
+		} else {
+			return key != ""
+		}
+
+	} else {
+		return true
+	}
+}
+
 func NewCoreProxy(conf GeneralProxyConf) (*CoreProxy, error) {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.MaxIdleConns = httpclient.TransportMaxIdleConns
@@ -188,6 +217,15 @@ func NewCoreProxy(conf GeneralProxyConf) (*CoreProxy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create APIProxy: %w", err)
 	}
+	var apiReportingConf APIReportingConf
+	if conf.APIReporting.HeaderName == "" {
+		log.Warn().
+			Str("backend", conf.BackendURL).
+			Msg("apiReporting for a CoreProxy not set - it won't be able to report internal API use in logs")
+
+	} else {
+		apiReportingConf = conf.APIReporting
+	}
 	return &CoreProxy{
 		BackendURL:  backendURL,
 		FrontendURL: frontendURL,
@@ -198,5 +236,6 @@ func NewCoreProxy(conf GeneralProxyConf) (*CoreProxy, error) {
 			Timeout:   time.Duration(conf.ReqTimeoutSecs) * time.Second,
 			Transport: transport,
 		},
+		apiReporting: apiReportingConf,
 	}, nil
 }

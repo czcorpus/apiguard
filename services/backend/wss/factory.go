@@ -46,6 +46,9 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("wss"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (wss): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
 	analyzer := dflt.New(
 		args.Ctx,
 		args.GlobalConf.CNCAuth.SessionCookieName,

@@ -46,6 +46,9 @@ func create(args services.InitArgs) error {
 	if err := typedConf.Validate("kwords"); err != nil {
 		return fmt.Errorf("failed to initialize service %d (kwords): %w", args.SID, err)
 	}
+	if args.GlobalConf.OperationMode == config.OperationModeStreaming {
+		typedConf.APIReporting = args.GlobalConf.Streaming.APIReporting
+	}
 	client := httpclient.New(
 		httpclient.WithFollowRedirects(),
 		httpclient.WithInsecureSkipVerify(),
@@ -84,15 +87,15 @@ func create(args services.InitArgs) error {
 		analyzer.ExposeAsCounter(),
 		analyzer,
 		public.PublicAPIProxyOpts{
-			ServiceKey:                 fmt.Sprintf("%d/kwords", args.SID),
-			ServicePath:                fmt.Sprintf("/service/%d/kwords", args.SID),
-			BackendURL:                 backendURL,
-			FrontendURL:                frontendUrl,
-			AuthCookieName:             args.GlobalConf.CNCAuth.SessionCookieName,
-			ReadTimeoutSecs:            args.GlobalConf.ServerReadTimeoutSecs,
-			IsStreamingMode:            args.GlobalConf.OperationMode == config.OperationModeStreaming,
-			UserIDHeaderName:           typedConf.TrueUserIDHeader,
-			InternalRequestsFlagHeader: typedConf.InternalRequestsFlagHeader,
+			ServiceKey:       fmt.Sprintf("%d/kwords", args.SID),
+			ServicePath:      fmt.Sprintf("/service/%d/kwords", args.SID),
+			BackendURL:       backendURL,
+			FrontendURL:      frontendUrl,
+			AuthCookieName:   args.GlobalConf.CNCAuth.SessionCookieName,
+			ReadTimeoutSecs:  args.GlobalConf.ServerReadTimeoutSecs,
+			IsStreamingMode:  args.GlobalConf.OperationMode == config.OperationModeStreaming,
+			UserIDHeaderName: typedConf.TrueUserIDHeader,
+			APIReporting:     typedConf.APIReporting,
 		},
 	)
 	args.APIRoutes.Any(

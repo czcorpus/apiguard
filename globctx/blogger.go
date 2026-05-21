@@ -18,6 +18,7 @@
 package globctx
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -28,6 +29,8 @@ import (
 	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/czcorpus/cnc-gokit/unireq"
+	"github.com/czcorpus/klogproc-core/save/elastic"
+	"github.com/czcorpus/klogproc-core/storage"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -40,7 +43,6 @@ func exportURLArgs(req *http.Request) map[string]any {
 		}
 		if len(v) == 1 {
 			ans[k] = v[0]
-
 		} else {
 			ans[k] = v
 		}
@@ -52,6 +54,7 @@ type BackendLogger struct {
 	tDBWriter     reporting.ReportingWriter
 	fileLogger    zerolog.Logger
 	reqPathPrefix string
+	dataCh        chan *storage.BoundOutputRecord
 }
 
 // Log logs a service backend (e.g. KonText, Treq, some UJC server) access
@@ -97,6 +100,55 @@ func (b *BackendLogger) Log(
 		event.Int("userId", int(bReq.UserID))
 	}
 	event.Send()
+
+	if b.dataCh != nil {
+		rec := &storage.BoundOutputRecord{
+			FilePath: fmt.Sprintf("%s/%s", service, actionType),
+			FilePos:  storage.LogRange{SeekStart: time.Now().Unix()},
+			Rec: &ElasticOutputRecord{
+				Service:      bReq.Service,
+				ActionType:   string(bReq.ActionType),
+				ProcTime:     bReq.ProcTime,
+				IsCached:     bReq.IsCached,
+				IndirectCall: bReq.IndirectCall,
+				UserID:       bReq.UserID,
+				IPAddress:    unireq.ClientIP(req).String(),
+				UserAgent:    req.UserAgent(),
+				RequestPath:  strings.TrimPrefix(req.URL.Path, b.reqPathPrefix),
+				Args:         exportURLArgs(req),
+			},
+		}
+		b.dataCh <- rec
+	}
+}
+
+// Start starts the Elasticsearch write consumer for the backend logger.
+func (b *BackendLogger) Start(ctx context.Context, conf *elastic.ConnectionConf) {
+	if conf == nil || !conf.IsConfigured() {
+		log.Warn().Msg("Elasticsearch is not configured - backend logger will not write to Elasticsearch")
+		return
+	}
+	b.dataCh = make(chan *storage.BoundOutputRecord, 100)
+	confirmChannel := elastic.RunWriteConsumer(ctx, "apiguard", conf, b.dataCh)
+	go func() {
+		for {
+			select {
+			case confirmMsg, ok := <-confirmChannel:
+				if !ok {
+					close(b.dataCh)
+					return
+				}
+				if confirmMsg.Error != nil {
+					log.Error().Err(confirmMsg.Error).Str("filePath", confirmMsg.FilePath).Msg("failed to write chunk to Elasticsearch")
+				} else {
+					log.Info().Str("filePath", confirmMsg.FilePath).Int64("position", confirmMsg.Position.SeekStart).Msg("successfully written chunk to Elasticsearch")
+				}
+			case <-ctx.Done():
+				close(b.dataCh)
+				return
+			}
+		}
+	}()
 }
 
 // NewBackendLogger creates a new backend access logging service

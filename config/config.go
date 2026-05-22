@@ -32,6 +32,7 @@ import (
 	"github.com/czcorpus/apiguard/session"
 	"github.com/czcorpus/apiguard/telemetry"
 	"github.com/czcorpus/apiguard/wagstream"
+	"github.com/czcorpus/klogproc-core/save/elastic"
 
 	"github.com/czcorpus/cnc-gokit/fs"
 	"github.com/czcorpus/cnc-gokit/logging"
@@ -148,6 +149,8 @@ type Configuration struct {
 	CNCAuth           CNCAuthConf              `json:"cncAuth"`
 	Auth              *AuthConf                `json:"auth"`
 	IgnoreStoredState bool                     `json:"-"`
+
+	ESArchive *elastic.ConnectionConf `json:"esArchive"`
 }
 
 func (c *Configuration) loadAPIAllowlist() error {

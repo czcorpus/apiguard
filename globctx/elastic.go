@@ -31,21 +31,21 @@ import (
 )
 
 type ElasticOutputRecord struct {
-	Service      string         `json:"service"`
-	ActionType   string         `json:"actionType"`
-	ProcTime     float64        `json:"procTime"`
-	IsCached     bool           `json:"isCached"`
-	IndirectCall bool           `json:"indirectCall"`
-	UserID       common.UserID  `json:"userId,omitempty"`
-	IPAddress    string         `json:"ipAddress,omitempty"`
-	UserAgent    string         `json:"userAgent,omitempty"`
-	RequestPath  string         `json:"requestPath,omitempty"`
-	Args         map[string]any `json:"args,omitempty"`
-	CountryName  string         `json:"countryName,omitempty"`
-	Latitude     float32        `json:"latitude,omitempty"`
-	Longitude    float32        `json:"longitude,omitempty"`
-	Timezone     string         `json:"timezone,omitempty"`
-	Time         time.Time      `json:"time"`
+	Service        string         `json:"service"`
+	ActionType     string         `json:"actionType"`
+	ProcTime       float64        `json:"procTime"`
+	IsCached       bool           `json:"isCached"`
+	FirstPartyCall bool           `json:"isFirstPartyCall"`
+	UserID         common.UserID  `json:"userId,omitempty"`
+	IPAddress      string         `json:"ipAddress,omitempty"`
+	UserAgent      string         `json:"userAgent,omitempty"`
+	RequestPath    string         `json:"requestPath,omitempty"`
+	Args           map[string]any `json:"args,omitempty"`
+	CountryName    string         `json:"countryName,omitempty"`
+	Latitude       float32        `json:"latitude,omitempty"`
+	Longitude      float32        `json:"longitude,omitempty"`
+	Timezone       string         `json:"timezone,omitempty"`
+	Time           time.Time      `json:"time"`
 }
 
 // SetLocation sets the geographical location data for the record.
@@ -85,7 +85,7 @@ func (r *ElasticOutputRecord) GenerateDeterministicID() string {
 		r.ActionType,
 		r.ProcTime,
 		r.IsCached,
-		r.IndirectCall,
+		r.FirstPartyCall,
 		r.IPAddress,
 		r.Latitude,
 		r.Longitude,

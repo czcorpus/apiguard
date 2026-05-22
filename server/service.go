@@ -46,6 +46,7 @@ import (
 	"github.com/czcorpus/apiguard/tstorage"
 	"github.com/czcorpus/apiguard/wagstream"
 	"github.com/czcorpus/hltscl"
+	"github.com/czcorpus/klogproc-core/save/elastic"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/czcorpus/cnc-gokit/datetime"
@@ -309,6 +310,7 @@ func CreateGlobalCtx(
 	ctx context.Context,
 	conf *config.Configuration,
 	tDBWriter reporting.ReportingWriter,
+	esDispatcher *globctx.ESDispatcher,
 ) (*globctx.Context, error) {
 	ans := globctx.NewGlobalContext(ctx)
 
@@ -346,6 +348,7 @@ func CreateGlobalCtx(
 			tDBWriter,
 			backendConf.LogPath,
 			fmt.Sprintf("/service/%s", serviceKey),
+			esDispatcher,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create global ctx: %w", err)
@@ -353,7 +356,7 @@ func CreateGlobalCtx(
 		log.Info().Str("service", serviceKey).Str("path", backendConf.LogPath).Msg("created backend logger")
 	}
 	var err error
-	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "", "")
+	ans.BackendLoggers["default"], err = globctx.NewBackendLogger(tDBWriter, "", "", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create global ctx: %w", err)
 	}
@@ -377,7 +380,25 @@ func RunService(conf *config.Configuration) {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	tDBWriter := CreateTDBWriter(ctx, conf.Reporting, conf.TimezoneLocation())
-	globalCtx, err := CreateGlobalCtx(ctx, conf, tDBWriter)
+
+	var esDispatcher *globctx.ESDispatcher
+	if conf.ESArchive != nil {
+		esDispatcher = globctx.NewESDispatcher(1000)
+		errChan := elastic.RunOnTheFlyWriteConsumer(ctx, conf.ESArchive, esDispatcher.Ch())
+		go func() {
+			for {
+				select {
+				case err := <-errChan:
+					log.Error().Err(err).Msg("failed to write record(s) to ElastiSearch")
+					// TODO - can we do more here? (Conomi at least?)
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	globalCtx, err := CreateGlobalCtx(ctx, conf, tDBWriter, esDispatcher)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to start: %s", err)
 		os.Exit(1)

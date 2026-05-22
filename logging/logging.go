@@ -36,7 +36,7 @@ func LogServiceRequest(
 		Str("service", bReq.Service).
 		Float64("procTime", bReq.ProcTime).
 		Bool("isCached", bReq.IsCached).
-		Bool("isIndirect", bReq.IndirectCall).
+		Bool("isIndirect", bReq.FirstPartyCall).
 		Str("ipAddress", unireq.ClientIP(req).String()).
 		Str("userAgent", req.UserAgent()).
 		Str("requestPath", req.URL.Path)

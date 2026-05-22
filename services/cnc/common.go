@@ -34,7 +34,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, internalCall *bool, cached *bool, created time.Time) {
+func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, firstPartyCall *bool, cached *bool, created time.Time) {
 	if kp.reqCounter != nil {
 		kp.reqCounter <- guard.RequestInfo{
 			Created:     created,
@@ -50,7 +50,7 @@ func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, intern
 		time.Since(created),
 		*cached,
 		*currHumanID,
-		*internalCall,
+		*firstPartyCall,
 		reporting.BackendActionTypeQuery,
 	)
 }

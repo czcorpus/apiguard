@@ -17,8 +17,8 @@ github.com/czcorpus/cnc-gokit v0.22.0 h1:/VSvr2Voa4y6AOOeGzhsF585SXZ1Go8O5xIDWnr
 github.com/czcorpus/cnc-gokit v0.22.0/go.mod h1:RjGGNvSdtgUGnAcVTy/WHUFL7UuNez7YaBnVulj6PTM=
 github.com/czcorpus/hltscl v0.2.0 h1:Rz4zNKGKHS/RchgXWnEobXTnvkHb+Cz63/JneBHroMo=
 github.com/czcorpus/hltscl v0.2.0/go.mod h1:qoi+22q0mRV5UPHNkda2PoTwZ2gaOKlt2U/7eCCzYoY=
-github.com/czcorpus/klogproc-core v1.7.1 h1:194gLHD7EvyllpFUBG154AT8ml6WgV9ThuGueqo1Uxg=
-github.com/czcorpus/klogproc-core v1.7.1/go.mod h1:Rfeatc2rCFQOZv+Z7Q+V0LeE2V5+aMDaxAMcTBCrbf0=
+github.com/czcorpus/klogproc-core v1.8.1 h1:JvvWuitOJ62M+IOtbtJsPYtZDXY+nT+3gtb/Qgtl2II=
+github.com/czcorpus/klogproc-core v1.8.1/go.mod h1:Rfeatc2rCFQOZv+Z7Q+V0LeE2V5+aMDaxAMcTBCrbf0=
 github.com/czcorpus/mquery-common v0.8.0 h1:WEMS0wq6wsBueWQcLwuhUJJ4RM8tjYeXWoGxyHZvqVs=
 github.com/czcorpus/mquery-common v0.8.0/go.mod h1:jm+a8TUScDmReS+wJGVQpYU2ZsF1c81eMeZVWRzA9iQ=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

@@ -6,7 +6,7 @@ require (
 	github.com/bytedance/sonic v1.15.0
 	github.com/czcorpus/cnc-gokit v0.22.0
 	github.com/czcorpus/hltscl v0.2.0
-	github.com/czcorpus/klogproc-core v1.7.1
+	github.com/czcorpus/klogproc-core v1.8.1
 	github.com/czcorpus/mquery-common v0.8.0
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.12.0

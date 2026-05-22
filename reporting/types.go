@@ -138,13 +138,13 @@ func (report *TelemetryEntropy) MarshalJSON() ([]byte, error) {
 // ----
 
 type BackendRequest struct {
-	Created      time.Time
-	Service      string
-	ProcTime     float64
-	IsCached     bool
-	UserID       common.UserID
-	IndirectCall bool
-	ActionType   BackendActionType
+	Created        time.Time
+	Service        string
+	ProcTime       float64
+	IsCached       bool
+	UserID         common.UserID
+	FirstPartyCall bool
+	ActionType     BackendActionType
 }
 
 func (br *BackendRequest) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl.Entry {
@@ -153,7 +153,7 @@ func (br *BackendRequest) ToTimescaleDB(tableWriter *hltscl.TableWriter) *hltscl
 		Bool("is_cached", br.IsCached).
 		Str("action_type", string(br.ActionType)).
 		Float("proc_time", br.ProcTime).
-		Bool("indirect_call", br.IndirectCall)
+		Bool("first_party_call", br.FirstPartyCall)
 }
 
 func (br *BackendRequest) GetTime() time.Time {
@@ -166,21 +166,21 @@ func (br *BackendRequest) GetTableName() string {
 
 func (report *BackendRequest) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		Created      time.Time         `json:"created"`
-		Service      string            `json:"service"`
-		ProcTime     float64           `json:"procTime"`
-		IsCached     bool              `json:"isCached"`
-		UserID       common.UserID     `json:"userId"`
-		IndirectCall bool              `json:"indirectCall"`
-		ActionType   BackendActionType `json:"actionType"`
+		Created        time.Time         `json:"created"`
+		Service        string            `json:"service"`
+		ProcTime       float64           `json:"procTime"`
+		IsCached       bool              `json:"isCached"`
+		UserID         common.UserID     `json:"userId"`
+		FirstPartyCall bool              `json:"isFirstPartyCall"`
+		ActionType     BackendActionType `json:"actionType"`
 	}{
-		Created:      report.Created,
-		Service:      report.Service,
-		ProcTime:     report.ProcTime,
-		IsCached:     report.IsCached,
-		UserID:       report.UserID,
-		IndirectCall: report.IndirectCall,
-		ActionType:   report.ActionType,
+		Created:        report.Created,
+		Service:        report.Service,
+		ProcTime:       report.ProcTime,
+		IsCached:       report.IsCached,
+		UserID:         report.UserID,
+		FirstPartyCall: report.FirstPartyCall,
+		ActionType:     report.ActionType,
 	})
 }
 

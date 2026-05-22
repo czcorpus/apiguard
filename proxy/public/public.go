@@ -177,14 +177,14 @@ func (kp *Proxy) ToCache(req *http.Request, data cache.CacheEntry, opts ...func(
 	)
 }
 
-func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, internalCall *bool, cached *bool, created time.Time) {
+func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, firstPartyCall *bool, cached *bool, created time.Time) {
 	kp.backendLoggers[kp.serviceKey].Log(
 		ctx.Request,
 		kp.serviceKey,
 		time.Since(created),
 		*cached,
 		*currHumanID,
-		*internalCall,
+		*firstPartyCall,
 		reporting.BackendActionTypeQuery,
 	)
 }

@@ -18,7 +18,6 @@
 package globctx
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -33,6 +32,10 @@ import (
 	"github.com/czcorpus/klogproc-core/storage"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+)
+
+const (
+	defaultBufferSize = 1000
 )
 
 func exportURLArgs(req *http.Request) map[string]any {
@@ -50,11 +53,42 @@ func exportURLArgs(req *http.Request) map[string]any {
 	return ans
 }
 
+// -----------------------
+
+type ElasticArchiveConf struct {
+	*elastic.ConnectionConf
+
+	// BufferSize defines a respective channel buffer size
+	// used in the queue between proxy producing log records
+	// and the Elastic writer
+	BufferSize int `json:"bufferSize"`
+}
+
+func (eac *ElasticArchiveConf) AsConnectionConf() *elastic.ConnectionConf {
+	return eac.ConnectionConf
+}
+
+func (eac *ElasticArchiveConf) Validate() error {
+	if err := eac.ConnectionConf.Validate(); err != nil {
+		return err
+	}
+	if eac.BufferSize == 0 {
+		eac.BufferSize = defaultBufferSize
+		log.Warn().Int("value", defaultBufferSize).Msg("bufferSize not set, using default")
+
+	} else if eac.BufferSize < 0 {
+		return fmt.Errorf("invalid bufferSize: %d", eac.BufferSize)
+	}
+	return nil
+}
+
+// ------
+
 type BackendLogger struct {
 	tDBWriter     reporting.ReportingWriter
 	fileLogger    zerolog.Logger
 	reqPathPrefix string
-	dataCh        chan *storage.BoundOutputRecord
+	esDispatcher  *ESDispatcher
 }
 
 // Log logs a service backend (e.g. KonText, Treq, some UJC server) access
@@ -66,7 +100,7 @@ func (b *BackendLogger) Log(
 	procTime time.Duration,
 	cached bool,
 	userID common.UserID,
-	internalCall bool,
+	firstPartyCall bool,
 	actionType reporting.BackendActionType,
 ) {
 	if b == nil {
@@ -74,13 +108,13 @@ func (b *BackendLogger) Log(
 		return
 	}
 	bReq := &reporting.BackendRequest{
-		Created:      time.Now(),
-		Service:      service,
-		ProcTime:     procTime.Seconds(),
-		IsCached:     cached,
-		UserID:       userID,
-		IndirectCall: internalCall,
-		ActionType:   actionType,
+		Created:        time.Now(),
+		Service:        service,
+		ProcTime:       procTime.Seconds(),
+		IsCached:       cached,
+		UserID:         userID,
+		FirstPartyCall: firstPartyCall,
+		ActionType:     actionType,
 	}
 	b.tDBWriter.Write(bReq)
 	// Also log to the custom file logger
@@ -90,7 +124,7 @@ func (b *BackendLogger) Log(
 		Str("service", bReq.Service).
 		Float64("procTime", bReq.ProcTime).
 		Bool("isCached", bReq.IsCached).
-		Bool("isIndirect", bReq.IndirectCall).
+		Bool("isFirstPartyCall", bReq.FirstPartyCall).
 		Str("actionType", string(bReq.ActionType)).
 		Str("ipAddress", unireq.ClientIP(req).String()).
 		Str("userAgent", req.UserAgent()).
@@ -101,54 +135,27 @@ func (b *BackendLogger) Log(
 	}
 	event.Send()
 
-	if b.dataCh != nil {
-		rec := &storage.BoundOutputRecord{
-			FilePath: fmt.Sprintf("%s/%s", service, actionType),
-			FilePos:  storage.LogRange{SeekStart: time.Now().Unix()},
+	servElms := strings.Split(service, "/")
+
+	if b.esDispatcher != nil {
+		rec := &storage.OnTheFlyOutputRecord{
+			AppType: servElms[1],
 			Rec: &ElasticOutputRecord{
-				Service:      bReq.Service,
-				ActionType:   string(bReq.ActionType),
-				ProcTime:     bReq.ProcTime,
-				IsCached:     bReq.IsCached,
-				IndirectCall: bReq.IndirectCall,
-				UserID:       bReq.UserID,
-				IPAddress:    unireq.ClientIP(req).String(),
-				UserAgent:    req.UserAgent(),
-				RequestPath:  strings.TrimPrefix(req.URL.Path, b.reqPathPrefix),
-				Args:         exportURLArgs(req),
+				Time:           time.Now(),
+				Service:        servElms[1],
+				ActionType:     string(bReq.ActionType),
+				ProcTime:       bReq.ProcTime,
+				IsCached:       bReq.IsCached,
+				FirstPartyCall: bReq.FirstPartyCall,
+				UserID:         bReq.UserID,
+				IPAddress:      unireq.ClientIP(req).String(),
+				UserAgent:      req.UserAgent(),
+				RequestPath:    strings.TrimPrefix(req.URL.Path, b.reqPathPrefix),
+				Args:           exportURLArgs(req),
 			},
 		}
-		b.dataCh <- rec
+		b.esDispatcher.Send(rec)
 	}
-}
-
-// Start starts the Elasticsearch write consumer for the backend logger.
-func (b *BackendLogger) Start(ctx context.Context, conf *elastic.ConnectionConf) {
-	if conf == nil || !conf.IsConfigured() {
-		log.Warn().Msg("Elasticsearch is not configured - backend logger will not write to Elasticsearch")
-		return
-	}
-	b.dataCh = make(chan *storage.BoundOutputRecord, 100)
-	confirmChannel := elastic.RunWriteConsumer(ctx, "apiguard", conf, b.dataCh)
-	go func() {
-		for {
-			select {
-			case confirmMsg, ok := <-confirmChannel:
-				if !ok {
-					close(b.dataCh)
-					return
-				}
-				if confirmMsg.Error != nil {
-					log.Error().Err(confirmMsg.Error).Str("filePath", confirmMsg.FilePath).Msg("failed to write chunk to Elasticsearch")
-				} else {
-					log.Info().Str("filePath", confirmMsg.FilePath).Int64("position", confirmMsg.Position.SeekStart).Msg("successfully written chunk to Elasticsearch")
-				}
-			case <-ctx.Done():
-				close(b.dataCh)
-				return
-			}
-		}
-	}()
 }
 
 // NewBackendLogger creates a new backend access logging service
@@ -156,6 +163,7 @@ func NewBackendLogger(
 	tDBWriter reporting.ReportingWriter,
 	logPath string,
 	reqPathPrefix string,
+	esDispatcher *ESDispatcher,
 ) (*BackendLogger, error) {
 
 	if logPath == "" {
@@ -163,6 +171,7 @@ func NewBackendLogger(
 			tDBWriter:     tDBWriter,
 			fileLogger:    log.Logger,
 			reqPathPrefix: reqPathPrefix,
+			esDispatcher:  esDispatcher,
 		}, nil
 	}
 
@@ -179,5 +188,6 @@ func NewBackendLogger(
 		tDBWriter:     tDBWriter,
 		fileLogger:    fileLogger,
 		reqPathPrefix: reqPathPrefix,
+		esDispatcher:  esDispatcher,
 	}, nil
 }

@@ -104,7 +104,10 @@ func initProxyEngine(
 			if conf.SkipStoredStateOnError {
 				log.Error().
 					Err(err).
-					Msg("Failed to load BreachDetector status from disk, continuing without stored state")
+					Msg("Failed to load BreachDetector status from disk, continuing without stored state and renaming the failed file")
+				if renameErr := alarm.MarkStateFileAsFailed(); renameErr != nil {
+					log.Error().Err(renameErr).Msg("Failed to rename broken state file")
+				}
 			} else {
 				log.Fatal().
 					Err(err).

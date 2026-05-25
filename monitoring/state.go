@@ -25,6 +25,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"time"
 
 	"github.com/czcorpus/cnc-gokit/collections"
 	"github.com/czcorpus/cnc-gokit/fs"
@@ -95,6 +96,17 @@ func (brdetect *BreachDetector) GobDecode(data []byte) error {
 		Int("numItems", len(brdetect.reports)).
 		Msg("loaded BreachDetector.reports")
 	return err
+}
+
+func (brdetect *BreachDetector) MarkStateFileAsFailed() error {
+	src := path.Join(brdetect.limitingConf.StatusDataDir, alarmStatusFile)
+	ts := time.Now().Format("20060102150405")
+	dst := path.Join(brdetect.limitingConf.StatusDataDir, fmt.Sprintf("breach-detector-state-failed.%s.gob", ts))
+	if err := os.Rename(src, dst); err != nil {
+		return fmt.Errorf("failed to rename state file to failed: %w", err)
+	}
+	log.Warn().Str("from", src).Str("to", dst).Msg("renamed broken state file")
+	return nil
 }
 
 func SaveState(ctx context.Context, brdetect *BreachDetector) error {

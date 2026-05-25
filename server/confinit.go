@@ -184,6 +184,7 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) er
 	}
 
 	if cmdConf.SkipStoredStateOnError {
+
 		log.Warn().Msg("BreachDetector will skip possible errors in state loading (set via command line argument)")
 		origConf.SkipStoredStateOnError = cmdConf.SkipStoredStateOnError
 	}

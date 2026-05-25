@@ -44,7 +44,7 @@ func InitServices(
 	engine http.Handler,
 	apiRoutes *gin.RouterGroup,
 	globalConf *config.Configuration,
-	alarm *monitoring.AlarmTicker,
+	alarm *monitoring.BreachDetector,
 ) {
 	for sid, servConf := range globalConf.Services {
 

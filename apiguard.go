@@ -86,6 +86,7 @@ func main() {
 	flag.IntVar(&cmdOpts.MaxAgeDays, "max-age-days", 0, "When cleaning old records, this specifies the oldes records (in days) to keep in database.")
 	flag.StringVar(&cmdOpts.BanDurationStr, "ban-duration", "0", "A duration for the ban (e.g. 90s, 2d, 8h30m)")
 	flag.BoolVar(&cmdOpts.IgnoreStoredState, "ignore-stored-state", false, "If used then no alarm state will be loaded from a configured location. This is usefull e.g. in case of an application configuration change.")
+	flag.BoolVar(&cmdOpts.SkipStoredStateOnError, "skip-stored-state-on-error", false, "If used then startup state loading error will be just skipped allow the service to start")
 
 	flag.Usage = func() {
 		fmt.Fprintf(

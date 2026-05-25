@@ -32,16 +32,17 @@ import (
 )
 
 type CmdOptions struct {
-	Host              string
-	Port              int
-	ReadTimeoutSecs   int
-	WriteTimeoutSecs  int
-	LogPath           string
-	LogLevel          string
-	MaxAgeDays        int
-	BanDurationStr    string
-	IgnoreStoredState bool
-	StreamingMode     bool
+	Host                   string
+	Port                   int
+	ReadTimeoutSecs        int
+	WriteTimeoutSecs       int
+	LogPath                string
+	LogLevel               string
+	MaxAgeDays             int
+	BanDurationStr         string
+	IgnoreStoredState      bool
+	SkipStoredStateOnError bool
+	StreamingMode          bool
 }
 
 func (opts CmdOptions) BanDuration() (time.Duration, error) {
@@ -178,8 +179,13 @@ func overrideConfWithCmd(origConf *config.Configuration, cmdConf *CmdOptions) er
 	}
 
 	if cmdConf.IgnoreStoredState {
-		log.Warn().Msg("Based on a request, stored alarm/counter state will not be loaded")
+		log.Warn().Msg("stored BreachDetector state will not be loaded (set via command line argument)")
 		origConf.IgnoreStoredState = cmdConf.IgnoreStoredState
+	}
+
+	if cmdConf.SkipStoredStateOnError {
+		log.Warn().Msg("BreachDetector will skip possible errors in state loading (set via command line argument)")
+		origConf.SkipStoredStateOnError = cmdConf.SkipStoredStateOnError
 	}
 
 	if cmdConf.StreamingMode {

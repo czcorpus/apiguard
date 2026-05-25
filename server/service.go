@@ -70,7 +70,7 @@ import (
 func initProxyEngine(
 	conf *config.Configuration,
 	globalCtx *globctx.Context,
-	alarm *monitoring.AlarmTicker,
+	alarm *monitoring.BreachDetector,
 	skipIPFilter bool,
 ) *gin.Engine {
 	engine := gin.New()
@@ -101,16 +101,18 @@ func initProxyEngine(
 	if !conf.IgnoreStoredState {
 		err := monitoring.LoadState(alarm)
 		if err != nil {
-			log.Fatal().
-				Err(err).
-				Msg("Failed to load alarm status from disk. Please use -ignore-stored-state to " +
-					"skip the action or remove the problematic file.")
+			if conf.SkipStoredStateOnError {
+				log.Error().
+					Err(err).
+					Msg("Failed to load BreachDetector status from disk, continuing without stored state")
+			} else {
+				log.Fatal().
+					Err(err).
+					Msg("Failed to load BreachDetector status from disk. Please use -ignore-stored-state to " +
+						"skip the action or remove the problematic file.")
+			}
 		}
 	}
-
-	apiRoutes.GET("/alarm", alarm.HandleReportListAction)
-	apiRoutes.GET("/alarms/list", alarm.HandleListAction)
-	apiRoutes.POST("/alarms/clean", alarm.HandleCleanAction)
 
 	// ----------------------
 
@@ -406,7 +408,7 @@ func RunService(conf *config.Configuration) {
 	reloadChan := make(chan bool)
 
 	// alarm
-	alarm := monitoring.NewAlarmTicker(
+	alarm := monitoring.NewBreachDetector(
 		globalCtx,
 		conf.TimezoneLocation(),
 		conf.Mail,
@@ -482,7 +484,7 @@ func RunService(conf *config.Configuration) {
 	})
 	wg.Go(func() {
 		if err := alarm.Shutdown(ctx); err != nil {
-			log.Error().Err(err).Msg("AlarmTicker shutdown error")
+			log.Error().Err(err).Msg("BreachDetector shutdown error")
 		}
 	})
 

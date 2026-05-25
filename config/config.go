@@ -135,20 +135,21 @@ type Configuration struct {
 
 	// APIAllowedClients is a list of IP/CIDR addresses allowed to access the API.
 	// Mostly, we should stick here with our internal network.
-	APIAllowedClients []string                 `json:"apiAllowedClients"`
-	Botwatch          botwatch.Conf            `json:"botwatch"`
-	Telemetry         *telemetry.Conf          `json:"telemetry"`
-	Services          []GeneralServiceConf     `json:"services"`
-	Cache             *proxy.CacheConf         `json:"cache"`
-	Reporting         *reporting.Conf          `json:"reporting"`
-	Logging           logging.LoggingConf      `json:"logging"`
-	Monitoring        *monitoring.LimitingConf `json:"monitoring"`
-	IPBanTTLSecs      int                      `json:"IpBanTtlSecs"`
-	CNCDB             *cnc.Conf                `json:"cncDb"`
-	Mail              *monitoring.MailConf     `json:"mail"`
-	CNCAuth           CNCAuthConf              `json:"cncAuth"`
-	Auth              *AuthConf                `json:"auth"`
-	IgnoreStoredState bool                     `json:"-"`
+	APIAllowedClients      []string                 `json:"apiAllowedClients"`
+	Botwatch               botwatch.Conf            `json:"botwatch"`
+	Telemetry              *telemetry.Conf          `json:"telemetry"`
+	Services               []GeneralServiceConf     `json:"services"`
+	Cache                  *proxy.CacheConf         `json:"cache"`
+	Reporting              *reporting.Conf          `json:"reporting"`
+	Logging                logging.LoggingConf      `json:"logging"`
+	Monitoring             *monitoring.LimitingConf `json:"monitoring"`
+	IPBanTTLSecs           int                      `json:"IpBanTtlSecs"`
+	CNCDB                  *cnc.Conf                `json:"cncDb"`
+	Mail                   *monitoring.MailConf     `json:"mail"`
+	CNCAuth                CNCAuthConf              `json:"cncAuth"`
+	Auth                   *AuthConf                `json:"auth"`
+	IgnoreStoredState      bool                     `json:"-"`
+	SkipStoredStateOnError bool                     `json:"-"`
 
 	ESArchive *elastic.ConnectionConf `json:"esArchive"`
 }

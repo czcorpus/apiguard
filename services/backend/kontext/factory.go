@@ -44,7 +44,7 @@ func create(args services.InitArgs) error {
 	if err := json.Unmarshal(args.RawConf, &typedConf); err != nil {
 		return fmt.Errorf("failed to initialize service %d (kontext): %w", args.SID, err)
 	}
-	if err := typedConf.Validate(fmt.Sprintf("%d/kontext", args.SID)); err != nil {
+	if err := typedConf.Validate(fmt.Sprintf("%d/kontext", args.SID), args.IsStreamingMode); err != nil {
 		return fmt.Errorf("failed to initialize service %d (kontext): %w", args.SID, err)
 	}
 	if args.GlobalConf.OperationMode == config.OperationModeStreaming {

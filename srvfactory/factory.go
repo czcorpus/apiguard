@@ -55,13 +55,14 @@ func InitServices(
 		}
 		log.Info().Msgf("registering service %d/%s", sid, servConf.Type)
 		if err := initialize(services.InitArgs{
-			Ctx:        ctx,
-			Engine:     engine,
-			APIRoutes:  apiRoutes,
-			GlobalConf: globalConf,
-			SID:        sid,
-			RawConf:    servConf.Conf,
-			Alarm:      alarm,
+			Ctx:             ctx,
+			Engine:          engine,
+			APIRoutes:       apiRoutes,
+			GlobalConf:      globalConf,
+			SID:             sid,
+			RawConf:         servConf.Conf,
+			Alarm:           alarm,
+			IsStreamingMode: globalConf.OperationMode == config.OperationModeStreaming,
 		}); err != nil {
 			log.Fatal().
 				Err(err).

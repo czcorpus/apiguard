@@ -96,10 +96,10 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 	}
 
 	var userID, humanID common.UserID
-	var cached, internalAPICall bool
+	var cached, firstPartyAPICall bool
 	t0 := time.Now().In(kp.GlobalCtx().TimezoneLocation)
 
-	defer kp.LogRequest(ctx, &humanID, &internalAPICall, &cached, t0)
+	defer kp.LogRequest(ctx, &humanID, &firstPartyAPICall, &cached, t0)
 
 	rawReq1Body, err := io.ReadAll(ctx.Request.Body)
 	if err != nil {
@@ -144,7 +144,7 @@ func (kp *KonTextProxy) QuerySubmitAndView(ctx *gin.Context) {
 	}
 
 	if err := kp.ProcessReqHeaders(
-		ctx, humanID, userID, &internalAPICall,
+		ctx, humanID, userID, &firstPartyAPICall,
 	); err != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to proxy query_submit - cookie mapping")
 		http.Error(

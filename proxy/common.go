@@ -18,20 +18,46 @@
 package proxy
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/czcorpus/cnc-gokit/uniresp"
 	"github.com/gin-gonic/gin"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/time/rate"
 )
 
+const (
+	apiRepConfDefaultRefreshInterval = "1h"
+)
+
 type APIReportingConf struct {
-	HeaderName      string `json:"headerName"`
-	Secret          string `json:"secret"`
+	HeaderName string `json:"headerName"`
+	Secret     string `json:"secret"`
+
+	// ExpectedValue is an alternative to the Secret for web applications
+	// which are unable to provide hmac secure "tags". Both values are
+	// mutually exclusive and APIGuard will check whether both values
+	// are not set at the same time.
+	ExpectedValue   string `json:"expectedValue"`
 	AppID           string `json:"appId"`
 	RefreshInterval string `json:"refreshInterval"`
+}
+
+func (repConf APIReportingConf) ValidateAndDefaults() error {
+	if repConf.Secret != "" && repConf.ExpectedValue != "" {
+		return errors.New("APIReportingConf error - cannot use both 'secret' and 'expectedValue' at the same time")
+	}
+	if repConf.RefreshInterval == "" {
+		repConf.RefreshInterval = apiRepConfDefaultRefreshInterval
+		log.Warn().Str("default", apiRepConfDefaultRefreshInterval).Msg("'refreshInterval' not set, using default")
+	}
+	if (repConf.Secret != "" || repConf.ExpectedValue != "") && repConf.HeaderName == "" {
+		return errors.New("APIReportingConf error - missing 'headerName'")
+	}
+	return nil
 }
 
 // ---------------------------

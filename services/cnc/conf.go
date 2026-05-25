@@ -87,7 +87,7 @@ type ProxyConf struct {
 	CachingPerSession bool `json:"cachingPerSession"`
 }
 
-func (c *ProxyConf) Validate(context string) error {
+func (c *ProxyConf) ValidateAndDefaults(context string, streamingMode bool) error {
 	if c.BackendURL == "" {
 		return fmt.Errorf("%s.backendUrl is missing/empty", context)
 	}
@@ -108,6 +108,11 @@ func (c *ProxyConf) Validate(context string) error {
 				ReqCheckingIntervalSecs: limit.ReqCheckingIntervalSecs,
 				BurstLimit:              limit.ReqPerTimeThreshold,
 			}
+		}
+	}
+	if !streamingMode {
+		if err := c.APIReporting.ValidateAndDefaults(); err != nil {
+			return fmt.Errorf("ProxyConf error: %w", err)
 		}
 	}
 	return nil

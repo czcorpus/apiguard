@@ -27,6 +27,13 @@ type StreamingConf struct {
 	APIReporting proxy.APIReportingConf `json:"apiReporting"`
 }
 
+func (sc *StreamingConf) ValidateAndDefaults() error {
+	if err := sc.APIReporting.ValidateAndDefaults(); err != nil {
+		return fmt.Errorf("StreamingConf error: %w", err)
+	}
+	return nil
+}
+
 // request is a single API request which we pack into
 // an HTTP stream request.
 // In WaG, the corresponding types are:

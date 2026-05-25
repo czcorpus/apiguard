@@ -69,8 +69,8 @@ type speechesArgs struct {
 	RightCtx  int      `json:"rightCtx"`
 }
 
-func (c *Conf) Validate(context string) error {
-	if err := c.ProxyConf.Validate(context); err != nil {
+func (c *Conf) Validate(context string, streamingMode bool) error {
+	if err := c.ProxyConf.ValidateAndDefaults(context, streamingMode); err != nil {
 		return err
 	}
 	if c.GuardType == guard.GuardTypeToken && len(c.Tokens) == 0 {

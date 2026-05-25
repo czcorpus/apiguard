@@ -70,7 +70,7 @@ func (kp *Proxy) reqUsesMappedSession(req *http.Request) bool {
 func (kp *Proxy) ProcessReqHeaders(
 	ctx *gin.Context,
 	humanID, userID common.UserID,
-	internalAPICall *bool,
+	firstPartyAPICall *bool,
 ) error {
 
 	passedHeaders := ctx.Request.Header
@@ -86,8 +86,8 @@ func (kp *Proxy) ProcessReqHeaders(
 		passedHeaders[backend.HeaderAPIUserID] = []string{userID.String()}
 	}
 
-	if kp.apiProxy.IsRegularAPICall(passedHeaders) {
-		*internalAPICall = true
+	if kp.apiProxy.IsFirstPartyAPICall(passedHeaders) {
+		*firstPartyAPICall = true
 	}
 
 	if kp.conf.TrueUserIDHeader != "" {

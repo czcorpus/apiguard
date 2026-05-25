@@ -42,7 +42,7 @@ func create(args services.InitArgs) error {
 	if err := json.Unmarshal(args.RawConf, &typedConf); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gunstick): %w", args.SID, err)
 	}
-	if err := typedConf.Validate("gunstick"); err != nil {
+	if err := typedConf.ValidateAndDefaults("gunstick", args.IsStreamingMode); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gunstick): %w", args.SID, err)
 	}
 	if args.GlobalConf.OperationMode == config.OperationModeStreaming {

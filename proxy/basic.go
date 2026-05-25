@@ -176,7 +176,7 @@ func (proxy *CoreProxy) RequestStream(
 	}
 }
 
-func (proxy *CoreProxy) IsRegularAPICall(hd http.Header) bool {
+func (proxy *CoreProxy) IsFirstPartyAPICall(hd http.Header) bool {
 	if proxy.apiReporting.HeaderName != "" {
 		key := hd.Get(proxy.apiReporting.HeaderName)
 
@@ -195,11 +195,11 @@ func (proxy *CoreProxy) IsRegularAPICall(hd http.Header) bool {
 			return valid
 
 		} else {
-			return key != ""
+			return proxy.apiReporting.ExpectedValue != "" && proxy.apiReporting.ExpectedValue == key
 		}
 
 	} else {
-		return true
+		return false
 	}
 }
 
@@ -221,7 +221,7 @@ func NewCoreProxy(conf GeneralProxyConf) (*CoreProxy, error) {
 	if conf.APIReporting.HeaderName == "" {
 		log.Warn().
 			Str("backend", conf.BackendURL).
-			Msg("apiReporting for a CoreProxy not set - it won't be able to report internal API use in logs")
+			Msg("apiReporting for a CoreProxy not set - it won't be able to report first party API use in logs")
 
 	} else {
 		apiReportingConf = conf.APIReporting

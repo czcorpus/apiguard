@@ -39,7 +39,7 @@ import (
 
 const (
 	alarmStatusFile                = "breach-detector-state.gob"
-	dfltRecCountCleanupProbability = 0.5
+	dfltRecCountCleanupProbability = 0.1
 	monitoringSendInterval         = 30 * time.Second
 	minReportsInterval             = 2 * time.Minute
 )

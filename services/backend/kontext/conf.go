@@ -32,8 +32,8 @@ type Conf struct {
 	UseSimplifiedConcReq bool `json:"useSimplifiedConcReq"`
 }
 
-func (conf *Conf) Validate(name string) error {
-	if err := conf.ProxyConf.Validate(name); err != nil {
+func (conf *Conf) Validate(name string, streamingMode bool) error {
+	if err := conf.ProxyConf.ValidateAndDefaults(name, streamingMode); err != nil {
 		return err
 	}
 	if conf.ReqTimeoutSecs == 0 {

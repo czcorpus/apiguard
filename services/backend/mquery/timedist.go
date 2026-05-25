@@ -157,11 +157,11 @@ func (mp *MQueryProxy) createTimeDistURL(corpusID string, args streamedFreqDistA
 
 func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 	var userID, humanID common.UserID
-	var cached, internalAPICall bool
+	var cached, firstPartyAPICall bool
 	var statusCode int
 	t0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
-	defer mp.LogRequest(ctx, &humanID, &internalAPICall, &cached, t0)
+	defer mp.LogRequest(ctx, &humanID, &firstPartyAPICall, &cached, t0)
 
 	// guard request
 
@@ -197,7 +197,7 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 	}
 
 	if err := mp.ProcessReqHeaders(
-		ctx, humanID, userID, &internalAPICall,
+		ctx, humanID, userID, &firstPartyAPICall,
 	); err != nil {
 		log.Error().Err(reqProps.Error).Msgf("failed to get speeches - cookie mapping")
 		http.Error(

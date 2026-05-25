@@ -224,6 +224,9 @@ func (c *Configuration) Validate() error {
 			return fmt.Errorf("wagTilesConfDir %s is not a directory", c.WagTilesConfDir)
 		}
 	}
+	if err := c.Streaming.APIReporting.ValidateAndDefaults(); err != nil {
+		return err
+	}
 
 	return nil
 }

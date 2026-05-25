@@ -48,7 +48,7 @@ type subsetTreqResp struct {
 
 func (tp *TreqProxy) Subsets(ctx *gin.Context) {
 
-	var cached, internalAPICall bool
+	var cached, firstPartyAPICall bool
 	var clientID, humanID common.UserID
 	t0 := time.Now().In(tp.GlobalCtx().TimezoneLocation)
 
@@ -72,7 +72,7 @@ func (tp *TreqProxy) Subsets(ctx *gin.Context) {
 			*indirect,
 			reporting.BackendActionTypeQuery,
 		)
-	}(&clientID, &humanID, &internalAPICall, t0)
+	}(&clientID, &humanID, &firstPartyAPICall, t0)
 
 	if !strings.HasPrefix(ctx.Request.URL.Path, tp.EnvironConf().ServicePath) {
 		proxy.WriteError(ctx, fmt.Errorf("invalid path detected"), http.StatusInternalServerError)

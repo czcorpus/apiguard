@@ -58,7 +58,7 @@ func create(args services.InitArgs) error {
 	if typedConf.SessionValType == "" {
 		typedConf.SessionValType = session.SessionTypeNone
 	}
-	if err := typedConf.Validate("mquery"); err != nil {
+	if err := typedConf.Validate("mquery", args.IsStreamingMode); err != nil {
 		return fmt.Errorf("failed to initialize service %d (mquery): %w", args.SID, err)
 	}
 	if args.GlobalConf.OperationMode == config.OperationModeStreaming {

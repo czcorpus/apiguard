@@ -35,11 +35,12 @@ type VersionInfo struct {
 }
 
 type InitArgs struct {
-	Ctx        *globctx.Context
-	SID        int
-	RawConf    json.RawMessage
-	GlobalConf *config.Configuration
-	APIRoutes  *gin.RouterGroup
-	Engine     http.Handler
-	Alarm      *monitoring.BreachDetector
+	Ctx             *globctx.Context
+	SID             int
+	RawConf         json.RawMessage
+	GlobalConf      *config.Configuration
+	APIRoutes       *gin.RouterGroup
+	Engine          http.Handler
+	Alarm           *monitoring.BreachDetector
+	IsStreamingMode bool
 }

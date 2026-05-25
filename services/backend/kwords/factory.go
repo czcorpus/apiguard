@@ -43,7 +43,7 @@ func create(args services.InitArgs) error {
 	if err := json.Unmarshal(args.RawConf, &typedConf); err != nil {
 		return fmt.Errorf("failed to initialize service %d (kwords): %w", args.SID, err)
 	}
-	if err := typedConf.Validate("kwords"); err != nil {
+	if err := typedConf.ValidateAndDefaults("kwords", args.IsStreamingMode); err != nil {
 		return fmt.Errorf("failed to initialize service %d (kwords): %w", args.SID, err)
 	}
 	if args.GlobalConf.OperationMode == config.OperationModeStreaming {

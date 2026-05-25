@@ -44,7 +44,7 @@ func create(args services.InitArgs) error {
 	if err := json.Unmarshal(args.RawConf, &typedConf); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
 	}
-	if err := typedConf.Validate("gramatikat"); err != nil {
+	if err := typedConf.ValidateAndDefaults("gramatikat", args.IsStreamingMode); err != nil {
 		return fmt.Errorf("failed to initialize service %d (gramatikat): %w", args.SID, err)
 	}
 	if typedConf.GuardType != guard.GuardTypeDflt {

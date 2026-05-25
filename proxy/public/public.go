@@ -191,7 +191,7 @@ func (kp *Proxy) LogRequest(ctx *gin.Context, currHumanID *common.UserID, firstP
 
 func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	var humanID common.UserID
-	var cached, internalAPICall bool
+	var cached, firstPartyAPICall bool
 	path := ctx.Request.URL.Path
 	rt0 := time.Now().In(prox.tzLocation)
 
@@ -204,7 +204,7 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 			Msg("asked to process proxy paths (deferred message)")
 	}(&humanID)
 
-	defer prox.LogRequest(ctx, &humanID, &internalAPICall, &cached, rt0)
+	defer prox.LogRequest(ctx, &humanID, &firstPartyAPICall, &cached, rt0)
 
 	if !strings.HasPrefix(path, prox.servicePath) {
 		uniresp.RespondWithErrorJSON(
@@ -248,7 +248,7 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 	if prox.userIDHeaderName != "" && humanID.IsValid() {
 		ctx.Request.Header.Set(prox.userIDHeaderName, humanID.String())
 	}
-	prox.ProcessReqHeaders(ctx, &internalAPICall)
+	prox.ProcessReqHeaders(ctx, &firstPartyAPICall)
 
 	respHandler := prox.FromCache(ctx.Request, cache.CachingWithCacheControl(!prox.isStreamingMode))
 	cached = respHandler.IsCacheHit()
@@ -277,14 +277,14 @@ func (prox *Proxy) AnyPath(ctx *gin.Context) {
 
 func (prox *Proxy) ProcessReqHeaders(
 	ctx *gin.Context,
-	internalAPICall *bool,
+	firstPartyAPICall *bool,
 ) {
 	passedHeaders := ctx.Request.Header
 	if ctx.Request.Header.Get("host") == "" {
 		ctx.Request.Header.Set("host", prox.FrontendURL.Host)
 	}
-	if prox.basicProxy.IsRegularAPICall(passedHeaders) {
-		*internalAPICall = true
+	if prox.basicProxy.IsFirstPartyAPICall(passedHeaders) {
+		*firstPartyAPICall = true
 	}
 }
 

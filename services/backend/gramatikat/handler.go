@@ -63,7 +63,7 @@ type GramatikatProxy struct {
 
 func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 	var /*  userID, */ humanID common.UserID
-	//var cached, internalAPICall bool
+	//var cached, firstPartyAPICall bool
 	//t0 := time.Now().In(gp.GlobalCtx().TimezoneLocation)
 	reqProps, ok := gp.AuthorizeRequestOrRespondErr(ctx)
 	if !ok {

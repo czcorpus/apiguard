@@ -45,32 +45,32 @@ func (cw *ctxWriter) Write(p []byte) (int, error) {
 	}
 }
 
-// this file contains GOB encoding/decoding routines for AlarmTicker and types in involves
+// this file contains GOB encoding/decoding routines for BreachDetector and types in involves
 
-// aticker:
+// brdetect:
 
-func (aticker *AlarmTicker) GobEncode() ([]byte, error) {
+func (brdetect *BreachDetector) GobEncode() ([]byte, error) {
 	var buf bytes.Buffer
 	encoder := gob.NewEncoder(&buf)
-	clients := aticker.clients.AsMap()
+	clients := brdetect.clients.AsMap()
 	clients2 := make(map[string]*serviceEntry)
 	for k, v := range clients {
 		v2 := *v
 		clients2[k] = &v2
 	}
-	log.Debug().Int("numClients", len(clients2)).Int("numReports", len(aticker.reports)).Msg("saving AlarmTicker state")
+	log.Debug().Int("numClients", len(clients2)).Int("numReports", len(brdetect.reports)).Msg("saving BreachDetector state")
 	err := encoder.Encode(&clients2)
 	if err != nil {
 		return []byte{}, err
 	}
-	err = encoder.Encode(&aticker.reports)
+	err = encoder.Encode(&brdetect.reports)
 	if err != nil {
 		return []byte{}, err
 	}
 	return buf.Bytes(), nil
 }
 
-func (aticker *AlarmTicker) GobDecode(data []byte) error {
+func (brdetect *BreachDetector) GobDecode(data []byte) error {
 	buf := bytes.NewBuffer(data)
 	decoder := gob.NewDecoder(buf)
 	var clients map[string]*serviceEntry
@@ -78,53 +78,51 @@ func (aticker *AlarmTicker) GobDecode(data []byte) error {
 	if err != nil {
 		return err
 	}
-	aticker.clients = collections.NewConcurrentMapFrom(clients)
-	aticker.clients.ForEach(func(service string, data *serviceEntry, ok bool) {
-		if !ok {
-			return
-		}
+	brdetect.clients = collections.NewConcurrentMapFrom(clients)
+	brdetect.clients.Iterate(func(service string, data *serviceEntry) bool {
 		log.Info().
 			Str("service", service).
 			Int("numItems", data.ClientRequests.Len()).
-			Msg("Loaded AlarmTicker.clients")
+			Msg("Loaded BreachDetector.clients")
+		return true
 	})
 
-	err = decoder.Decode(&aticker.reports)
-	for _, rep := range aticker.reports {
-		rep.location = aticker.location
+	err = decoder.Decode(&brdetect.reports)
+	for _, rep := range brdetect.reports {
+		rep.location = brdetect.location
 	}
 	log.Info().
-		Int("numItems", len(aticker.reports)).
-		Msg("loaded AlarmTicker.reports")
+		Int("numItems", len(brdetect.reports)).
+		Msg("loaded BreachDetector.reports")
 	return err
 }
 
-func SaveState(ctx context.Context, aticker *AlarmTicker) error {
-	tmpFile, err := os.CreateTemp(aticker.limitingConf.StatusDataDir, "alarm-status-*.gob.tmp")
+func SaveState(ctx context.Context, brdetect *BreachDetector) error {
+	tmpFile, err := os.CreateTemp(brdetect.limitingConf.StatusDataDir, "breach-detector-state-*.gob.tmp")
 	if err != nil {
-		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
+		return fmt.Errorf("failed to save BreachDetector state: %w", err)
 	}
 	tmpPath := tmpFile.Name()
 	encoder := gob.NewEncoder(&ctxWriter{ctx: ctx, w: tmpFile})
-	encErr := encoder.Encode(aticker)
+	encErr := encoder.Encode(brdetect)
 	tmpFile.Close()
 	if encErr != nil {
 		os.Remove(tmpPath)
-		return fmt.Errorf("failed to save AlarmTicker state: %w", encErr)
+		return fmt.Errorf("failed to save BreachDetector state: %w", encErr)
 	}
-	finalPath := path.Join(aticker.limitingConf.StatusDataDir, alarmStatusFile)
+	finalPath := path.Join(brdetect.limitingConf.StatusDataDir, alarmStatusFile)
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		os.Remove(tmpPath)
-		return fmt.Errorf("failed to save AlarmTicker state: %w", err)
+		return fmt.Errorf("failed to save BreachDetector state: %w", err)
 	}
 	log.Info().
 		Str("file", finalPath).
-		Msg("AlarmTicker runtime data saved")
+		Msg("BreachDetector runtime data saved")
 	return nil
 }
 
-func LoadState(aticker *AlarmTicker) error {
-	file_path := path.Join(aticker.limitingConf.StatusDataDir, alarmStatusFile)
+func LoadState(brdetect *BreachDetector) error {
+	file_path := path.Join(brdetect.limitingConf.StatusDataDir, alarmStatusFile)
 	is_file, err := fs.IsFile(file_path)
 	if err != nil {
 		return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
@@ -143,7 +141,7 @@ func LoadState(aticker *AlarmTicker) error {
 			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 		}
 		decoder := gob.NewDecoder(file)
-		err = decoder.Decode(aticker)
+		err = decoder.Decode(brdetect)
 		if err != nil {
 			return fmt.Errorf("failed to load state from file %s: %w", file_path, err)
 		}

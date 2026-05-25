@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"net/url"
 	"time"
 
 	"github.com/czcorpus/apiguard/common"
@@ -39,7 +38,7 @@ import (
 )
 
 const (
-	alarmStatusFile                = "alarm-status.gob"
+	alarmStatusFile                = "breach-detector-state.gob"
 	dfltRecCountCleanupProbability = 0.5
 	monitoringSendInterval         = 30 * time.Second
 	minReportsInterval             = 2 * time.Minute
@@ -60,16 +59,16 @@ type handleReviewResponse struct {
 	BanID     int64        `json:"banId,omitempty"`
 }
 
-// AlarmTicker monitors the 'counter' channel for incoming
+// BreachDetector monitors the 'counter' channel for incoming
 // RequestInfo values, accumulating the request count
 // for each user. Periodically, it checks these request
 // counts against preset limits. If a user's request count
-// surpasses the set limit, AlarmTicker notifies administrators
+// surpasses the set limit, BreachDetector notifies administrators
 // and suggests a ban (via an e-mail sent to the administrators).
 //
 // It also listens for os signals and in case of exit it
 // serializes runtime values (e.g. the current counts).
-type AlarmTicker struct {
+type BreachDetector struct {
 	ctx             *globctx.Context
 	publicRoutesURL string
 	mailConf        *MailConf
@@ -84,43 +83,17 @@ type AlarmTicker struct {
 	userFinder      guardImpl.UserFinder
 }
 
-func (aticker *AlarmTicker) ServiceProps(servName string) *serviceEntry {
+func (aticker *BreachDetector) ServiceProps(servName string) *serviceEntry {
 	return aticker.clients.Get(servName)
 }
 
-func (aticker *AlarmTicker) createConfirmationURL(report *AlarmReport, reviewer string) string {
-	publicUrl, err := url.Parse(aticker.publicRoutesURL)
-	if err != nil {
-		panic("invalid publicRoutesURL") // this should not happen and conf should validate this first
-	}
-	publicUrl = publicUrl.JoinPath(fmt.Sprintf("/alarm/%s/confirmation", report.ReviewCode))
-	args := make(url.Values)
-	args.Add("reviewer", reviewer)
-	publicUrl.RawQuery = args.Encode()
-	return publicUrl.String()
-}
-
-func (aticker *AlarmTicker) createConfirmationPageURL(report *AlarmReport, reviewer string) string {
-	publicUrl, err := url.Parse(aticker.publicRoutesURL)
-	if err != nil {
-		panic("invalid publicRoutesURL") // this should not happen and conf should validate this first
-	}
-	publicUrl = publicUrl.JoinPath("/alarm-confirmation")
-	args := make(url.Values)
-	args.Add("id", report.ReviewCode)
-	args.Add("reviewer", reviewer)
-	publicUrl.RawQuery = args.Encode()
-	return publicUrl.String()
-}
-
-func (aticker *AlarmTicker) sendReport(
+func (aticker *BreachDetector) sendReport(
 	service *serviceEntry,
 	report *AlarmReport,
 	numReq int,
 ) {
 	for _, recipient := range service.Conf.Recipients {
 		log.Debug().Msgf("about to send a notification e-mail to %s", recipient)
-		page := aticker.createConfirmationPageURL(report, recipient)
 		msg := mail.FormattedNotification{
 			Subject: fmt.Sprintf(
 				"CNC APIGuard - překročení přístupů k API o %01.1f%% u služby '%s'",
@@ -133,10 +106,6 @@ func (aticker *AlarmTicker) sendReport(
 					service.Service, report.RequestInfo.UserID, report.RequestInfo.IP, numReq,
 					report.Rules.ReqCheckingIntervalSecs, report.Rules.ReqPerTimeThreshold,
 					datetime.DurationToHMS(report.Rules.ReqCheckingInterval()),
-				),
-				fmt.Sprintf(
-					"Detaily získáte a hlášení potvrdíte kliknutím na odkaz:<br /> <a href=\"%s\">%s</a>",
-					page, page,
 				),
 			},
 		}
@@ -154,7 +123,7 @@ func (aticker *AlarmTicker) sendReport(
 	}
 }
 
-func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
+func (aticker *BreachDetector) removeUsersWithNoRecentActivity() {
 	aticker.clients.Iterate(func(k string, service *serviceEntry) bool {
 		// find longest check interval:
 		var maxInterval common.CheckInterval
@@ -180,7 +149,7 @@ func (aticker *AlarmTicker) removeUsersWithNoRecentActivity() {
 	})
 }
 
-func (aticker *AlarmTicker) checkServiceUsage(
+func (aticker *BreachDetector) checkServiceUsage(
 	service *serviceEntry, userActivity *UserActivity, req guardImpl.RequestInfo) {
 	for checkInterval, limit := range service.limits {
 		t0 := time.Now().In(aticker.location)
@@ -234,7 +203,7 @@ func (aticker *AlarmTicker) checkServiceUsage(
 	}
 }
 
-func (aticker *AlarmTicker) loadAllowList() {
+func (aticker *BreachDetector) loadAllowList() {
 	aticker.allowListUsers = collections.NewConcurrentMap[string, []common.UserID]()
 	var total int
 	aticker.clients.Iterate(func(serviceID string, se *serviceEntry) bool {
@@ -255,16 +224,16 @@ func (aticker *AlarmTicker) loadAllowList() {
 		Msg("Reloaded user allow lists for all services.")
 }
 
-func (aticker *AlarmTicker) reqIsIgnorable(reqInfo guardImpl.RequestInfo) bool {
+func (aticker *BreachDetector) reqIsIgnorable(reqInfo guardImpl.RequestInfo) bool {
 	alist := aticker.allowListUsers.Get(reqInfo.Service)
 	return collections.SliceContains(alist, reqInfo.UserID) || !reqInfo.UserID.IsValid()
 }
 
-func (aticker *AlarmTicker) Shutdown(ctx context.Context) error {
+func (aticker *BreachDetector) Shutdown(ctx context.Context) error {
 	return SaveState(ctx, aticker)
 }
 
-func (aticker *AlarmTicker) reportSummary() {
+func (aticker *BreachDetector) reportSummary() {
 	aticker.clients.Iterate(func(k string, service *serviceEntry) bool {
 		report := &reporting.AlarmStatus{
 			Created:     time.Now(),
@@ -277,12 +246,12 @@ func (aticker *AlarmTicker) reportSummary() {
 	})
 }
 
-func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
+func (aticker *BreachDetector) Run(reloadChan <-chan bool) {
 	aticker.loadAllowList()
 	for {
 		select {
 		case <-aticker.ctx.Done():
-			log.Debug().Msg("AlarmTicker got shutdown signal")
+			log.Warn().Msg("BreachDetector got shutdown signal")
 			return
 		case <-aticker.reportTicker.C:
 			go func() {
@@ -319,16 +288,16 @@ func (aticker *AlarmTicker) Run(reloadChan <-chan bool) {
 			} else {
 				log.Error().
 					Strs("availServices", aticker.clients.Keys()).
-					Msgf("AlarmTicker failed to process service %s", reqInfo.Service)
+					Msgf("BreachDetector failed to process service %s", reqInfo.Service)
 			}
 		}
 	}
 }
 
-// Register initializes the AlarmTicker instance to watch for number and ratio
+// Register initializes the BreachDetector instance to watch for number and ratio
 // of incoming requests for a specific service. It returns a channel which is
 // expected to be used by a correspoding service proxy to log incoming requests.
-func (aticker *AlarmTicker) Register(
+func (aticker *BreachDetector) Register(
 	service string,
 	conf AlarmConf,
 	limits []proxy.Limit,
@@ -354,20 +323,20 @@ func (aticker *AlarmTicker) Register(
 	return aticker.counter
 }
 
-func (aticker *AlarmTicker) HandleReportListAction(ctx *gin.Context) {
+func (aticker *BreachDetector) HandleReportListAction(ctx *gin.Context) {
 
 	uniresp.WriteJSONResponse(ctx.Writer, map[string]any{"reports": aticker.reports})
 
 }
 
-func NewAlarmTicker(
+func NewBreachDetector(
 	ctx *globctx.Context,
 	loc *time.Location,
 	mailConf *MailConf,
 	publicRoutesURL string,
 	limitingConf *LimitingConf,
-) *AlarmTicker {
-	return &AlarmTicker{
+) *BreachDetector {
+	return &BreachDetector{
 		ctx:             ctx,
 		clients:         collections.NewConcurrentMap[string, *serviceEntry](),
 		counter:         make(chan guardImpl.RequestInfo, 1000),

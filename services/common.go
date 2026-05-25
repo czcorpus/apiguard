@@ -41,5 +41,5 @@ type InitArgs struct {
 	GlobalConf *config.Configuration
 	APIRoutes  *gin.RouterGroup
 	Engine     http.Handler
-	Alarm      *monitoring.AlarmTicker
+	Alarm      *monitoring.BreachDetector
 }

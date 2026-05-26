@@ -4,7 +4,7 @@ go 1.25.5
 
 require (
 	github.com/bytedance/sonic v1.15.0
-	github.com/czcorpus/cnc-gokit v0.22.0
+	github.com/czcorpus/cnc-gokit v0.24.0
 	github.com/czcorpus/hltscl v0.2.0
 	github.com/czcorpus/klogproc-core v1.8.1
 	github.com/czcorpus/mquery-common v0.8.0

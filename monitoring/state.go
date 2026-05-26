@@ -110,6 +110,7 @@ func (brdetect *BreachDetector) MarkStateFileAsFailed() error {
 }
 
 func SaveState(ctx context.Context, brdetect *BreachDetector) error {
+	brdetect.removeUsersWithNoRecentActivity()
 	tmpFile, err := os.CreateTemp(brdetect.limitingConf.StatusDataDir, "breach-detector-state-*.gob.tmp")
 	if err != nil {
 		return fmt.Errorf("failed to save BreachDetector state: %w", err)

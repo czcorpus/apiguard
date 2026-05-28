@@ -133,7 +133,7 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 	})
 
 	wg.Go(func() error {
-		reqURLStr, err := url.JoinPath(gp.EnvironConf().ServicePath, "pos", "histograms")
+		reqURLStr, err := url.JoinPath(gp.EnvironConf().ServicePath, "pos", "summaries")
 		if err != nil {
 			return err
 		}

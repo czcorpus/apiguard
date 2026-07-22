@@ -90,7 +90,10 @@ func (sr *BackendSimpleResponse) GetBodyReader() io.ReadCloser {
 }
 
 func (sr *BackendSimpleResponse) CloseBodyReader() error {
-	return sr.BodyReader.Close()
+	if sr != nil && sr.BodyReader != nil {
+		return sr.BodyReader.Close()
+	}
+	return fmt.Errorf("cannot close body reader - none defined")
 }
 
 func (sr *BackendSimpleResponse) GetHeaders() http.Header {
@@ -98,11 +101,17 @@ func (sr *BackendSimpleResponse) GetHeaders() http.Header {
 }
 
 func (sr *BackendSimpleResponse) GetStatusCode() int {
+	if sr == nil {
+		return 0
+	}
 	return sr.StatusCode
 }
 
 func (sr *BackendSimpleResponse) Error() error {
-	return sr.Err
+	if sr != nil {
+		return sr.Err
+	}
+	return nil
 }
 
 func (sr *BackendSimpleResponse) IsDataStream() bool {
@@ -117,23 +126,38 @@ type BackendProxiedResponse struct {
 }
 
 func (pr *BackendProxiedResponse) GetBodyReader() io.ReadCloser {
-	return pr.BodyReader
+	if pr != nil {
+		return pr.BodyReader
+	}
+	return nil
 }
 
 func (pr *BackendProxiedResponse) CloseBodyReader() error {
-	return pr.BodyReader.Close()
+	if pr != nil && pr.BodyReader != nil {
+		return pr.BodyReader.Close()
+	}
+	return fmt.Errorf("cannot close body reader - none defined")
 }
 
 func (pr *BackendProxiedResponse) GetHeaders() http.Header {
-	return pr.Headers
+	if pr != nil {
+		return pr.Headers
+	}
+	return nil
 }
 
 func (pr *BackendProxiedResponse) GetStatusCode() int {
+	if pr == nil {
+		return 0
+	}
 	return pr.StatusCode
 }
 
 func (pr *BackendProxiedResponse) Error() error {
-	return pr.Err
+	if pr != nil {
+		return pr.Err
+	}
+	return nil
 }
 
 func (pr *BackendProxiedResponse) IsDataStream() bool {
@@ -158,25 +182,43 @@ func (pr *BackendProxiedStreamResponse) BackendResponse() BackendResponse {
 }
 
 func (pr *BackendProxiedStreamResponse) GetBodyReader() io.ReadCloser {
-	return pr.BodyReader
+	if pr != nil {
+		return pr.BodyReader
+	}
+	return nil
 }
 
 func (pr *BackendProxiedStreamResponse) CloseBodyReader() error {
-	return pr.BodyReader.Close()
+	if pr != nil && pr.BodyReader != nil {
+		return pr.BodyReader.Close()
+	}
+	return fmt.Errorf("cannot close body reader - none defined")
 }
 
 func (pr *BackendProxiedStreamResponse) GetHeaders() http.Header {
-	return pr.Headers
+	if pr != nil {
+		return pr.Headers
+	}
+	return nil
 }
 
 func (pr *BackendProxiedStreamResponse) GetStatusCode() int {
+	if pr == nil {
+		return 0
+	}
 	return pr.StatusCode
 }
 
 func (pr *BackendProxiedStreamResponse) Error() error {
-	return pr.Err
+	if pr != nil {
+		return pr.Err
+	}
+	return nil
 }
 
 func (pr *BackendProxiedStreamResponse) IsDataStream() bool {
-	return strings.Contains(pr.Headers.Get("Content-Type"), "text/event-stream")
+	if pr != nil && pr.Headers != nil {
+		return strings.Contains(pr.Headers.Get("Content-Type"), "text/event-stream")
+	}
+	return false
 }

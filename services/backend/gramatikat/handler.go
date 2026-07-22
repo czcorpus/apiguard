@@ -55,6 +55,7 @@ type posReqArgs struct {
 type profileResponse struct {
 	LemmaInfo json.RawMessage `json:"lemmaInfo"`
 	PoSInfo   json.RawMessage `json:"posInfo"`
+	Error     string          `json:"error,omitempty"`
 }
 
 type GramatikatProxy struct {
@@ -106,6 +107,7 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 
 	wg, _ := errgroup.WithContext(ctx) // TODO ctx
 	var resp1Body, resp2Body []byte
+	var resp1Err, resp2Err string
 
 	wg.Go(func() error {
 		reqURLStr, err := url.JoinPath(gp.EnvironConf().ServicePath, "lemma")
@@ -126,6 +128,9 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 			return err
 		}
 		resp1Body, err = serviceResp.ExportResponse()
+		if serviceResp.Response().GetStatusCode() >= 400 && serviceResp.Response().GetStatusCode() < 600 {
+			resp1Err = http.StatusText(serviceResp.Response().GetStatusCode())
+		}
 		if err != nil {
 			return err
 		}
@@ -155,6 +160,9 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		req.Method = http.MethodPost
 		req.Body = io.NopCloser(bytes.NewBuffer(reqArgsJson))
 		serviceResp := gp.MakeCacheablePOSTRequest(&req, reqProps, reqArgsJson)
+		if serviceResp.Response().GetStatusCode() >= 400 && serviceResp.Response().GetStatusCode() < 600 {
+			resp2Err = http.StatusText(serviceResp.Response().GetStatusCode())
+		}
 		if err := serviceResp.Error(); err != nil {
 			return err
 		}
@@ -169,13 +177,26 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		uniresp.RespondWithErrorJSON(ctx, err, http.StatusInternalServerError)
 		return
 	}
-	uniresp.WriteJSONResponse(
-		ctx.Writer,
-		profileResponse{
-			LemmaInfo: resp1Body,
-			PoSInfo:   resp2Body,
-		},
-	)
+
+	var ans profileResponse
+
+	if resp1Err != "" {
+		ans.Error = resp1Err
+
+	} else if resp2Err != "" {
+		ans.Error = resp2Err
+
+	} else if ok := json.Valid(resp1Body); !ok {
+		ans.Error = "Unparseable JSON response for LemmaInfo"
+
+	} else if ok := json.Valid(resp2Body); !ok {
+		ans.Error = "Unparseable JSON response for PoSInfo"
+
+	} else {
+		ans.LemmaInfo = resp1Body
+		ans.PoSInfo = resp2Body
+	}
+	uniresp.WriteJSONResponse(ctx.Writer, ans)
 }
 
 func NewGramatikatProxy(

@@ -37,19 +37,19 @@ import (
 )
 
 type lemmaProfileArgs struct {
-	Lemma       string   `json:"lemma"`
-	PoS         string   `json:"pos"`
-	CatSet      []string `json:"catSet"`
-	FrameCatSet []string `json:"frameCatSet,omitempty"`
-	Corpus      string   `json:"corpus"`
+	Lemma        string   `json:"lemma"`
+	PoS          string   `json:"pos"`
+	CatComb      []string `json:"catComb"`
+	FrameCatComb []string `json:"frameCatComb,omitempty"`
+	Corpus       string   `json:"corpus"`
 }
 
 type posReqArgs struct {
-	PoS         string   `json:"pos"`
-	CatSet      []string `json:"catSet"`
-	FrameCatSet []string `json:"frameCatSet,omitempty"`
-	Corpus      string   `json:"corpus"`
-	BinCount    int      `json:"bin_count"`
+	PoS          string   `json:"pos"`
+	CatComb      []string `json:"catComb"`
+	FrameCatComb []string `json:"frameCatComb,omitempty"`
+	Corpus       string   `json:"corpus"`
+	BinCount     int      `json:"bin_count"`
 }
 
 type profileResponse struct {
@@ -138,7 +138,7 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 	})
 
 	wg.Go(func() error {
-		reqURLStr, err := url.JoinPath(gp.EnvironConf().ServicePath, "pos", "summaries")
+		reqURLStr, err := url.JoinPath(gp.EnvironConf().ServicePath, "pos", "summary")
 		if err != nil {
 			return err
 		}
@@ -148,11 +148,11 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		}
 
 		reqArgsJson, err := json.Marshal(posReqArgs{
-			PoS:         reqArgs.PoS,
-			CatSet:      reqArgs.CatSet,
-			FrameCatSet: reqArgs.FrameCatSet,
-			Corpus:      reqArgs.Corpus,
-			BinCount:    20,
+			PoS:          reqArgs.PoS,
+			CatComb:      reqArgs.CatComb,
+			FrameCatComb: reqArgs.FrameCatComb,
+			Corpus:       reqArgs.Corpus,
+			BinCount:     20,
 		})
 
 		req := *ctx.Request

@@ -55,6 +55,7 @@ type posReqArgs struct {
 type profileResponse struct {
 	LemmaInfo json.RawMessage `json:"lemmaInfo"`
 	PoSInfo   json.RawMessage `json:"posInfo"`
+	Code      int             `json:"code"`
 	Error     string          `json:"error,omitempty"`
 }
 
@@ -108,6 +109,7 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 	wg, _ := errgroup.WithContext(ctx) // TODO ctx
 	var resp1Body, resp2Body []byte
 	var resp1Err, resp2Err string
+	var resp1Code, resp2Code int
 
 	wg.Go(func() error {
 		reqURLStr, err := url.JoinPath(gp.EnvironConf().ServicePath, "lemma")
@@ -128,8 +130,9 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 			return err
 		}
 		resp1Body, err = serviceResp.ExportResponse()
-		if serviceResp.Response().GetStatusCode() >= 400 && serviceResp.Response().GetStatusCode() < 600 {
-			resp1Err = http.StatusText(serviceResp.Response().GetStatusCode())
+		resp1Code = serviceResp.Response().GetStatusCode()
+		if resp1Code >= 400 && resp1Code < 600 {
+			resp1Err = http.StatusText(resp1Code)
 		}
 		if err != nil {
 			return err
@@ -160,7 +163,8 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 		req.Method = http.MethodPost
 		req.Body = io.NopCloser(bytes.NewBuffer(reqArgsJson))
 		serviceResp := gp.MakeCacheablePOSTRequest(&req, reqProps, reqArgsJson)
-		if serviceResp.Response().GetStatusCode() >= 400 && serviceResp.Response().GetStatusCode() < 600 {
+		resp1Code = serviceResp.Response().GetStatusCode()
+		if resp1Code >= 400 && resp1Code < 600 {
 			resp2Err = http.StatusText(serviceResp.Response().GetStatusCode())
 		}
 		if err := serviceResp.Error(); err != nil {
@@ -179,6 +183,9 @@ func (gp *GramatikatProxy) LemmaProfile(ctx *gin.Context) {
 	}
 
 	var ans profileResponse
+
+	ans.Code = resp1Code
+	ans.Code = max(resp1Code, resp2Code)
 
 	if resp1Err != "" {
 		ans.Error = resp1Err

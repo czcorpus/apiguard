@@ -46,27 +46,48 @@ type collocArgs struct {
 	minCollFreq int
 }
 
-func (lfargs *collocArgs) toURLQuery() string {
+func (collargs *collocArgs) toURLQuery() string {
 	u := url.URL{}
 	q := u.Query()
-	q.Add("q", lfargs.q)
-	if lfargs.subcorpus != "" {
-		q.Add("subcorpus", lfargs.subcorpus)
+	q.Add("q", collargs.q)
+	if collargs.subcorpus != "" {
+		q.Add("subcorpus", collargs.subcorpus)
 	}
-	if lfargs.matchCase == 1 {
-		q.Add("matchCase", strconv.Itoa(lfargs.matchCase))
+	if collargs.matchCase == 1 {
+		q.Add("matchCase", strconv.Itoa(collargs.matchCase))
 	}
-	if lfargs.maxItems > 0 {
-		q.Add("maxItems", strconv.Itoa(lfargs.maxItems))
+	if collargs.maxItems > 0 {
+		q.Add("maxItems", strconv.Itoa(collargs.maxItems))
 	}
-	if lfargs.minItems > 0 {
-		q.Add("minItems", strconv.Itoa(lfargs.minItems))
+	if collargs.minItems > 0 {
+		q.Add("minItems", strconv.Itoa(collargs.minItems))
 	}
-	if lfargs.minCollFreq > 0 {
-		q.Add("minCollFreq", strconv.Itoa(lfargs.minCollFreq))
+	if collargs.minCollFreq > 0 {
+		q.Add("minCollFreq", strconv.Itoa(collargs.minCollFreq))
 	}
-	if lfargs.srchAttr != "" {
-		q.Add("srchAttr", lfargs.srchAttr)
+	if collargs.srchAttr != "" {
+		q.Add("srchAttr", collargs.srchAttr)
+	}
+	return q.Encode()
+}
+
+// ---------------------------------
+
+type concArgs struct {
+	q         string
+	subcorpus string
+	maxRows   int
+}
+
+func (concargs *concArgs) toURLQuery() string {
+	u := url.URL{}
+	q := u.Query()
+	q.Add("q", concargs.q)
+	if concargs.subcorpus != "" {
+		q.Add("subcorpus", concargs.subcorpus)
+	}
+	if concargs.maxRows > 0 {
+		q.Add("maxRows", strconv.Itoa(concargs.maxRows))
 	}
 	return q.Encode()
 }
@@ -86,9 +107,23 @@ func (mp *MQueryProxy) createCollocExtURL(corpusID string, args collocArgs) (*ur
 	return url2, nil
 }
 
+func (mp *MQueryProxy) createConcURL(corpusID string, args concArgs) (*url.URL, error) {
+	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", corpusID)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
+	}
+	url2, err := url.Parse(rawUrl2)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
+	}
+	url2.RawQuery = args.toURLQuery()
+	return url2, nil
+}
+
 // ------------------------------------
 
 type MultiCollocSourceArgs struct {
+	Action      string `json:"action"`
 	CorpusID    string `json:"corpusId"`
 	MinFreq     int    `json:"minFreq"`     // minimum frequency of collocation
 	MinCorpFreq int    `json:"minCorpFreq"` // minimum frequency of word in corpus
@@ -112,11 +147,13 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 
 	req := *ctx.Request
 	req.URL = collocExtURL
-	req.Method = "GET"
-	// this is necessary otherwise first request closes reader
-	// and subsequent requests fail
-	req.Body = http.NoBody
-	req.ContentLength = 0
+	req.Method = http.MethodGet
+	// this is necessary, if making multiple requests with one context
+	// otherwise body reader is closed and subsequent requests fail
+	if req.Body != nil {
+		req.Body = nil
+		req.ContentLength = 0
+	}
 
 	resp := mp.MakeStreamRequest(&req, reqProps)
 	backend := resp.Response()
@@ -153,6 +190,40 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		}
 	}
 	return hasData, statusCode, nil
+}
+
+func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, maxRows int, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
+	cArgs := concArgs{
+		q:       q,
+		maxRows: maxRows,
+	}
+
+	concURL, err := mp.createConcURL(arg.CorpusID, cArgs)
+	if err != nil {
+		return false, http.StatusInternalServerError, err
+	}
+
+	req := *ctx.Request
+	req.URL = concURL
+	req.Method = http.MethodGet
+	// this is necessary, if making multiple requests with one context
+	// otherwise body reader is closed and subsequent requests fail
+	if req.Body != nil {
+		req.Body = nil
+		req.ContentLength = 0
+	}
+
+	resp := mp.HandleRequest(&req, reqProps, false)
+	statusCode = resp.Response().GetStatusCode()
+	if err := resp.Error(); err != nil {
+		return false, statusCode, err
+	}
+	respBody, err := resp.ExportResponse()
+	if err != nil {
+		return false, statusCode, err
+	}
+	fmt.Fprintf(ctx.Writer, "data: %s", respBody)
+	return true, statusCode, nil
 }
 
 func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
@@ -237,15 +308,27 @@ func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 
 	for i, arg := range args {
-		log.Info().Msgf("Processing collocation source %d/%d: %+v", i+1, len(args), arg)
-		hasData, sc, err := mp.tryOneSource(ctx, reqProps, Q, maxItems, arg)
+		log.Info().Msgf("Processing source %d/%d: %+v", i+1, len(args), arg)
+		var hasData bool
+		var sc int
+		var err error
+
+		switch arg.Action {
+		case "coll":
+			hasData, sc, err = mp.tryCollSource(ctx, reqProps, Q, maxItems, arg)
+		case "conc":
+			hasData, sc, err = mp.tryConcSource(ctx, reqProps, Q, maxItems, arg)
+		default:
+			continue
+		}
+
 		statusCode = sc
 		if err != nil {
 			uniresp.RespondWithErrorJSON(
-				ctx, fmt.Errorf("failed to request data from collocation source: %w", err), statusCode)
+				ctx, fmt.Errorf("failed to request data from source: %w", err), statusCode)
 			return
 		} else if hasData {
-			log.Info().Msgf("Successfully streamed collocation data from source %d/%d", i+1, len(args))
+			log.Info().Msgf("Successfully streamed data from source %d/%d", i+1, len(args))
 			break
 		}
 	}

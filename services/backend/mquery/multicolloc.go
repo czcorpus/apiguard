@@ -95,6 +95,66 @@ type MultiCollocSourceArgs struct {
 	MinItems    int    `json:"minItems"`    // minimum required number of collocations
 }
 
+func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, maxItems int, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
+	cArgs := collocArgs{
+		q:           q,
+		srchAttr:    "lemma",
+		matchCase:   0,
+		maxItems:    maxItems,
+		minItems:    arg.MinItems,
+		minCollFreq: arg.MinFreq,
+	}
+
+	collocExtURL, err := mp.createCollocExtURL(arg.CorpusID, cArgs)
+	if err != nil {
+		return false, http.StatusInternalServerError, err
+	}
+
+	req := *ctx.Request
+	req.URL = collocExtURL
+	req.Method = "GET"
+	// this is necessary otherwise first request closes reader
+	// and subsequent requests fail
+	req.Body = http.NoBody
+	req.ContentLength = 0
+
+	resp := mp.MakeStreamRequest(&req, reqProps)
+	backend := resp.Response()
+
+	statusCode = backend.GetStatusCode()
+	if statusCode >= 400 {
+		if err := resp.Error(); err != nil {
+			return false, statusCode, err
+		}
+		return false, statusCode, nil
+	}
+	reader := backend.GetBodyReader()
+	if reader == nil {
+		return false, statusCode, nil
+	}
+	defer backend.CloseBodyReader()
+
+	buffer := make([]byte, 4096)
+	hasData := false
+	for {
+		n, err := reader.Read(buffer)
+		if n > 0 {
+			hasData = true
+			if _, err := ctx.Writer.Write(buffer[:n]); err != nil {
+				return hasData, http.StatusInternalServerError, err
+			}
+			ctx.Writer.Flush()
+		}
+		if err != nil {
+			if err != io.EOF {
+				return hasData, http.StatusInternalServerError, err
+			}
+			break
+		}
+	}
+	return hasData, statusCode, nil
+}
+
 func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 	var userID, humanID common.UserID
 	var cached, firstPartyAPICall bool
@@ -176,69 +236,9 @@ func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 	ctx.Writer.Header().Set("Cache-Control", "no-cache")
 	ctx.Writer.Header().Set("Connection", "keep-alive")
 
-	tryOneSource := func(arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
-		cArgs := collocArgs{
-			q:           Q,
-			srchAttr:    "lemma",
-			matchCase:   0,
-			maxItems:    maxItems,
-			minItems:    arg.MinItems,
-			minCollFreq: arg.MinFreq,
-		}
-
-		collocExtURL, err := mp.createCollocExtURL(arg.CorpusID, cArgs)
-		if err != nil {
-			return false, http.StatusInternalServerError, err
-		}
-
-		req := *ctx.Request
-		req.URL = collocExtURL
-		req.Method = "GET"
-		// this is necessary otherwise first request closes reader
-		// and subsequent requests fail
-		req.Body = http.NoBody
-		req.ContentLength = 0
-
-		resp := mp.MakeStreamRequest(&req, reqProps)
-		backend := resp.Response()
-
-		statusCode = backend.GetStatusCode()
-		if statusCode >= 400 {
-			if err := resp.Error(); err != nil {
-				return false, statusCode, err
-			}
-			return false, statusCode, nil
-		}
-		reader := backend.GetBodyReader()
-		if reader == nil {
-			return false, statusCode, nil
-		}
-		defer backend.CloseBodyReader()
-
-		buffer := make([]byte, 4096)
-		hasData := false
-		for {
-			n, err := reader.Read(buffer)
-			if n > 0 {
-				hasData = true
-				if _, err := ctx.Writer.Write(buffer[:n]); err != nil {
-					return hasData, http.StatusInternalServerError, err
-				}
-				ctx.Writer.Flush()
-			}
-			if err != nil {
-				if err != io.EOF {
-					return hasData, http.StatusInternalServerError, err
-				}
-				break
-			}
-		}
-		return hasData, statusCode, nil
-	}
-
 	for i, arg := range args {
 		log.Info().Msgf("Processing collocation source %d/%d: %+v", i+1, len(args), arg)
-		hasData, sc, err := tryOneSource(arg)
+		hasData, sc, err := mp.tryOneSource(ctx, reqProps, Q, maxItems, arg)
 		statusCode = sc
 		if err != nil {
 			uniresp.RespondWithErrorJSON(

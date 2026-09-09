@@ -125,17 +125,20 @@ func (mp *MQueryProxy) createConcURL(corpusID string, args concArgs) (*url.URL, 
 type MultiCollocSourceArgs struct {
 	Action      string `json:"action"`
 	CorpusID    string `json:"corpusId"`
+	Subcorpus   string `json:"subcorpus"`
 	MinFreq     int    `json:"minFreq"`     // minimum frequency of collocation
 	MinCorpFreq int    `json:"minCorpFreq"` // minimum frequency of word in corpus
 	MinItems    int    `json:"minItems"`    // minimum required number of collocations
+	MaxItems    int    `json:"maxItems"`    // max number of returned entries (can be lower than minItems)
 }
 
-func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, maxItems int, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
+func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
 	cArgs := collocArgs{
+		subcorpus:   arg.Subcorpus,
 		q:           q,
 		srchAttr:    "lemma",
 		matchCase:   0,
-		maxItems:    maxItems,
+		maxItems:    arg.MaxItems,
 		minItems:    arg.MinItems,
 		minCollFreq: arg.MinFreq,
 	}
@@ -192,10 +195,11 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 	return hasData, statusCode, nil
 }
 
-func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, maxRows int, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
+func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
 	cArgs := concArgs{
-		q:       q,
-		maxRows: maxRows,
+		subcorpus: arg.Subcorpus,
+		q:         q,
+		maxRows:   arg.MaxItems,
 	}
 
 	concURL, err := mp.createConcURL(arg.CorpusID, cArgs)
@@ -283,16 +287,10 @@ func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 
 	rt0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
-	Q := ctx.Query("q")
-	if Q == "" {
+	query := ctx.Query("q")
+	if query == "" {
 		uniresp.RespondWithErrorJSON(
 			ctx, fmt.Errorf("missing required query parameter: q"), http.StatusBadRequest)
-		return
-	}
-	maxItems, err := strconv.Atoi(ctx.DefaultQuery("maxItems", "10"))
-	if err != nil {
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("invalid maxItems parameter: %w", err), http.StatusBadRequest)
 		return
 	}
 
@@ -315,9 +313,9 @@ func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 
 		switch arg.Action {
 		case "coll":
-			hasData, sc, err = mp.tryCollSource(ctx, reqProps, Q, maxItems, arg)
+			hasData, sc, err = mp.tryCollSource(ctx, reqProps, query, arg)
 		case "conc":
-			hasData, sc, err = mp.tryConcSource(ctx, reqProps, Q, maxItems, arg)
+			hasData, sc, err = mp.tryConcSource(ctx, reqProps, query, arg)
 		default:
 			continue
 		}

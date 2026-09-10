@@ -44,6 +44,8 @@ type collocArgs struct {
 	maxItems    int
 	minItems    int
 	minCollFreq int
+
+	event string
 }
 
 func (collargs *collocArgs) toURLQuery() string {
@@ -67,6 +69,9 @@ func (collargs *collocArgs) toURLQuery() string {
 	}
 	if collargs.srchAttr != "" {
 		q.Add("srchAttr", collargs.srchAttr)
+	}
+	if collargs.event != "" {
+		q.Add("event", collargs.event)
 	}
 	return q.Encode()
 }
@@ -132,7 +137,7 @@ type MultiCollocSourceArgs struct {
 	MaxItems    int    `json:"maxItems"`    // max number of returned entries (can be lower than minItems)
 }
 
-func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
+func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
 	cArgs := collocArgs{
 		subcorpus:   arg.Subcorpus,
 		q:           q,
@@ -141,6 +146,7 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		maxItems:    arg.MaxItems,
 		minItems:    arg.MinItems,
 		minCollFreq: arg.MinFreq,
+		event:       event,
 	}
 
 	collocExtURL, err := mp.createCollocExtURL(arg.CorpusID, cArgs)
@@ -200,7 +206,7 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 	return hasData, statusCode, nil
 }
 
-func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs) (found bool, statusCode int, err error) {
+func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
 	cArgs := concArgs{
 		subcorpus: arg.Subcorpus,
 		q:         q,
@@ -231,7 +237,11 @@ func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 	if err != nil {
 		return false, statusCode, err
 	}
-	fmt.Fprintf(ctx.Writer, "data: %s", respBody)
+	if event != "" {
+		fmt.Fprintf(ctx.Writer, "event: %s\ndata: %s\n\n", event, respBody)
+	} else {
+		fmt.Fprintf(ctx.Writer, "data: %s\n\n", respBody)
+	}
 	return true, statusCode, nil
 }
 
@@ -292,6 +302,7 @@ func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 
 	rt0 := time.Now().In(mp.GlobalCtx().TimezoneLocation)
 
+	event := ctx.Query("event")
 	query := ctx.Query("q")
 	if query == "" {
 		uniresp.RespondWithErrorJSON(
@@ -318,9 +329,9 @@ func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 
 		switch arg.Action {
 		case "coll":
-			hasData, sc, err = mp.tryCollSource(ctx, reqProps, query, arg)
+			hasData, sc, err = mp.tryCollSource(ctx, reqProps, query, arg, event)
 		case "conc":
-			hasData, sc, err = mp.tryConcSource(ctx, reqProps, query, arg)
+			hasData, sc, err = mp.tryConcSource(ctx, reqProps, query, arg, event)
 		default:
 			continue
 		}

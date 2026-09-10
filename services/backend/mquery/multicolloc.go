@@ -37,13 +37,14 @@ import (
 // ---------------------------------
 
 type collocArgs struct {
-	q           string
-	subcorpus   string
-	srchAttr    string
-	matchCase   int
-	maxItems    int
-	minItems    int
-	minCollFreq int
+	q               string
+	subcorpus       string
+	srchAttr        string
+	matchCase       int
+	maxItems        int
+	minItems        int
+	minCollFreq     int
+	examplesPerColl int
 
 	event string
 }
@@ -69,6 +70,9 @@ func (collargs *collocArgs) toURLQuery() string {
 	}
 	if collargs.srchAttr != "" {
 		q.Add("srchAttr", collargs.srchAttr)
+	}
+	if collargs.examplesPerColl > 0 {
+		q.Add("examplesPerColl", strconv.Itoa(collargs.examplesPerColl))
 	}
 	if collargs.event != "" {
 		q.Add("event", collargs.event)
@@ -128,25 +132,27 @@ func (mp *MQueryProxy) createConcURL(corpusID string, args concArgs) (*url.URL, 
 // ------------------------------------
 
 type MultiCollocSourceArgs struct {
-	Action      string `json:"action"`
-	CorpusID    string `json:"corpusId"`
-	Subcorpus   string `json:"subcorpus"`
-	MinFreq     int    `json:"minFreq"`     // minimum frequency of collocation
-	MinCorpFreq int    `json:"minCorpFreq"` // minimum frequency of word in corpus
-	MinItems    int    `json:"minItems"`    // minimum required number of collocations
-	MaxItems    int    `json:"maxItems"`    // max number of returned entries (can be lower than minItems)
+	Action          string `json:"action"`
+	CorpusID        string `json:"corpusId"`
+	Subcorpus       string `json:"subcorpus"`
+	MinFreq         int    `json:"minFreq"`     // minimum frequency of collocation
+	MinCorpFreq     int    `json:"minCorpFreq"` // minimum frequency of word in corpus
+	MinItems        int    `json:"minItems"`    // minimum required number of collocations
+	MaxItems        int    `json:"maxItems"`    // max number of returned entries (can be lower than minItems)
+	ExamplesPerColl int    `json:"examplesPerColl"`
 }
 
 func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
 	cArgs := collocArgs{
-		subcorpus:   arg.Subcorpus,
-		q:           q,
-		srchAttr:    "lemma",
-		matchCase:   0,
-		maxItems:    arg.MaxItems,
-		minItems:    arg.MinItems,
-		minCollFreq: arg.MinFreq,
-		event:       event,
+		subcorpus:       arg.Subcorpus,
+		q:               q,
+		srchAttr:        "lemma",
+		matchCase:       0,
+		maxItems:        arg.MaxItems,
+		minItems:        arg.MinItems,
+		minCollFreq:     arg.MinFreq,
+		examplesPerColl: arg.ExamplesPerColl,
+		event:           event,
 	}
 
 	collocExtURL, err := mp.createCollocExtURL(arg.CorpusID, cArgs)

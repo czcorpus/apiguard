@@ -21,7 +21,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -47,128 +46,63 @@ func newRequest(ctx *gin.Context, method string, url *url.URL) http.Request {
 	return req
 }
 
-// ---------------------------------
-
-type collocArgs struct {
-	q               string
-	subcorpus       string
-	srchAttr        string
-	matchCase       int
-	maxItems        int
-	minItems        int
-	minCollFreq     int
-	examplesPerColl int
-
-	event string
-}
-
-func (collargs *collocArgs) toURLQuery() string {
-	u := url.URL{}
-	q := u.Query()
-	q.Add("q", collargs.q)
-	if collargs.subcorpus != "" {
-		q.Add("subcorpus", collargs.subcorpus)
-	}
-	if collargs.matchCase == 1 {
-		q.Add("matchCase", strconv.Itoa(collargs.matchCase))
-	}
-	if collargs.maxItems > 0 {
-		q.Add("maxItems", strconv.Itoa(collargs.maxItems))
-	}
-	if collargs.minItems > 0 {
-		q.Add("minItems", strconv.Itoa(collargs.minItems))
-	}
-	if collargs.minCollFreq > 0 {
-		q.Add("minCollFreq", strconv.Itoa(collargs.minCollFreq))
-	}
-	if collargs.srchAttr != "" {
-		q.Add("srchAttr", collargs.srchAttr)
-	}
-	if collargs.examplesPerColl > 0 {
-		q.Add("examplesPerColl", strconv.Itoa(collargs.examplesPerColl))
-	}
-	if collargs.event != "" {
-		q.Add("event", collargs.event)
-	}
-	return q.Encode()
-}
-
-// ---------------------------------
-
-type concArgs struct {
-	q         string
-	subcorpus string
-	maxRows   int
-}
-
-func (concargs *concArgs) toURLQuery() string {
-	u := url.URL{}
-	q := u.Query()
-	q.Add("q", concargs.q)
-	if concargs.subcorpus != "" {
-		q.Add("subcorpus", concargs.subcorpus)
-	}
-	if concargs.maxRows > 0 {
-		q.Add("maxRows", strconv.Itoa(concargs.maxRows))
-	}
-	return q.Encode()
-}
-
-// ---------------------------------
-
-func (mp *MQueryProxy) createCollocExtURL(corpusID string, args collocArgs) (*url.URL, error) {
-	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "collocations-extended", corpusID)
-	if err != nil {
-		return &url.URL{}, fmt.Errorf("failed to create streamed collocation URL: %w", err)
-	}
-	url2, err := url.Parse(rawUrl2)
-	if err != nil {
-		return &url.URL{}, fmt.Errorf("failed to create streamed collocation URL: %w", err)
-	}
-	url2.RawQuery = args.toURLQuery()
-	return url2, nil
-}
-
-func (mp *MQueryProxy) createConcURL(corpusID string, args concArgs) (*url.URL, error) {
-	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", corpusID)
-	if err != nil {
-		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
-	}
-	url2, err := url.Parse(rawUrl2)
-	if err != nil {
-		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
-	}
-	url2.RawQuery = args.toURLQuery()
-	return url2, nil
-}
-
 // ------------------------------------
 
 type MultiCollocSourceArgs struct {
-	Action          string `json:"action"`
-	CorpusID        string `json:"corpusId"`
-	Subcorpus       string `json:"subcorpus"`
-	MinFreq         int    `json:"minFreq"`     // minimum frequency of collocation
-	MinCorpFreq     int    `json:"minCorpFreq"` // minimum frequency of word in corpus
-	MinItems        int    `json:"minItems"`    // minimum required number of collocations
-	MaxItems        int    `json:"maxItems"`    // max number of returned entries (can be lower than minItems)
-	ExamplesPerColl int    `json:"examplesPerColl"`
+	Action   string         `json:"action"`
+	CorpusID string         `json:"corpusId"`
+	Args     map[string]any `json:"args"`
+}
+
+func (mcsa *MultiCollocSourceArgs) argsToQuery(q string) string {
+	u := url.URL{}
+	params := u.Query()
+	for k, v := range mcsa.Args {
+		switch val := v.(type) {
+		case string:
+			params.Add(k, val)
+		case int:
+			params.Add(k, fmt.Sprintf("%d", val))
+		case float64:
+			params.Add(k, fmt.Sprintf("%f", val))
+		case bool:
+			params.Add(k, fmt.Sprintf("%v", val))
+		}
+	}
+	params.Set("q", q)
+	return params.Encode()
+}
+
+// ---------------------------------
+
+func (mp *MQueryProxy) createCollocExtURL(args MultiCollocSourceArgs, q string) (*url.URL, error) {
+	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "collocations-extended", args.CorpusID)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create streamed collocation URL: %w", err)
+	}
+	url2, err := url.Parse(rawUrl2)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create streamed collocation URL: %w", err)
+	}
+	url2.RawQuery = args.argsToQuery(q)
+	return url2, nil
+}
+
+func (mp *MQueryProxy) createConcURL(args MultiCollocSourceArgs, q string) (*url.URL, error) {
+	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", args.CorpusID)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
+	}
+	url2, err := url.Parse(rawUrl2)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
+	}
+	url2.RawQuery = args.argsToQuery(q)
+	return url2, nil
 }
 
 func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
-	cArgs := collocArgs{
-		subcorpus:       arg.Subcorpus,
-		q:               q,
-		srchAttr:        "lemma",
-		matchCase:       0,
-		maxItems:        arg.MaxItems,
-		minItems:        arg.MinItems,
-		minCollFreq:     arg.MinFreq,
-		examplesPerColl: arg.ExamplesPerColl,
-		event:           event,
-	}
-
-	collocExtURL, err := mp.createCollocExtURL(arg.CorpusID, cArgs)
+	collocExtURL, err := mp.createCollocExtURL(arg, q)
 	if err != nil {
 		return false, http.StatusInternalServerError, err
 	}
@@ -211,13 +145,7 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 }
 
 func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
-	cArgs := concArgs{
-		subcorpus: arg.Subcorpus,
-		q:         q,
-		maxRows:   arg.MaxItems,
-	}
-
-	concURL, err := mp.createConcURL(arg.CorpusID, cArgs)
+	concURL, err := mp.createConcURL(arg, q)
 	if err != nil {
 		return false, http.StatusInternalServerError, err
 	}

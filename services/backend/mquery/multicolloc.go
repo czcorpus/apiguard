@@ -34,6 +34,19 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+func newRequest(ctx *gin.Context, method string, url *url.URL) http.Request {
+	req := *ctx.Request
+	req.URL = url
+	req.Method = method
+	// this is necessary, if making multiple requests with one context
+	// otherwise body reader is closed and subsequent requests fail
+	if req.Body != nil {
+		req.Body = nil
+		req.ContentLength = 0
+	}
+	return req
+}
+
 // ---------------------------------
 
 type collocArgs struct {
@@ -160,16 +173,7 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		return false, http.StatusInternalServerError, err
 	}
 
-	req := *ctx.Request
-	req.URL = collocExtURL
-	req.Method = http.MethodGet
-	// this is necessary, if making multiple requests with one context
-	// otherwise body reader is closed and subsequent requests fail
-	if req.Body != nil {
-		req.Body = nil
-		req.ContentLength = 0
-	}
-
+	req := newRequest(ctx, http.MethodGet, collocExtURL)
 	resp := mp.MakeStreamRequest(&req, reqProps)
 	backend := resp.Response()
 
@@ -185,22 +189,16 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		return false, statusCode, nil
 	}
 	defer backend.CloseBodyReader()
-	defer ctx.Writer.Flush()
 
 	buffer := make([]byte, 4096)
 	hasData := false
-	toBeFlushed := false
 	for {
 		n, err := reader.Read(buffer)
 		if n > 0 {
-			toBeFlushed = true
 			hasData = true
 			if _, err := ctx.Writer.Write(buffer[:n]); err != nil {
 				return hasData, http.StatusInternalServerError, err
 			}
-		} else if toBeFlushed {
-			ctx.Writer.Flush()
-			toBeFlushed = false
 		}
 		if err != nil {
 			if err != io.EOF {
@@ -224,16 +222,7 @@ func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		return false, http.StatusInternalServerError, err
 	}
 
-	req := *ctx.Request
-	req.URL = concURL
-	req.Method = http.MethodGet
-	// this is necessary, if making multiple requests with one context
-	// otherwise body reader is closed and subsequent requests fail
-	if req.Body != nil {
-		req.Body = nil
-		req.ContentLength = 0
-	}
-
+	req := newRequest(ctx, http.MethodGet, concURL)
 	resp := mp.HandleRequest(&req, reqProps, false)
 	statusCode = resp.Response().GetStatusCode()
 	if err := resp.Error(); err != nil {
@@ -244,9 +233,12 @@ func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		return false, statusCode, err
 	}
 	if event != "" {
-		fmt.Fprintf(ctx.Writer, "event: %s\ndata: %s\n\n", event, respBody)
+		_, err = fmt.Fprintf(ctx.Writer, "event: %s\ndata: %s\n\n", event, respBody)
 	} else {
-		fmt.Fprintf(ctx.Writer, "data: %s\n\n", respBody)
+		_, err = fmt.Fprintf(ctx.Writer, "data: %s\n\n", respBody)
+	}
+	if err != nil {
+		return false, statusCode, err
 	}
 	return true, statusCode, nil
 }

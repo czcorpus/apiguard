@@ -251,11 +251,13 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 					}
 
 				} else {
+					err := fmt.Errorf("received error response from backend (status: %d)", tResponse.Status)
+					log.Error().Err(err).Bytes("data", tResponse.Data).Msg("streaming error")
 					actions.writeStreamingError(
 						ctx,
 						tResponse.TileID,
 						tResponse.QueryIdx,
-						fmt.Errorf("received error response from backend (status: %d)", tResponse.Status),
+						err,
 					)
 					ctx.Writer.Flush()
 				}

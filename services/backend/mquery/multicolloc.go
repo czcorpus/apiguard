@@ -173,17 +173,22 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 		return false, statusCode, nil
 	}
 	defer backend.CloseBodyReader()
+	defer ctx.Writer.Flush()
 
 	buffer := make([]byte, 4096)
 	hasData := false
+	toBeFlushed := false
 	for {
 		n, err := reader.Read(buffer)
 		if n > 0 {
+			toBeFlushed = true
 			hasData = true
 			if _, err := ctx.Writer.Write(buffer[:n]); err != nil {
 				return hasData, http.StatusInternalServerError, err
 			}
+		} else if toBeFlushed {
 			ctx.Writer.Flush()
+			toBeFlushed = false
 		}
 		if err != nil {
 			if err != io.EOF {

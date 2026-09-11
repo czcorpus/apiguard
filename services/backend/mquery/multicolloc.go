@@ -17,10 +17,12 @@
 package mquery
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,36 +48,145 @@ func newRequest(ctx *gin.Context, method string, url *url.URL) http.Request {
 	return req
 }
 
-// ------------------------------------
+// ---------------- Args --------------------
 
-type MultiCollocSourceArgs struct {
-	Action   string         `json:"action"`
-	CorpusID string         `json:"corpusId"`
-	Args     map[string]any `json:"args"`
+type SourceArgs interface {
+	ToQuery(q string, event string) string
 }
 
-func (mcsa *MultiCollocSourceArgs) argsToQuery(q string) string {
-	u := url.URL{}
-	params := u.Query()
-	for k, v := range mcsa.Args {
-		switch val := v.(type) {
-		case string:
-			params.Add(k, val)
-		case int:
-			params.Add(k, fmt.Sprintf("%d", val))
-		case float64:
-			params.Add(k, fmt.Sprintf("%f", val))
-		case bool:
-			params.Add(k, fmt.Sprintf("%v", val))
-		}
+type CollExtArgs struct {
+	Q               string `json:"q"`
+	CmpCorp         string `json:"cmpCorp"`
+	Subcorpus       string `json:"subcorpus"`
+	Measure         string `json:"measure"`
+	SrchLeft        int    `json:"srchLeft"`
+	SrchRight       int    `json:"srchRight"`
+	SrchAttr        string `json:"srchAttr"`
+	MinCollFreq     int    `json:"minCollFreq"`
+	MaxItems        int    `json:"maxItems"`
+	ExamplesPerColl int    `json:"examplesPerColl"`
+	Event           string `json:"event"`
+	MinItems        int    `json:"minItems"`
+}
+
+func (a CollExtArgs) ToQuery(q string, event string) string {
+	a.Q = q
+	a.Event = event
+
+	params := url.Values{}
+	if a.Q != "" {
+		params.Set("q", a.Q)
 	}
-	params.Set("q", q)
+	if a.CmpCorp != "" {
+		params.Set("cmpCorp", a.CmpCorp)
+	}
+	if a.Subcorpus != "" {
+		params.Set("subcorpus", a.Subcorpus)
+	}
+	if a.Measure != "" {
+		params.Set("measure", a.Measure)
+	}
+	if a.Measure != "" {
+		params.Set("measure", a.Measure)
+	}
+	params.Set("srchLeft", strconv.Itoa(a.SrchLeft))
+	params.Set("srchRight", strconv.Itoa(a.SrchRight))
+	if a.SrchAttr != "" {
+		params.Set("srchAttr", a.SrchAttr)
+	}
+	if a.MinCollFreq > 0 {
+		params.Set("minCollFreq", strconv.Itoa(a.MinCollFreq))
+	}
+	if a.MaxItems > 0 {
+		params.Set("maxItems", strconv.Itoa(a.MaxItems))
+	}
+	if a.ExamplesPerColl > 0 {
+		params.Set("examplesPerColl", strconv.Itoa(a.ExamplesPerColl))
+	}
+	if a.MinItems > 0 {
+		params.Set("minItems", strconv.Itoa(a.MinItems))
+	}
+	if a.Event != "" {
+		params.Set("event", a.Event)
+	}
 	return params.Encode()
 }
 
-// ---------------------------------
+type ConcArgs struct {
+	Q             string `json:"q"`
+	QueryIdx      int    `json:"queryIdx"`
+	MaxRows       int    `json:"maxRows"`
+	RowsOffset    int    `json:"rowsOffset"`
+	ContextWidth  int    `json:"contextWidth"`
+	ContextStruct string `json:"contextStruct"`
+	ShowTextProps string `json:"showTextProps"`
+}
 
-func (mp *MQueryProxy) createCollocExtURL(args MultiCollocSourceArgs, q string) (*url.URL, error) {
+func (a ConcArgs) ToQuery(q string, event string) string {
+	a.Q = q
+	params := url.Values{}
+	if a.Q != "" {
+		params.Set("q", a.Q)
+	}
+	params.Set("queryIdx", strconv.Itoa(a.QueryIdx))
+	if a.MaxRows > 0 {
+		params.Set("maxRows", strconv.Itoa(a.MaxRows))
+	}
+	if a.RowsOffset > 0 {
+		params.Set("rowsOffset", strconv.Itoa(a.RowsOffset))
+	}
+	if a.ContextWidth > 0 {
+		params.Set("contextWidth", strconv.Itoa(a.ContextWidth))
+	}
+	if a.ContextStruct != "" {
+		params.Set("contextStruct", a.ContextStruct)
+	}
+	if a.ShowTextProps != "" {
+		params.Set("showTextProps", a.ShowTextProps)
+	}
+	return params.Encode()
+}
+
+type MultiCollocSourceArgs struct {
+	Action   string     `json:"action"`
+	CorpusID string     `json:"corpusId"`
+	Args     SourceArgs `json:"-"`
+}
+
+func (mcsa *MultiCollocSourceArgs) UnmarshalJSON(data []byte) error {
+	var shim struct {
+		Action   string          `json:"action"`
+		CorpusID string          `json:"corpusId"`
+		Args     json.RawMessage `json:"args"`
+	}
+	if err := json.Unmarshal(data, &shim); err != nil {
+		return err
+	}
+	mcsa.Action = shim.Action
+	mcsa.CorpusID = shim.CorpusID
+
+	switch shim.Action {
+	case "coll":
+		var a CollExtArgs
+		if err := json.Unmarshal(shim.Args, &a); err != nil {
+			return fmt.Errorf("failed to parse coll args: %w", err)
+		}
+		mcsa.Args = a
+	case "conc":
+		var a ConcArgs
+		if err := json.Unmarshal(shim.Args, &a); err != nil {
+			return fmt.Errorf("failed to parse conc args: %w", err)
+		}
+		mcsa.Args = a
+	default:
+		return fmt.Errorf("unknown action: %q", shim.Action)
+	}
+	return nil
+}
+
+// ---------------- Collocation -------------
+
+func (mp *MQueryProxy) createCollocExtURL(args MultiCollocSourceArgs, q string, event string) (*url.URL, error) {
 	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "collocations-extended", args.CorpusID)
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create streamed collocation URL: %w", err)
@@ -84,25 +195,12 @@ func (mp *MQueryProxy) createCollocExtURL(args MultiCollocSourceArgs, q string) 
 	if err != nil {
 		return &url.URL{}, fmt.Errorf("failed to create streamed collocation URL: %w", err)
 	}
-	url2.RawQuery = args.argsToQuery(q)
-	return url2, nil
-}
-
-func (mp *MQueryProxy) createConcURL(args MultiCollocSourceArgs, q string) (*url.URL, error) {
-	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", args.CorpusID)
-	if err != nil {
-		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
-	}
-	url2, err := url.Parse(rawUrl2)
-	if err != nil {
-		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
-	}
-	url2.RawQuery = args.argsToQuery(q)
+	url2.RawQuery = args.Args.ToQuery(q, event)
 	return url2, nil
 }
 
 func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
-	collocExtURL, err := mp.createCollocExtURL(arg, q)
+	collocExtURL, err := mp.createCollocExtURL(arg, q, event)
 	if err != nil {
 		return false, http.StatusInternalServerError, err
 	}
@@ -144,6 +242,21 @@ func (mp *MQueryProxy) tryCollSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 	return hasData, statusCode, nil
 }
 
+// ---------------- Concordance -------------
+
+func (mp *MQueryProxy) createConcURL(args MultiCollocSourceArgs, q string) (*url.URL, error) {
+	rawUrl2, err := url.JoinPath(mp.Proxy.BackendURL.String(), mp.EnvironConf().ServicePath, "concordance", args.CorpusID)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
+	}
+	url2, err := url.Parse(rawUrl2)
+	if err != nil {
+		return &url.URL{}, fmt.Errorf("failed to create concordance URL: %w", err)
+	}
+	url2.RawQuery = args.Args.ToQuery(q, "")
+	return url2, nil
+}
+
 func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluation, q string, arg MultiCollocSourceArgs, event string) (found bool, statusCode int, err error) {
 	concURL, err := mp.createConcURL(arg, q)
 	if err != nil {
@@ -170,6 +283,8 @@ func (mp *MQueryProxy) tryConcSource(ctx *gin.Context, reqProps guard.ReqEvaluat
 	}
 	return true, statusCode, nil
 }
+
+// ---------------- Handler -----------------
 
 func (mp *MQueryProxy) MultiCollocExtended(ctx *gin.Context) {
 	var userID, humanID common.UserID

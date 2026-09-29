@@ -144,6 +144,9 @@ func create(args services.InitArgs) error {
 			} else if ctx.Param("path") == "/time-dist-word" {
 				mqueryActions.TimeDistAltWord(ctx)
 
+			} else if ctx.Param("path") == "/merge-freqs-by-year-streamed" {
+				mqueryActions.MergeFreqsByYearStreamed(ctx)
+
 			} else if ctx.Param("path") == "/multi-colloc-extended" && ctx.Request.Method == http.MethodPost {
 				mqueryActions.MultiCollocExtended(ctx)
 

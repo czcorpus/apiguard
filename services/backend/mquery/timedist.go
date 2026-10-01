@@ -18,6 +18,7 @@
 package mquery
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -30,8 +31,8 @@ import (
 	"github.com/czcorpus/apiguard/reporting"
 
 	"github.com/bytedance/sonic"
+	"github.com/czcorpus/cnc-gokit/unireq"
 	"github.com/czcorpus/cnc-gokit/uniresp"
-	"github.com/czcorpus/cnc-gokit/util"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 )
@@ -44,8 +45,8 @@ type streamedFreqDistArgs struct {
 	flimit   int
 	maxItems int
 	event    string
-	fromYear string
-	toYear   string
+	fromYear int
+	toYear   int
 }
 
 func (sfargs *streamedFreqDistArgs) toURLQuery() string {
@@ -71,11 +72,11 @@ func (sfargs *streamedFreqDistArgs) toURLQuery() string {
 	} else if sfargs.attr != "" {
 		q.Add("attr", sfargs.attr)
 	}
-	if sfargs.fromYear != "" {
-		q.Add("fromYear", sfargs.fromYear)
+	if sfargs.fromYear != 0 {
+		q.Add("fromYear", strconv.Itoa(sfargs.fromYear))
 	}
-	if sfargs.toYear != "" {
-		q.Add("toYear", sfargs.toYear)
+	if sfargs.toYear != 0 {
+		q.Add("toYear", strconv.Itoa(sfargs.toYear))
 	}
 	return q.Encode()
 }
@@ -85,7 +86,7 @@ func (sfargs *streamedFreqDistArgs) toURLQuery() string {
 type lemmaFreqResponse struct {
 	Freqs FreqDistribItemList `json:"freqs"`
 
-	Error error `json:"error,omitempty"`
+	Error string `json:"error,omitempty"`
 }
 
 // ---------------------------------
@@ -153,6 +154,51 @@ func (mp *MQueryProxy) createTimeDistURL(corpusID string, args streamedFreqDistA
 	return url2, nil
 }
 
+// mostFreqLemmaQuery loads freq. distribution of lemmas matching the query q
+// in corpusID and returns a query searching for the most frequent one.
+// In case no lemma is found, the original query is returned.
+func (mp *MQueryProxy) mostFreqLemmaQuery(
+	origReq *http.Request,
+	reqProps guard.ReqEvaluation,
+	corpusID string,
+	q string,
+) (string, error) {
+	lmArgs := lemmaFreqDistArgs{
+		q:         q,
+		attr:      "lemma",
+		matchCase: 0,
+		maxItems:  10,
+		flimit:    5,
+	}
+	lemmaFreqURL, err := mp.createLemmaFreqsURL(corpusID, lmArgs)
+	if err != nil {
+		return "", fmt.Errorf("failed to create lemma freqs URL for corpus %s: %w", corpusID, err)
+	}
+	req := *origReq
+	req.URL = lemmaFreqURL
+	req.Method = "GET"
+	serviceResp := mp.HandleRequest(&req, reqProps, true)
+	if serviceResp.Error() != nil {
+		return "", fmt.Errorf("failed to get lemma freqs for corpus %s: %w", corpusID, serviceResp.Error())
+	}
+
+	var lemmaData lemmaFreqResponse
+	respBody, err := serviceResp.ExportResponse()
+	if err != nil {
+		return "", fmt.Errorf("failed to get lemma freqs for corpus %s: %w", corpusID, err)
+	}
+	if err := sonic.Unmarshal(respBody, &lemmaData); err != nil {
+		return "", fmt.Errorf("failed to decode lemma freqs for corpus %s: %w", corpusID, err)
+	}
+	if lemmaData.Error != "" {
+		return "", fmt.Errorf("failed to get lemma freqs for corpus %s: %s", corpusID, lemmaData.Error)
+	}
+	if len(lemmaData.Freqs) == 0 {
+		return q, nil
+	}
+	return fmt.Sprintf(`[lemma="%s"]`, lemmaData.Freqs[0].Word), nil
+}
+
 // ------------------------------------
 
 func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
@@ -214,32 +260,8 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 
 	corpusID := ctx.Query("corpname")
 	// first, load freq dist. by lemma and select the most freq. one
-	lmArgs := lemmaFreqDistArgs{
-		q:         ctx.Query("q"),
-		attr:      "lemma",
-		matchCase: 0,
-		maxItems:  10,
-		flimit:    5,
-	}
-	lemmaFreqURL, err := mp.createLemmaFreqsURL(corpusID, lmArgs)
+	q, err := mp.mostFreqLemmaQuery(ctx.Request, reqProps, corpusID, ctx.Query("q"))
 	if err != nil {
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("failed to process: %w", err), http.StatusBadRequest)
-		return
-	}
-	req1 := *ctx.Request
-	req1.URL = lemmaFreqURL
-	req1.Method = "GET"
-	serviceResp := mp.HandleRequest(&req1, reqProps, true)
-
-	var lemmaData lemmaFreqResponse
-	resp1Body, err := serviceResp.ExportResponse()
-	if err != nil {
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("failed to process: %w", err), http.StatusInternalServerError)
-		return
-	}
-	if err := sonic.Unmarshal(resp1Body, &lemmaData); err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx, fmt.Errorf("failed to process: %w", err), http.StatusInternalServerError)
 		return
@@ -247,18 +269,22 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 
 	// then call "classic" streamed time dist
 
-	q := util.Ternary(
-		len(lemmaData.Freqs) > 0,
-		fmt.Sprintf(`[lemma="%s"]`, lemmaData.Freqs[0].Word),
-		ctx.Query("q"),
-	)
-
 	flimit, err := strconv.Atoi(ctx.DefaultQuery("flimit", "10"))
 	if err != nil {
 		uniresp.RespondWithErrorJSON(
 			ctx, fmt.Errorf("flimit arg: %w", err), http.StatusBadRequest)
 		return
 	}
+
+	fromYear, ok := unireq.GetURLIntArgOrFail(ctx, "fromYear", 0)
+	if !ok {
+		return
+	}
+	toYear, ok := unireq.GetURLIntArgOrFail(ctx, "toYear", 0)
+	if !ok {
+		return
+	}
+
 	url2, err := mp.createTimeDistURL(
 		corpusID,
 		streamedFreqDistArgs{
@@ -268,8 +294,8 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 			flimit:   flimit,
 			maxItems: 100, // TODO
 			event:    ctx.Query("event"),
-			fromYear: ctx.Query("fromYear"),
-			toYear:   ctx.Query("toYear"),
+			fromYear: fromYear,
+			toYear:   toYear,
 		},
 	)
 	if err != nil {
@@ -295,4 +321,87 @@ func (mp *MQueryProxy) TimeDistAltWord(ctx *gin.Context) {
 		Service:  mp.EnvironConf().ServiceKey,
 		IsCached: cached,
 	})
+}
+
+// -----
+
+type mergeStreamedFreqDistArgs struct {
+	MaxItems int    `json:"maxItems"`
+	Event    string `json:"event"`
+
+	Corpora []struct {
+		Corpname string `json:"corpname"`
+		Q        string `json:"q"`
+		Attr     string `json:"attr"`
+		Fcrit    string `json:"fcrit"`
+		Flimit   int    `json:"flimit"`
+		FromYear int    `json:"fromYear"`
+		ToYear   int    `json:"toYear"`
+	} `json:"corpora"`
+}
+
+// corpusYearEvent carries a single complete SSE event read from one of the
+// per-corpus backend streams (or an error terminating that stream) to the
+// fan-in consumer below.
+type corpusYearEvent struct {
+	corpusIdx int
+	data      []byte // raw "event: ...\ndata: ...\n\n" chunk, as read from the backend
+	err       error
+}
+
+// corpusStreamPayload mirrors the two JSON shapes the mquery backend sends as
+// the "data:" part of a freqs-by-year-streamed SSE event (see mquery's
+// corpus/handlers/ttchunked.go StreamData/streamingError): either a
+// (cumulative, not incremental) frequency chunk with an Entries payload, or a
+// bare {"error": "..."} frame.
+type corpusStreamPayload struct {
+	Entries     *partialFreqResponse `json:"entries,omitempty"`
+	ChunkNum    int                  `json:"chunkNum,omitempty"`
+	TotalChunks int                  `json:"totalChunks,omitempty"`
+	Error       string               `json:"error,omitempty"`
+}
+
+// yearStreamPart is the per-corpus slot of the merged response sent to our
+// own client, analogous to partialFreqResponse in mergeFreqsResponse (see
+// mergefreq.go) but keeping the streaming chunk bookkeeping too.
+type yearStreamPart struct {
+	Corpname    string               `json:"corpname"`
+	Subcname    string               `json:"subcname"`
+	ChunkNum    int                  `json:"chunkNum,omitempty"`
+	TotalChunks int                  `json:"totalChunks,omitempty"`
+	Entries     *partialFreqResponse `json:"entries,omitempty"`
+	Error       string               `json:"error,omitempty"`
+}
+
+type mergedParts []*yearStreamPart
+
+func (mp mergedParts) firstError() string {
+	for _, v := range mp {
+		if v.Error != "" {
+			return v.Error
+		}
+	}
+	return ""
+}
+
+// mergedYearStreamResponse is re-sent (with growing/updated Parts) every time
+// any single corpus stream produces a new chunk.
+type mergedYearStreamResponse struct {
+	Error string      `json:"error"`
+	Parts mergedParts `json:"parts"`
+}
+
+// extractSSEEventData pulls the concatenated payload of all "data:" lines out
+// of a single raw SSE frame produced by fetchCorpusYearStream, ignoring any
+// "event:"/"id:"/"retry:" lines, per the SSE framing spec.
+func extractSSEEventData(frame []byte) []byte {
+	var lines [][]byte
+	for _, line := range bytes.Split(frame, []byte("\n")) {
+		rest, ok := bytes.CutPrefix(line, []byte("data:"))
+		if !ok {
+			continue
+		}
+		lines = append(lines, bytes.TrimPrefix(rest, []byte(" ")))
+	}
+	return bytes.Join(lines, []byte("\n"))
 }

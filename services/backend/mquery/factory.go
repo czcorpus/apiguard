@@ -124,9 +124,7 @@ func create(args services.InitArgs) error {
 	args.APIRoutes.Any(
 		fmt.Sprintf("/service/%d/mquery/*path", args.SID),
 		afterHandlerCallback(func(ctx *gin.Context) {
-			ctx.Writer.Flush() // this is important for data streaming mode
-			// when we use custom writer and this call closes channel which
-			// signals that a sub-stream is finished
+			ctx.Writer.Flush()
 		}),
 		func(ctx *gin.Context) {
 			if ctx.Param("path") == "login" && ctx.Request.Method == http.MethodPost {
@@ -143,6 +141,12 @@ func create(args services.InitArgs) error {
 
 			} else if ctx.Param("path") == "/time-dist-word" {
 				mqueryActions.TimeDistAltWord(ctx)
+
+			} else if ctx.Param("path") == "/merge-time-dist-word" {
+				mqueryActions.MergeTimeDistAltWord(ctx)
+
+			} else if ctx.Param("path") == "/merge-freqs-by-year-streamed" {
+				mqueryActions.MergeFreqsByYearStreamed(ctx)
 
 			} else if ctx.Param("path") == "/multi-colloc-extended" && ctx.Request.Method == http.MethodPost {
 				mqueryActions.MultiCollocExtended(ctx)

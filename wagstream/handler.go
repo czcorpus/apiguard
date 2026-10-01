@@ -163,12 +163,9 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 
 			} else if rd.IsEventSource {
 				apiWriter := NewESAPIWriter(esAPIWriterChanBufferSize)
-				// Important note:
-				// Here we rely on the fact that a respective
-				// route handler will call ctx.Writer.Flush()
-				// (see the handler and our custom AfterHandlerCallback)
-				// Without that, the channel won't get closed which
-				// would cause the main data stream to never finish!
+				// Important note: the writer's channel must be closed
+				// once the handler is done (see apiWriter.Close() below).
+				// Without that, the main data stream would never finish!
 				go func() {
 					for resp := range apiWriter.Responses() {
 						responseCh <- &RawStreamingReadyResp{
@@ -183,6 +180,9 @@ func (actions *Actions) StartStream(ctx *gin.Context) {
 				req.Header.Add(interop.TileIdHeader, strconv.Itoa(tiles[0].TileID))
 				req.Header.Add(interop.QueryIdxHeader, strconv.Itoa(tiles[0].QueryIdx))
 				actions.apiRoutes.ServeHTTP(apiWriter, req)
+				// ServeHTTP returns only after the handler (incl. possible
+				// panic recovery) is done, so no more writes can happen now
+				apiWriter.Close()
 
 			} else {
 				apiWriter := NewAPIWriter()

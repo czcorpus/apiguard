@@ -20,6 +20,7 @@ package wagstream
 import (
 	"bytes"
 	"net/http"
+	"sync"
 )
 
 // ESAPIWriter is used to collect data returned by an API
@@ -36,14 +37,20 @@ type ESAPIWriter struct {
 	statusCode int
 	headers    http.Header
 	responses  chan []byte
+	closeOnce  sync.Once
 }
 
 func (aw *ESAPIWriter) Responses() <-chan []byte {
 	return aw.responses
 }
 
+// Close signals that the sub-stream is finished. It must be called
+// once the handler writing to the writer has returned (i.e. no
+// more Write calls can happen). Repeated calls are no-op.
 func (aw *ESAPIWriter) Close() {
-	close(aw.responses)
+	aw.closeOnce.Do(func() {
+		close(aw.responses)
+	})
 }
 
 func (aw *ESAPIWriter) Header() http.Header {
@@ -75,11 +82,11 @@ func (aw *ESAPIWriter) IsNotErrorStatus() bool {
 	return aw.statusCode >= 200 && aw.statusCode < 300
 }
 
-// Flush here must be called explicitly by us to make
-// sure the channel is closed. Otherwise, the total
-// EventSource response would get broken.
+// Flush is a no-op as each Write is passed to the channel
+// immediately. Handlers may call it any number of times
+// (e.g. after each SSE event). To signal the end of the stream,
+// Close must be used.
 func (aw *ESAPIWriter) Flush() {
-	close(aw.responses)
 }
 
 func NewESAPIWriter(chanBuffSize int) *ESAPIWriter {

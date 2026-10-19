@@ -240,7 +240,7 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		concordanceRequestArgs{
 			Q:            args.Query,
 			Subcorpus:    args.Subcorpus,
-			ContextWidth: 0,
+			ContextWidth: len(strings.Split(args.Query, "]")) - 1,
 			CollRange:    "0,0",
 		},
 	)

@@ -76,6 +76,7 @@ func (cra *concordanceRequestArgs) ToURLQuery() string {
 
 type tokenContextRequestArgs struct {
 	Pos      int
+	KWICLen  int
 	LeftCtx  int
 	RightCtx int
 	Attrs    []string
@@ -86,6 +87,9 @@ func (tcra *tokenContextRequestArgs) ToURLQuery() string {
 	u := url.URL{}
 	q := u.Query()
 	q.Add("idx", fmt.Sprint(tcra.Pos))
+	if tcra.KWICLen > 0 {
+		q.Add("kwicLen", fmt.Sprint(tcra.KWICLen))
+	}
 	q.Add("leftCtx", fmt.Sprint(tcra.LeftCtx))
 	q.Add("rightCtx", fmt.Sprint(tcra.RightCtx))
 	for _, attr := range tcra.Attrs {
@@ -111,6 +115,17 @@ type concordanceToken struct {
 type concordanceLine struct {
 	Text []concordanceToken `json:"text"`
 	Ref  string             `json:"ref"`
+}
+
+// KWICLen returns number of KWIC tokens (i.e. tokens marked as strong)
+func (cl concordanceLine) KWICLen() int {
+	var ans int
+	for _, t := range cl.Text {
+		if t.Type == "token" && t.Strong {
+			ans++
+		}
+	}
+	return ans
 }
 
 // --------------------------------------
@@ -277,7 +292,8 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		return
 	}
 
-	pos, err := strconv.Atoi(resp1.Lines[rand.Intn(len(resp1.Lines))].Ref[1:])
+	line := resp1.Lines[rand.Intn(len(resp1.Lines))]
+	pos, err := strconv.Atoi(line.Ref[1:])
 	if err != nil {
 		uniresp.RespondWithErrorJSON(ctx, fmt.Errorf("failed to query concordance: %s", err), http.StatusInternalServerError)
 		return
@@ -286,6 +302,7 @@ func (mp *MQueryProxy) Speeches(ctx *gin.Context) {
 		args.Corpname,
 		tokenContextRequestArgs{
 			Pos:      pos,
+			KWICLen:  line.KWICLen(),
 			LeftCtx:  args.LeftCtx,
 			RightCtx: args.RightCtx,
 			Structs:  args.Structs,

@@ -1,5 +1,11 @@
 FROM golang:1.26
 
+ARG INSTALL_AIR=false
+RUN if [ "$INSTALL_AIR" = "true" ]; then \
+        curl -sSfL https://raw.githubusercontent.com/air-verse/air/master/install.sh | sh -s -- -b /usr/local/bin \
+        && /usr/local/bin/air -v; \
+    fi
+
 WORKDIR /opt/apiguard
 COPY . .
 RUN git config --global --add safe.directory /opt/apiguard \

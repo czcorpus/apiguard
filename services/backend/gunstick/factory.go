@@ -91,6 +91,17 @@ func create(args services.InitArgs) error {
 			APIReporting:     typedConf.APIReporting,
 		},
 	)
+	if gunstickBackendSuspended {
+		// TEMPORARY HACK - see fakedata.go
+		args.APIRoutes.Any(
+			fmt.Sprintf("/service/%d/gunstick/*path", args.SID),
+			FakeDataHandler,
+		)
+		log.Warn().
+			Int("args.SID", args.SID).
+			Msg("Gunstick backend suspended - serving FAKE data for a few demo words")
+		return nil
+	}
 	args.APIRoutes.Any(
 		fmt.Sprintf("/service/%d/gunstick/*path", args.SID),
 		gunstickActions.AnyPath,

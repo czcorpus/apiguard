@@ -180,6 +180,67 @@ var gunstickFakeData = map[string]fakeWordEntry{
 			},
 		},
 	},
+	"srdce": {
+		Ending: "dce",
+		Rhymes: map[string][]fakeRhyme{
+			"Hradec": {
+				{bkHalek, "Mé srdce zpívá", 3, "tam zůstalo mé mladé srdce", "kde stojí věže Hradce"},
+				{bkNeruda, "Matičce", 2, "a v dálce tluče věrné srdce", "jak zvony z dálného Hradce"},
+				{bkCech, "Srdce", 4, "kde zvoní zvon, tam bije srdce", "nad bránou starého Hradce"},
+			},
+			"vrbce": {
+				{bkErben, "Vrba", 2, "a v kmeni tiše bije srdce", "jak v štíhlé, plačící vrbce"},
+				{bkSova, "Srdce jak píseň", 3, "a smutné, tiché moje srdce", "se chvěje jako list na vrbce"},
+			},
+		},
+	},
+	"měsíc": {
+		Ending: "ěsíc",
+		Rhymes: map[string][]fakeRhyme{
+			"tisíc": {
+				{bkMacha, "Máj", 4, "a nad jezerem bledý měsíc", "a hvězd se třpytí na tisíc"},
+				{bkErben, "Svatební košile", 3, "a z mraků vyšel bledý měsíc", "a mrtvých stínů bylo tisíc"},
+				{bkNeruda, "Měsíček", 5, "jak stříbrný se dívá měsíc", "na lidských osudů tisíc"},
+				{bkSova, "Měsíc nad řekou", 3, "nad řekou plane tichý měsíc", "a vlnek blýská se tisíc"},
+			},
+			"visíc": {
+				{bkVrchlicky, "Za měsíčné noci", 2, "nad strání bledne zlatý měsíc", "nad lesem jako lampa visíc"},
+				{bkBrezina, "Měsíční svit", 2, "a v prázdnu plane tichý měsíc", "jak slza v nekonečnu visíc"},
+			},
+		},
+	},
+	"smrt": {
+		Ending: "rt",
+		Rhymes: map[string][]fakeRhyme{
+			"chrt": {
+				{bkErben, "Vodník", 2, "a za ní kráčí tichá smrt", "a za ní běží věrný chrt"},
+				{bkCech, "Smrt", 3, "a v polích číhá bledá smrt", "a lovce sleduje jen chrt"},
+			},
+			"drť": {
+				{bkNeruda, "Umírající", 3, "a za dveřmi už čeká smrt", "a z kostí zbude jenom drť"},
+				{bkBrezina, "Smrt", 4, "a tiše přichází k nám smrt", "a tělo v prach se mění, v drť"},
+				{bkBezruc, "Maryčka Magdónova", 5, "a v šachtě na nás čeká smrt", "a z těla zbude černá drť"},
+			},
+		},
+	},
+	"sláva": {
+		Ending: "áva",
+		Rhymes: map[string][]fakeRhyme{
+			"hlava": {
+				{bkErben, "Kytice", 2, "co zbylo z dávných časů? sláva", "a nad ní šedá, stará hlava"},
+				{bkVrchlicky, "Sláva", 5, "jak prchavá je lidská sláva", "a bílou je už moje hlava"},
+				{bkBezruc, "Slezské písně", 3, "kde zůstala ta naše sláva?", "jen sklání se nám k zemi hlava"},
+			},
+			"tráva": {
+				{bkHalek, "V přírodě", 3, "co je mi zlato, co mi sláva", "když kolem voní jarní tráva"},
+				{bkSova, "Vltava", 2, "a zapadá v nás dávná sláva", "a nad hroby nám roste tráva"},
+			},
+			"Vltava": {
+				{bkCech, "Píseň otroka", 6, "ó vlasti má, ty naše sláva", "kde tiše šumí stará Vltava"},
+				{bkNeruda, "Romance o Karlu IV.", 4, "a v Praze zněla královská sláva", "a pod hradem se třpytila Vltava"},
+			},
+		},
+	},
 }
 
 // gunstickRawTableItem mirrors `RawDataTableItem` from WaG's gunstick tile

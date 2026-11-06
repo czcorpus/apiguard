@@ -91,6 +91,17 @@ func create(args services.InitArgs) error {
 			APIReporting:        typedConf.APIReporting,
 		},
 	)
+	if hexBackendSuspended {
+		// TEMPORARY HACK - see fakedata.go
+		args.APIRoutes.Any(
+			fmt.Sprintf("/service/%d/hex/*path", args.SID),
+			FakeDataHandler,
+		)
+		log.Warn().
+			Int("args.SID", args.SID).
+			Msg("Hex backend suspended - serving FAKE data for a few demo words")
+		return nil
+	}
 	args.APIRoutes.Any(
 		fmt.Sprintf("/service/%d/hex/*path", args.SID),
 		hexActions.AnyPath,

@@ -267,8 +267,24 @@ func FakeDataHandler(ctx *gin.Context) {
 		log.Warn().
 			Str("word", word).
 			Msg("Hex backend suspended and no fake data available for the word")
-		uniresp.RespondWithErrorJSON(
-			ctx, fmt.Errorf("%s", hexOfflineMsg), http.StatusServiceUnavailable)
+		// In streaming mode, WaG requests Hex data as base64-encoded
+		// text, so the status code and the `error` key are not checked
+		// by WaG's streaming layer. Older WaG builds would then crash on
+		// missing fields (`resp.size.lemma`). So we send a valid empty
+		// result along with the `error` key: newer WaG (with the error
+		// check in hex/api.ts) shows the message, older ones show "no data".
+		ctx.JSON(
+			http.StatusServiceUnavailable,
+			struct {
+				Error string `json:"error"`
+				Code  int    `json:"code"`
+				hexResponse
+			}{
+				Error:       hexOfflineMsg,
+				Code:        http.StatusServiceUnavailable,
+				hexResponse: mkFakeHexResponse(nil),
+			},
+		)
 		return
 	}
 	data, err := json.Marshal(mkFakeHexResponse(hits))

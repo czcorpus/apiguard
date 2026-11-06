@@ -121,6 +121,40 @@ var hexFakeData = map[string][]fakePoemHit{
 		{"Březina, Otokar", 107, "Svítání na západě", 1072, "Smrt", 1897, 5, 0.312},
 		{"Bezruč, Petr", 113, "Slezské písně", 1132, "Maryčka Magdónova", 1909, 6, 0.341},
 	},
+	"svět": {
+		{"Mácha, Karel Hynek", 101, "Máj", 1011, "Máj", 1836, 5, 0.297},
+		{"Hálek, Vítězslav", 102, "Večerní písně", 1022, "Což je to divné", 1859, 4, 0.226},
+		{"Neruda, Jan", 109, "Písně kosmické", 1091, "Jak lačné oči", 1878, 8, 0.418},
+		{"Vrchlický, Jaroslav", 105, "Duch a svět", 1052, "Duch a svět", 1878, 6, 0.383},
+		{"Čech, Svatopluk", 110, "Jitřní písně", 1103, "Jitřní píseň", 1883, 4, 0.241},
+		{"Březina, Otokar", 107, "Svítání na západě", 1073, "Svítání", 1897, 5, 0.322},
+		{"Bezruč, Petr", 113, "Slezské písně", 1133, "Ostrava", 1909, 3, 0.168},
+	},
+	"les": {
+		{"Mácha, Karel Hynek", 101, "Máj", 1011, "Máj", 1836, 4, 0.284},
+		{"Erben, Karel Jaromír", 108, "Kytice", 1085, "Polednice", 1853, 3, 0.207},
+		{"Hálek, Vítězslav", 116, "V přírodě", 1161, "V přírodě", 1872, 7, 0.431},
+		{"Vrchlický, Jaroslav", 111, "Hlasy v poušti", 1113, "V lesích", 1888, 5, 0.316},
+		{"Čech, Svatopluk", 110, "Jitřní písně", 1104, "Lesní píseň", 1883, 4, 0.262},
+		{"Bezruč, Petr", 113, "Slezské písně", 1133, "Ostrava", 1909, 4, 0.239},
+	},
+	"žal": {
+		{"Mácha, Karel Hynek", 101, "Máj", 1011, "Máj", 1836, 7, 0.448},
+		{"Erben, Karel Jaromír", 108, "Kytice", 1084, "Vrba", 1853, 3, 0.214},
+		{"Hálek, Vítězslav", 102, "Večerní písně", 1024, "Večerní píseň", 1859, 4, 0.259},
+		{"Neruda, Jan", 103, "Knihy veršů", 1031, "Matičce", 1868, 3, 0.193},
+		{"Vrchlický, Jaroslav", 111, "Hlasy v poušti", 1114, "Hlasy v poušti", 1888, 4, 0.247},
+		{"Sova, Antonín", 106, "Květy intimních nálad", 1061, "Za tichých nocí", 1895, 5, 0.331},
+		{"Bezruč, Petr", 113, "Slezské písně", 1134, "Slezské písně", 1909, 6, 0.376},
+	},
+	"sláva": {
+		{"Erben, Karel Jaromír", 108, "Kytice", 1086, "Kytice", 1853, 3, 0.231},
+		{"Neruda, Jan", 117, "Balady a romance", 1171, "Romance o Karlu IV.", 1883, 6, 0.402},
+		{"Vrchlický, Jaroslav", 111, "Hlasy v poušti", 1115, "Sláva", 1888, 5, 0.347},
+		{"Čech, Svatopluk", 118, "Písně otroka", 1181, "Píseň otroka", 1895, 7, 0.455},
+		{"Sova, Antonín", 112, "Ještě jednou se vrátíme", 1122, "Vltava", 1903, 3, 0.188},
+		{"Bezruč, Petr", 113, "Slezské písně", 1134, "Slezské písně", 1909, 4, 0.263},
+	},
 }
 
 // hexRawTableItem mirrors `RawDataTableItem` from WaG's hex tile

@@ -55,6 +55,9 @@ func (aw *APIWriter) GetAsBase64() []byte {
 	var writer bytes.Buffer
 	enc := base64.NewEncoder(base64.StdEncoding, &writer)
 	enc.Write(aw.buffer.Bytes())
+	// Close flushes any partially written block (the last 1-2 bytes
+	// of the input); without it, the encoded output would be truncated
+	enc.Close()
 	return writer.Bytes()
 }
 
